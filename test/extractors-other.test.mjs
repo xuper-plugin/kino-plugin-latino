@@ -4,6 +4,7 @@ import { fakeKino, fixture } from "./helpers/fakeKino.mjs";
 import { makeRequester } from "../src/util/http.js";
 import { extractorFor } from "../src/extractors/index.js";
 import { decodeVoe } from "../src/extractors/voe.js";
+import { renditions, playerMetadata, unescapeAttr } from "../src/extractors/okru.js";
 
 const far = () => Date.now() + 60_000;
 const hostBlocked = () => { const e = new Error("x"); e.code = "host_not_allowed"; return e; };
@@ -84,13 +85,33 @@ test("voe: other network errors propagate", async () => {
   await assert.rejects(extractorFor("https://voe.sx/e/abc").extract("https://voe.sx/e/abc", makeRequester(kino, { budget: 2, deadline: far() }), kino));
 });
 
-test("okru: picks the best mp4", async () => {
+test("okru: plays the best rendition from data-options (720p over 480p/360p; mobile never)", async () => {
   const { kino } = fakeKino({ fetch: async () => ({ status: 200, body: fixture("hosts/okru.html") }) });
-  const s = await extractorFor("https://ok.ru/videoembed/123").extract("https://ok.ru/videoembed/123", makeRequester(kino, { budget: 2, deadline: far() }));
-  assert.match(s.url, /^https:\/\//);
-  assert.equal(s.label, "hd");
-  assert.match(s.url, /type=4&id=1/);
+  const s = await extractorFor("https://ok.ru/videoembed/123").extract("https://ok.ru/videoembed/123", makeRequester(kino, { budget: 2, deadline: far() }), kino);
+  assert.equal(s.url, "https://vd1.okcdn.ru/?type=4&id=1");
+  assert.equal(s.quality, "720p");
+  assert.equal(s.mime, "video/mp4");
   assert.equal(s.headers.Referer, "https://ok.ru/");
+});
+
+test("okru: ranking puts 1080p first, then lower ones, then 1440p/2160p; disallowed copies are dropped", () => {
+  const meta = { videos: ["ultra", "low", "full", "quad", "sd", "mobile", "weird"].map((name, i) => ({ name, url: `https://vd.example/${i}` })).concat([{ name: "hd", url: "https://vd.example/x", disallowed: true }]) };
+  assert.deepEqual(renditions(meta).map((v) => v.name), ["full", "sd", "low", "quad", "ultra", "weird"]);
+});
+
+test("okru: metadata as an object, HLS when there are no MP4 renditions, null (logged) for a page without settings", async () => {
+  const opts = (o) => `<div data-options="${JSON.stringify(o).replace(/&/g, "&amp;").replace(/"/g, "&quot;")}"></div>`;
+  assert.equal(playerMetadata(opts({ flashvars: { metadata: { videos: [] } } })).videos.length, 0);
+  const logs = [];
+  const page = (body) => fakeKino({ fetch: async () => ({ status: 200, body }) }).kino;
+  const run = (body) => { const k = page(body); const kk = { ...k, log: (...a) => logs.push(a.join(" ")) }; return extractorFor("https://ok.ru/videoembed/1").extract("https://ok.ru/videoembed/1", makeRequester(kk, { budget: 2, deadline: far() }), kk); };
+  const hls = await run(opts({ flashvars: { metadata: JSON.stringify({ videos: [], hlsManifestUrl: "https://vd.example/m.m3u8?a=1&b=2" }) } }));
+  assert.equal(hls.url, "https://vd.example/m.m3u8?a=1&b=2");
+  assert.equal(hls.mime, "application/vnd.apple.mpegurl");
+  assert.equal(await run("<div>Video removed</div>"), null);
+  assert.equal(await run(opts({ flashvars: {} })), null);
+  assert.ok(logs.some((l) => /okru no player settings/.test(l)), logs.join("|"));
+  assert.equal(unescapeAttr("&quot;a&#38;b&#x26;c&amp;&unknown;"), '"a&b&c&&unknown;');
 });
 
 test.skip("okru: live embed fixture (no live ok.ru video available on 2026-10-06; zoowomaniacos testplayer only served removed videos)", () => {});
@@ -128,4 +149,15 @@ test("src/ uses no Node-only globals (QuickJS has none)", async () => {
   const root = new URL("../src", import.meta.url).pathname;
   const bad = walk(root).filter((f) => f.endsWith(".js") && /\bBuffer\b|\bprocess\.|\brequire\(/.test(readFileSync(f, "utf8")));
   assert.deepEqual(bad, []);
+});
+
+test("extractors log why they found nothing (status or reason)", async () => {
+  const logs = [];
+  const { kino } = fakeKino({ fetch: async (u) => (u.includes("fastream") ? { status: 404, body: "" } : { status: 200, body: "<html>nothing</html>" }) });
+  const k = { ...kino, log: (...a) => logs.push(a.join(" ")) };
+  for (const url of ["https://fastream.to/e/1", "https://vimeos.net/e/1", "https://goodstream.one/e/1", "https://hlswish.com/e/1", "https://vidhide.com/e/1", "https://nupload.me/e/1"]) {
+    assert.equal(await extractorFor(url).extract(url, makeRequester(k, { budget: 2, deadline: far() }), k), null, url);
+  }
+  assert.deepEqual(logs, ["[latino] fastream status 404", "[latino] vimeos no playlist in page", "[latino] goodstream no playlist in page",
+    "[latino] streamwish no playlist in page", "[latino] vidhide no playlist in page", "[latino] nupload no encoded address"]);
 });

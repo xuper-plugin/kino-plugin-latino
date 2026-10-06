@@ -26,10 +26,16 @@ export function findIn(html, pick) {
   return pick(html) || pick(unpack(html) || "") || null;
 }
 
-/** Fetches the embed page; null when the host answers an error. */
-export async function pageText(req, url, headers) {
+/** Logs why an extractor found no stream (when it has a kino) and returns null. */
+export function miss(kino, server, reason) {
+  if (kino && typeof kino.log === "function") kino.log("[latino]", server, reason);
+  return null;
+}
+
+/** Fetches the embed page; null (the status logged) when the host answers an error. */
+export async function pageText(req, url, headers, kino, server) {
   const r = await req(url, { headers });
-  return r.ok ? r.text() : null;
+  return r.ok ? r.text() : miss(kino, server || "embed", "status " + r.status);
 }
 
 // Caption-track labels as JW Player pages write them, to the ISO 639-1 code Kino needs.

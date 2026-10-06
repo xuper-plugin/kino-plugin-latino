@@ -212,9 +212,13 @@ function absolute(href, base) {
 function findIn(html, pick3) {
   return pick3(html) || pick3(unpack(html) || "") || null;
 }
-async function pageText(req, url, headers) {
+function miss(kino, server, reason) {
+  if (kino && typeof kino.log === "function") kino.log("[latino]", server, reason);
+  return null;
+}
+async function pageText(req, url, headers, kino, server) {
   const r = await req(url, { headers });
-  return r.ok ? r.text() : null;
+  return r.ok ? r.text() : miss(kino, server || "embed", "status " + r.status);
 }
 var LANG_CODES = [
   [/^(español|espanol|spanish|castellano|latino|spa|esp?)\b/i, "es"],
@@ -266,11 +270,11 @@ function pageExtras(html, base) {
 
 // src/extractors/goodstream.js
 var HOSTS = ["goodstream.one"];
-async function extract(embedUrl, req) {
-  const html = await pageText(req, embedUrl, { Referer: "https://goodstream.one/" });
+async function extract(embedUrl, req, kino) {
+  const html = await pageText(req, embedUrl, { Referer: "https://goodstream.one/" }, kino, "goodstream");
   if (html == null) return null;
   const url = findIn(html, (t2) => fileM3u8(t2, embedUrl));
-  if (!url) return null;
+  if (!url) return miss(kino, "goodstream", "no playlist in page");
   return { url, mime: HLS_MIME, headers: { Referer: embedUrl, Origin: "https://goodstream.one" }, ...pageExtras(html, embedUrl) };
 }
 
@@ -281,11 +285,11 @@ __export(vimeos_exports, {
   extract: () => extract2
 });
 var HOSTS2 = ["vimeos.net", "vimeos.zip"];
-async function extract2(embedUrl, req) {
-  const html = await pageText(req, embedUrl, { Referer: "https://vimeos.net/" });
+async function extract2(embedUrl, req, kino) {
+  const html = await pageText(req, embedUrl, { Referer: "https://vimeos.net/" }, kino, "vimeos");
   if (html == null) return null;
   const url = findIn(html, (t2) => fileM3u8(t2, embedUrl));
-  if (!url) return null;
+  if (!url) return miss(kino, "vimeos", "no playlist in page");
   return { url, mime: HLS_MIME, headers: { Referer: "https://vimeos.net/" }, ...pageExtras(html, embedUrl) };
 }
 
@@ -627,14 +631,14 @@ var hostOf = (url) => {
 
 // src/extractors/streamwish.js
 var HOSTS3 = ["hlswish.com", "streamwish.com", "streamwish.to", "strwish.com", "wishembed.com", "filelions.com", "hglink.to", "vibuxer.com"];
-async function extract3(embedUrl, req) {
+async function extract3(embedUrl, req, kino) {
   const u = new URL(embedUrl);
   if (u.hostname === "hglink.to") u.hostname = "vibuxer.com";
   const referer = u.origin + "/";
-  const html = await pageText(req, u.href, { Referer: referer });
+  const html = await pageText(req, u.href, { Referer: referer }, kino, "streamwish");
   if (html == null) return null;
   const url = findIn(html, (t2) => hlsKey(t2, ["hls4", "hls2", "hls3"], u.origin) || fileM3u8(t2, u.origin));
-  if (!url) return null;
+  if (!url) return miss(kino, "streamwish", "no playlist in page");
   return { url, mime: HLS_MIME, headers: { "User-Agent": UA, Referer: referer }, ...pageExtras(html, u.origin) };
 }
 
@@ -645,12 +649,12 @@ __export(vidhide_exports, {
   extract: () => extract4
 });
 var HOSTS4 = ["vidhide.com", "vidhidepro.com", "dintezuvio.com", "minochinos.com", "filelions.to", "morencius.com"];
-async function extract4(embedUrl, req) {
+async function extract4(embedUrl, req, kino) {
   const u = new URL(embedUrl);
-  const html = await pageText(req, embedUrl, { Referer: u.origin + "/" });
+  const html = await pageText(req, embedUrl, { Referer: u.origin + "/" }, kino, "vidhide");
   if (html == null) return null;
   const url = findIn(html, (t2) => hlsKey(t2, ["hls4", "hls2"], u.origin) || fileM3u8(t2, u.origin));
-  if (!url) return null;
+  if (!url) return miss(kino, "vidhide", "no playlist in page");
   return { url, mime: HLS_MIME, headers: { Referer: u.origin + "/", Origin: u.origin }, ...pageExtras(html, u.origin) };
 }
 
@@ -661,11 +665,11 @@ __export(fastream_exports, {
   extract: () => extract5
 });
 var HOSTS5 = ["fastream.to"];
-async function extract5(embedUrl, req) {
-  const html = await pageText(req, embedUrl, { Referer: "https://fastream.to/" });
+async function extract5(embedUrl, req, kino) {
+  const html = await pageText(req, embedUrl, { Referer: "https://fastream.to/" }, kino, "fastream");
   if (html == null) return null;
   const url = findIn(html, (t2) => fileM3u8(t2, embedUrl));
-  if (!url) return null;
+  if (!url) return miss(kino, "fastream", "no playlist in page");
   return { url, mime: HLS_MIME, headers: { Referer: "https://fastream.to/" }, ...pageExtras(html, embedUrl) };
 }
 
@@ -768,24 +772,56 @@ async function extract6(embedUrl, req, kino) {
 var okru_exports = {};
 __export(okru_exports, {
   HOSTS: () => HOSTS7,
-  extract: () => extract7
+  extract: () => extract7,
+  playerMetadata: () => playerMetadata,
+  renditions: () => renditions,
+  unescapeAttr: () => unescapeAttr
 });
 var HOSTS7 = ["ok.ru"];
-var ORDER = ["full", "hd", "sd", "low", "lowest"];
-async function extract7(embedUrl, req) {
-  const r = await req(embedUrl, { headers: { Accept: "text/html", Referer: "https://ok.ru/" } });
-  if (!r.ok) return null;
-  const html = r.text();
-  if (/copyrightsRestricted|COPYRIGHTS_RESTRICTED|LIMITED_ACCESS|notFound/.test(html)) return null;
-  const clean = html.replace(/\\&quot;/g, '"').replace(/&quot;/g, '"').replace(/\\u0026/g, "&").replace(/\\/g, "");
-  const found = [...clean.matchAll(/"name":"([^"]+)","url":"([^"]+)"/g)].map((m) => ({ type: m[1].toLowerCase(), url: m[2] })).filter((v) => !v.type.includes("mobile") && /^https?:\/\//.test(v.url));
-  if (!found.length) return null;
-  const rank2 = (t2) => {
-    const i = ORDER.findIndex((o) => t2.includes(o));
-    return i === -1 ? 99 : i;
-  };
-  found.sort((a, b) => rank2(a.type) - rank2(b.type));
-  return { url: found[0].url, mime: "video/mp4", headers: { Referer: "https://ok.ru/" }, label: found[0].type };
+var HEIGHT_OF = { mobile: 144, lowest: 240, low: 360, sd: 480, hd: 720, full: 1080, quad: 1440, ultra: 2160 };
+var HEADERS = { Referer: "https://ok.ru/" };
+var ENTITIES = { quot: '"', amp: "&", apos: "'", lt: "<", gt: ">" };
+function unescapeAttr(value) {
+  return String(value).replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (all, code) => {
+    if (code[0] === "#") {
+      const n = code[1] === "x" || code[1] === "X" ? parseInt(code.slice(2), 16) : parseInt(code.slice(1), 10);
+      return Number.isFinite(n) ? String.fromCharCode(n) : all;
+    }
+    return ENTITIES[code.toLowerCase()] ?? all;
+  });
+}
+var parse = (text) => {
+  try {
+    return JSON.parse(text);
+  } catch (_) {
+    return null;
+  }
+};
+function playerMetadata(html) {
+  const attr = /\bdata-options\s*=\s*"([^"]*)"/.exec(html || "");
+  if (!attr) return null;
+  const options3 = parse(unescapeAttr(attr[1]));
+  const meta = options3 && options3.flashvars && options3.flashvars.metadata;
+  if (typeof meta === "string") return parse(meta);
+  return meta && typeof meta === "object" ? meta : null;
+}
+var order = (h) => h == null ? 99999 : h <= 1080 ? 1080 - h : 1e3 + h;
+function renditions(meta) {
+  const list9 = meta && Array.isArray(meta.videos) ? meta.videos : [];
+  return list9.filter((v) => v && typeof v.url === "string" && /^https?:\/\//i.test(v.url) && !v.disallowed).map((v) => {
+    const name9 = String(v.name || "").toLowerCase();
+    return { name: name9, height: HEIGHT_OF[name9] ?? null, url: v.url };
+  }).filter((v) => v.height !== HEIGHT_OF.mobile).sort((a, b) => order(a.height) - order(b.height));
+}
+async function extract7(embedUrl, req, kino) {
+  const r = await req(embedUrl, { headers: { Accept: "text/html", ...HEADERS } });
+  if (!r.ok) return miss(kino, "okru", "status " + r.status);
+  const meta = playerMetadata(r.text());
+  if (!meta) return miss(kino, "okru", "no player settings (removed or restricted video)");
+  const [best] = renditions(meta);
+  if (best) return { url: best.url, mime: "video/mp4", headers: HEADERS, ...best.height ? { quality: best.height + "p" } : {} };
+  const hls = typeof meta.hlsManifestUrl === "string" && /^https?:\/\//i.test(meta.hlsManifestUrl) ? meta.hlsManifestUrl : null;
+  return hls ? { url: hls, mime: HLS_MIME, headers: HEADERS } : miss(kino, "okru", "no renditions");
 }
 
 // src/extractors/nupload.js
@@ -795,18 +831,18 @@ __export(nupload_exports, {
   extract: () => extract8
 });
 var HOSTS8 = ["nupload.me", "nupload.my"];
-async function extract8(embedUrl, req) {
+async function extract8(embedUrl, req, kino) {
   const origin = new URL(embedUrl).origin;
   const r = await req(embedUrl, { headers: { Referer: origin + "/" } });
-  if (!r.ok) return null;
+  if (!r.ok) return miss(kino, "nupload", "status " + r.status);
   const html = r.text();
   const arr = /([A-Za-z]+)\.forEach\s*\(function\s+\w+\s*\(value\)\s*\{[^}]+atob/.exec(html);
-  if (!arr) return null;
+  if (!arr) return miss(kino, "nupload", "no encoded address");
   const name9 = arr[1];
   const off = new RegExp(name9 + "\\.forEach[^-]+-\\s*(\\d+)").exec(html);
   const list9 = new RegExp("var\\s+" + name9 + "\\s*=\\s*(\\[[^\\]]+\\])").exec(html);
   const sesz = /var sesz\s*=\s*"([^"]+)"/.exec(html);
-  if (!off || !list9 || !sesz) return null;
+  if (!off || !list9 || !sesz) return miss(kino, "nupload", "encoded address incomplete");
   let path = "";
   for (const v of JSON.parse(list9[1])) {
     path += String.fromCharCode(parseInt(atob(v).replace(/\D/g, ""), 10) - parseInt(off[1], 10));
@@ -815,9 +851,9 @@ async function extract8(embedUrl, req) {
   try {
     url = new URL(path + "?s=" + sesz[1], origin).href;
   } catch (_) {
-    return null;
+    return miss(kino, "nupload", "bad address");
   }
-  return /^https:\/\//i.test(url) ? { url, headers: { Referer: origin + "/", Origin: origin } } : null;
+  return /^https:\/\//i.test(url) ? { url, headers: { Referer: origin + "/", Origin: origin } } : miss(kino, "nupload", "not https");
 }
 
 // src/extractors/index.js
@@ -952,9 +988,9 @@ function toEmbeds(source, rows2) {
 var tvKind = (kind) => kind === "tv" || kind === "series";
 var postTypeOf = (kind) => tvKind(kind) ? "tvshows" : "movies";
 var PLACEHOLDER = /a[uú]n no hemos a[ñn]adido/i;
-var ENTITIES = { amp: "&", quot: '"', "#039": "'", apos: "'", lt: "<", gt: ">", nbsp: " " };
+var ENTITIES2 = { amp: "&", quot: '"', "#039": "'", apos: "'", lt: "<", gt: ">", nbsp: " " };
 function cleanText(s) {
-  const text = String(s || "").replace(/<[^>]*>/g, " ").replace(/&(amp|quot|#039|apos|lt|gt|nbsp);/g, (_, e) => ENTITIES[e]).replace(/\s+/g, " ").trim();
+  const text = String(s || "").replace(/<[^>]*>/g, " ").replace(/&(amp|quot|#039|apos|lt|gt|nbsp);/g, (_, e) => ENTITIES2[e]).replace(/\s+/g, " ").trim();
   return PLACEHOLDER.test(text) ? "" : text;
 }
 function siteRef(prefix, postId, kind, slug, year2) {
@@ -1516,7 +1552,7 @@ var kinds6 = ["movie", "tv"];
 var HOSTS15 = ["embed69.org"];
 var SITE6 = "https://embed69.org";
 var ORIGIN6 = SITE6;
-var HEADERS = { Referer: "https://sololatino.net/" };
+var HEADERS2 = { Referer: "https://sololatino.net/" };
 var POW_CAP = 1e5;
 function solvePow(kino, challenge, difficulty, cap = POW_CAP) {
   const zeros = "0".repeat(difficulty);
@@ -1540,7 +1576,7 @@ async function list6(title, { kino, req }) {
   if (tv && (title.season == null || title.episode == null)) return [];
   const path = tv ? `${title.imdbId}-${Number(title.season)}x${String(title.episode).padStart(2, "0")}` : title.imdbId;
   return orEmpty(async () => {
-    const r = await req(`${SITE6}/f/${path}`, { headers: HEADERS });
+    const r = await req(`${SITE6}/f/${path}`, { headers: HEADERS2 });
     if (!r.ok) return [];
     const html = r.text();
     const data = /let\s+dataLink\s*=\s*(\[.+\]);/.exec(html);
@@ -2011,10 +2047,10 @@ async function collect(kino, title, { enabled, sources = SOURCES, phaseMs = PHAS
       bySource.set(s.id, r.embeds.map((e) => ({ ...e, source: s.id })));
     }
   }
-  const order = sources.map((s) => s.id);
+  const order2 = sources.map((s) => s.id);
   const rank2 = (id9) => {
-    const i = order.indexOf(id9);
-    return i < 0 ? order.length : i;
+    const i = order2.indexOf(id9);
+    return i < 0 ? order2.length : i;
   };
   const everything = [...bySource.keys()].sort((a, b) => rank2(a) - rank2(b)).flatMap((id9) => bySource.get(id9));
   const seen = /* @__PURE__ */ new Set();
