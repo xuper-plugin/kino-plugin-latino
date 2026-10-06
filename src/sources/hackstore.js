@@ -1,5 +1,5 @@
 // HackStore: /api/rest single (post id), player (embeds) and listing.
-import { firstHit, getJson, postTypeOf, titleSlugs, toEmbeds, toItem, yearMatches, genreId } from "./wpapi.js";
+import { orEmpty, firstHit, getJson, postTypeOf, titleSlugs, toEmbeds, toItem, yearMatches, genreId } from "./wpapi.js";
 
 export const id = "hackstore";
 export const name = "HackStore";
@@ -38,8 +38,10 @@ async function findPostId(title, req) {
 export async function list(title, { req }) {
   const postId = await findPostId(title, req);
   if (!postId) return [];
-  const j = await getJson(req, `${API}/player?post_id=${postId}`);
-  return toEmbeds(id, j && j.data);
+  return orEmpty(async () => {
+    const j = await getJson(req, `${API}/player?post_id=${postId}`);
+    return toEmbeds(id, j && j.data);
+  });
 }
 
 async function listing(kind, page, genre, { req }) {

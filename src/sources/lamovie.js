@@ -1,5 +1,5 @@
 // LaMovie: page for the post id, /wp-api/v1 for episodes, embeds and listings.
-import { firstHit, getJson, postTypeOf, titleSlugs, toEmbeds, toItem, yearIn, yearMatches, genreId } from "./wpapi.js";
+import { orEmpty, firstHit, getJson, postTypeOf, titleSlugs, toEmbeds, toItem, yearIn, yearMatches, genreId } from "./wpapi.js";
 
 export const id = "lamovie";
 export const name = "LaMovie";
@@ -24,17 +24,21 @@ const pageId = (html) => {
 
 async function findPostId(title, req) {
   const tv = title.kind === "tv";
-  const folders = tv ? ["series", "animes"] : ["peliculas"];
+  const slugs = titleSlugs(title.titles, title.year);
+  // Primary path for every slug first; /animes/ only once /series/ has failed.
   const probes = [];
-  for (const slug of titleSlugs(title.titles, title.year)) for (const f of folders) probes.push(`${SITE}/${f}/${slug}/`);
-  return firstHit(probes, async (url) => {
+  for (const f of tv ? ["series", "animes"] : ["peliculas"]) {
+    for (const slug of slugs) probes.push({ url: `${SITE}/${f}/${slug}/`, withYear: !!title.year && slug.endsWith("-" + title.year) });
+  }
+  return firstHit(probes, async ({ url, withYear }) => {
     const r = await req(url, { headers: { "Accept-Language": "es-MX,es;q=0.9" } });
     if (!r.ok) return null;
     const html = r.text();
     const found = yearIn((/<meta property="og:title" content="([^"]*)"/.exec(html) || [])[1] || (/<title>([^<]*)<\/title>/.exec(html) || [])[1]);
+    if (found == null && !withYear) return null; // an undated page is only trusted when the slug itself carried the year
     if (!yearMatches(found, title.year)) return null;
     return pageId(html);
-  });
+  }, tv ? 8 : 6);
 }
 
 async function episodePostId(seriesId, season, episode, req) {
@@ -44,15 +48,18 @@ async function episodePostId(seriesId, season, episode, req) {
 }
 
 export async function list(title, { req }) {
-  let postId = await findPostId(title, req);
+  const postId = await findPostId(title, req);
   if (!postId) return [];
-  if (title.kind === "tv") {
-    if (title.season == null || title.episode == null) return [];
-    postId = await episodePostId(postId, title.season, title.episode, req);
-    if (!postId) return [];
-  }
-  const j = await getJson(req, `${API}/player?postId=${postId}`);
-  return toEmbeds(id, j && j.data && j.data.embeds);
+  return orEmpty(async () => {
+    let target = postId;
+    if (title.kind === "tv") {
+      if (title.season == null || title.episode == null) return [];
+      target = await episodePostId(postId, title.season, title.episode, req);
+      if (!target) return [];
+    }
+    const j = await getJson(req, `${API}/player?postId=${target}`);
+    return toEmbeds(id, j && j.data && j.data.embeds);
+  });
 }
 
 async function listing(kind, page, extraFilter, { req }) {

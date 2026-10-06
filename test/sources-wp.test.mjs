@@ -93,7 +93,7 @@ test("slug candidates: tries the Spanish then the original title, one after anot
   const kino = fakeKino({ fetch: async (u) => { seen.push(u); return { status: 404, body: "" }; } }).kino;
   assert.deepEqual(await lamovie.list(FIGHT, ctx(kino)), []);
   assert.ok(seen.findIndex((u) => u.includes("el-club-de-la-pelea")) < seen.findIndex((u) => u.includes("fight-club")));
-  assert.ok(seen.length <= 8);
+  assert.equal(seen.length, 6);
 });
 
 test("a spent budget is 'not found', a network error propagates", async () => {
@@ -153,4 +153,31 @@ test("module shape and registry", () => {
   assert.deepEqual(SOURCES.map((s) => s.id), ["lamovie", "hackstore"]);
   assert.equal(sourceById("hackstore"), hackstore);
   assert.equal(sourceById("nope"), null);
+});
+
+test("lamovie series: every distinct title is probed once before any gets a second probe, animes only after series", async () => {
+  const seen = [];
+  const kino = routed([], seen);
+  const odd = { ...BB, titles: { esMX: "Muy Malo", esES: "Quimica Mortal", en: "Breaking Bad", original: "Breaking Bad Original" } };
+  assert.deepEqual(await lamovie.list(odd, ctx(kino)), []);
+  const paths = seen.map((u) => new URL(u).pathname);
+  assert.deepEqual(paths, [
+    "/series/muy-malo-2008/", "/series/quimica-mortal-2008/", "/series/breaking-bad-original-2008/", "/series/breaking-bad-2008/",
+    "/series/muy-malo/", "/series/quimica-mortal/", "/series/breaking-bad-original/", "/series/breaking-bad/",
+  ]);
+});
+
+test("lamovie: an undated page is accepted from a year slug only, never from a plain slug", async () => {
+  const undated = "<html><head><link rel='shortlink' href='https://lamovie.org/?p=26724' /></head></html>";
+  const only = (re) => fakeKino({ fetch: async (u) => re.test(u) ? { status: 200, body: undated } : /player/.test(u) ? { status: 200, body: fixture("lamovie/player.json") } : { status: 404, body: "" } }).kino;
+  assert.deepEqual(await lamovie.list(FIGHT, ctx(only(/peliculas\/el-club-de-la-pelea\/$/))), []);
+  assert.ok((await lamovie.list(FIGHT, ctx(only(/peliculas\/el-club-de-la-pelea-1999\/$/)))).length > 0);
+});
+
+test("a budget spent after the page is found gives [], not a throw", async () => {
+  const kino = routed([[/\/series\/breaking-bad-2008\//, "lamovie/series.html"]]);
+  const c = { kino, req: makeRequester(kino, { budget: 1, deadline: Date.now() + 60_000 }) };
+  assert.deepEqual(await lamovie.list(BB, c), []);
+  const hs = routed([[/api\/rest\/single/, "hackstore/single.json"]]);
+  assert.deepEqual(await hackstore.list(FIGHT, { kino: hs, req: makeRequester(hs, { budget: 1, deadline: Date.now() + 60_000 }) }), []);
 });

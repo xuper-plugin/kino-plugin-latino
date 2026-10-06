@@ -29,8 +29,8 @@ export const yearIn = (text) => {
  * Tries `probe(candidate)` one candidate after another and returns the first truthy result. A spent budget or
  * deadline (a local error) ends the hunt as "not found"; any other error is the network's and propagates.
  */
-export async function firstHit(candidates, probe) {
-  for (const c of candidates.slice(0, MAX_PROBES)) {
+export async function firstHit(candidates, probe, max = MAX_PROBES) {
+  for (const c of candidates.slice(0, max)) {
     try {
       const hit = await probe(c);
       if (hit) return hit;
@@ -42,15 +42,22 @@ export async function firstHit(candidates, probe) {
   return null;
 }
 
-/** Distinct title slugs in priority order (es-MX, es-ES, original, en), each with the year first when wanted. */
+/**
+ * Distinct title slugs in priority order (es-MX, es-ES, original, en): every title's year slug first, then the
+ * plain slugs, so each distinct title gets one probe before any title gets a second.
+ */
 export function titleSlugs(titles, year, { withYear = true, plain = true } = {}) {
-  const seen = [];
+  const base = [];
   for (const t of [titles.esMX, titles.esES, titles.original, titles.en]) {
     const s = slugify(t);
-    if (!s) continue;
-    for (const v of [withYear && year ? `${s}-${year}` : null, plain ? s : null]) if (v && !seen.includes(v)) seen.push(v);
+    if (s && !base.includes(s)) base.push(s);
   }
-  return seen;
+  return [...(withYear && year ? base.map((s) => `${s}-${year}`) : []), ...(plain ? base : [])];
+}
+
+/** Runs [fn]; a spent budget or deadline (a local error) is "nothing", any other error propagates. */
+export async function orEmpty(fn) {
+  try { return await fn(); } catch (e) { if (e && e.local) return []; throw e; }
 }
 
 function hostLabel(url) {
