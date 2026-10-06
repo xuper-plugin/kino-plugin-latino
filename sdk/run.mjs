@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Runs one function of a Kino plugin under Node with the same `kino` API the app provides, then
 // checks the answer the way the app does and prints what the app would keep.
-//   node sdk/run.mjs ./plugin.js search "metropolis"      (KINO_TYPE=movie|series|any)
+//   node sdk/run.mjs ./plugin.js search "metropolis"      (KINO_TYPE=movie|series|music|podcast|any)
 //   node sdk/run.mjs ./plugin.js search '{"q":"dragnet","type":"series","year":1951}'
 //   node sdk/run.mjs ./plugin.js home
 //   node sdk/run.mjs ./plugin.js browse '<ref>' ['<cursor>']
@@ -93,6 +93,8 @@ const stderr = console.error.bind(console);
 
 /** What the app says when a `signing: "request"` Stream comes from a plugin without a sign() export. */
 export const NO_SIGN_EXPORT = "the plugin asks to sign the video but doesn't export sign()";
+/** run.mjs's note when a "catalogOnly" plugin's resolve (or sign) is run: only an older Kino ever calls it. */
+export const CATALOG_ONLY_RESOLVE_NOTE = contract.manifest.catalogOnly.resolveNote.replace("{fromApp}", contract.additiveFromApp.catalogOnly);
 
 /** The app's refusal of [value] (a checked resolve answer) from [plugin], or null. */
 export function signExportProblem(value, plugin) {
@@ -223,6 +225,8 @@ async function main() {
   const anyPlugin = contract.capabilities.anyPluginExports.includes(fn);
   if (fn === "meta" && !manifest.capabilities.includes("meta")) return fail(NO_META_CAPABILITY);
   if (!anyPlugin && !SETTINGS_FUNCTIONS.includes(fn) && fn !== "section" && fn !== "categories" && !manifest.capabilities.includes(capability)) return fail(`the manifest does not declare "${capability}" in capabilities`);
+  // "catalogOnly": true (Kino 0.9.54): Kino never calls resolve (nor sign); it still runs here, for the older Kino it serves.
+  if (manifest.catalogOnly && capability === "resolve") process.stderr.write(`· ${CATALOG_ONLY_RESOLVE_NOTE}\n`);
 
   const configFile = join(here, "config.json");
   const config = { ...(existsSync(configFile) ? JSON.parse(readFileSync(configFile, "utf8")) : {}), ...opts.config };

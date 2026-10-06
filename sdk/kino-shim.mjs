@@ -1293,8 +1293,13 @@ export function createKino(manifest, { appVersion = "sdk", lang = "es-CO", stora
     // kino.browser.page ("browser": "pages", apiVersion 6) answers the same: a plugin keeps a plain kino.fetch path for it too.
     ...(contract.apiVersion >= contract.browser.apiVersion ? {
       browser: Object.freeze({
-        async capture() {
+        // Kino 0.9.54's capture options are here (contract.additiveFromApp["kino.browser.captureAll"]): feature-detect them.
+        captureAll: true,
+        // The app's order: the request is checked first (invalid_request, as its prelude and PluginBrowser.parseRequest
+        // do), and only then is there no browser.
+        async capture(url, opts) {
           await null;
+          browserCaptureOptions(opts);
           throw kinoError("browser_unavailable", "the Node kit has no browser: kino.browser.capture only works in the app");
         },
         ...(contract.apiVersion >= contract.browser.page.apiVersion ? {
@@ -1349,6 +1354,49 @@ export function signingLane(kino) {
     sleep: async () => { throw why("kino.sleep"); },
     meta: async () => { throw why("kino.meta"); },
     tmdb: async () => { throw why("kino.tmdb"); },
-    ...(kino.browser ? { browser: Object.freeze({ capture: async () => { throw why("kino.browser"); }, ...(kino.browser.page ? { page: async () => { throw why("kino.browser"); } } : {}) }) } : {}),
+    ...(kino.browser ? { browser: Object.freeze({ captureAll: true, capture: async () => { throw why("kino.browser"); }, ...(kino.browser.page ? { page: async () => { throw why("kino.browser"); } } : {}) }) } : {}),
   });
+}
+
+/**
+ * `kino.browser.capture`'s options, checked as the app checks them (its prelude, then PluginBrowser.parseRequest):
+ * throws invalid_request for what the app refuses. Kino 0.9.54 added captureAll, alsoMatch, waitForCookie and
+ * returnCookiesOnTimeout (contract.browser.captureAll).
+ */
+export function browserCaptureOptions(opts) {
+  const o = opts === undefined || opts === null ? {} : opts;
+  const B = contract.browser;
+  const C = B.captureAll;
+  if (o.timeoutMs !== undefined && (!Number.isInteger(o.timeoutMs) || o.timeoutMs < 1 || o.timeoutMs > B.maxTimeoutMs)) {
+    throw kinoError("invalid_request", `timeoutMs takes 1 to ${B.maxTimeoutMs} ms`);
+  }
+  // Length and type only, like the app's prelude: the app compiles patterns as Java regexes (IGNORE_CASE, `(?-i)`, `(?i)`
+  // and other syntax JavaScript refuses), so a JS RegExp compile here would refuse patterns the app accepts.
+  const pattern = (p, what) => {
+    const t = p instanceof RegExp ? p.source : String(p);
+    if (t.length < 1 || t.length > B.maxMatchChars) throw kinoError("invalid_request", `${what} must be 1 to ${B.maxMatchChars} characters`);
+    return t;
+  };
+  const match = o.match === undefined || o.match === null ? null : pattern(String(o.match), "match");
+  const flag = (name) => {
+    const v = o[name];
+    if (v === undefined || v === null) return false;
+    if (v !== true && v !== false) throw kinoError("invalid_request", `${name} must be true or false`);
+    return v;
+  };
+  const captureAll = flag("captureAll");
+  flag("returnCookiesOnTimeout");
+  if (o.alsoMatch !== undefined && o.alsoMatch !== null) {
+    if (!captureAll) throw kinoError("invalid_request", "alsoMatch only works with captureAll");
+    if (!Array.isArray(o.alsoMatch) || o.alsoMatch.length < 1 || o.alsoMatch.length > C.maxAlsoMatch) {
+      throw kinoError("invalid_request", `alsoMatch takes 1 to ${C.maxAlsoMatch} expressions`);
+    }
+    o.alsoMatch.forEach((p) => pattern(p, "each alsoMatch"));
+  }
+  let cookie = null;
+  if (o.waitForCookie !== undefined && o.waitForCookie !== null) {
+    cookie = String(o.waitForCookie);
+    if (!new RegExp(C.waitForCookiePattern).test(cookie)) throw kinoError("invalid_request", "waitForCookie must be a cookie name");
+  }
+  if (captureAll && match === null && cookie !== null) throw kinoError("invalid_request", "captureAll needs match when waitForCookie is used");
 }

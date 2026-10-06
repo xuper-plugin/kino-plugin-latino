@@ -136,13 +136,24 @@ export function validateManifest(text, { knownPermissions = contract.permissions
   if (unknownCap !== undefined) return bad("capabilities", `Capacidad desconocida: "${unknownCap}"`);
   const tooNewCap = caps.find((c) => (contract.capabilities.apiVersions[c] ?? 1) > o.apiVersion);
   if (tooNewCap !== undefined) return bad("capabilities", `Esta capacidad necesita apiVersion ${contract.capabilities.apiVersions[tooNewCap]}`);
-  // Capabilities that play nothing, declared without any other (a subtitle provider, a tracker, or both): neither
-  // `required` nor `atLeastOneOf` applies.
-  const standalone = caps.length > 0 && caps.every((c) => contract.capabilities.standalone.includes(c));
-  const missingRequiredCap = contract.capabilities.required.find((c) => !caps.includes(c));
-  if (!standalone && missingRequiredCap !== undefined) return bad("capabilities", `El plugin debe declarar "${missingRequiredCap}"`);
-  if (!standalone && !contract.capabilities.atLeastOneOf.some((c) => caps.includes(c))) {
-    return bad("capabilities", `El plugin debe declarar "${contract.capabilities.atLeastOneOf.join('" o "')}"`);
+  // "catalogOnly": true (Kino 0.9.54, additive: valid at every apiVersion, ignored by older apps) lists titles and plays none:
+  // `resolve` is not required, one of its own atLeastOneOf is, and nothing that only serves playback may be declared.
+  const co = m.catalogOnly;
+  if (o.catalogOnly !== undefined && typeof o.catalogOnly !== "boolean") return bad("catalogOnly", co.notBooleanMessage);
+  const catalogOnly = o.catalogOnly === true;
+  if (catalogOnly) {
+    const playback = co.forbiddenCapabilities.find((c) => caps.includes(c));
+    if (playback !== undefined) return bad("catalogOnly", co.forbidsMessage.replace("{name}", playback));
+    if (!co.atLeastOneOf.some((c) => caps.includes(c))) return bad("catalogOnly", co.atLeastOneOfMessage);
+  } else {
+    // Capabilities that play nothing, declared without any other (a subtitle provider, a tracker, or both): neither
+    // `required` nor `atLeastOneOf` applies.
+    const standalone = caps.length > 0 && caps.every((c) => contract.capabilities.standalone.includes(c));
+    const missingRequiredCap = contract.capabilities.required.find((c) => !caps.includes(c));
+    if (!standalone && missingRequiredCap !== undefined) return bad("capabilities", `El plugin debe declarar "${missingRequiredCap}"`);
+    if (!standalone && !contract.capabilities.atLeastOneOf.some((c) => caps.includes(c))) {
+      return bad("capabilities", `El plugin debe declarar "${contract.capabilities.atLeastOneOf.join('" o "')}"`);
+    }
   }
   // A capability that rides on another (scopedSearch on search): refused without it.
   const lacking = Object.entries(contract.capabilities.requires || {}).find(([c, needs]) => caps.includes(c) && !caps.includes(needs));
@@ -262,7 +273,13 @@ export function validateManifest(text, { knownPermissions = contract.permissions
   if (hosts.length === 0 && !(o.settings || []).some((x) => x.type === "url" || (x.type === "list" && Array.isArray(x.fields) && x.fields.some((f) => f.type === "url")))) {
     return bad("hosts", 'El campo "hosts" solo puede estar vacío si el plugin tiene un ajuste de tipo "url"');
   }
-  const out = { ...o, hosts: [...new Set(hosts)], capabilities: caps, permissions: o.permissions || [], settings: o.settings || [], insecureHosts, liveStreamHostsAny, streamHostsAny, fetchHostsAny, discoverable, categories, debug, telemetry, browser, browserPages, section, theme, secrets, secretKeyEncodings };
+  // Judged on what the app honours: below its apiVersion a field is ignored, so it forbids nothing there.
+  if (catalogOnly) {
+    const playback = { streamHosts: streamHostsAny, browser: browser && !browserPages };
+    const field = co.forbiddenFields.find((f) => playback[f] === true);
+    if (field !== undefined) return bad("catalogOnly", co.forbidsMessage.replace("{name}", field));
+  }
+  const out = { ...o, hosts: [...new Set(hosts)], capabilities: caps, permissions: o.permissions || [], settings: o.settings || [], insecureHosts, liveStreamHostsAny, streamHostsAny, fetchHostsAny, discoverable, categories, debug, telemetry, browser, browserPages, section, theme, secrets, secretKeyEncodings, catalogOnly };
   // `signature` only where the app reads it (apiVersion 5+): an ignored one is dropped, as the app drops it.
   if (!signed) delete out.signature;
   return { ok: true, manifest: out };
@@ -437,7 +454,7 @@ function strings(v, max, maxChars) {
   return out;
 }
 
-function items(list, max, { allowSeries, allowLive, allowAdult, servers }, drop) {
+function items(list, max, { allowSeries, allowLive, allowAudio, allowAdult, servers }, drop) {
   const out = [];
   const seen = new Set();
   (Array.isArray(list) ? list : []).forEach((x, i) => {
@@ -452,6 +469,9 @@ function items(list, max, { allowSeries, allowLive, allowAdult, servers }, drop)
     if (x.kind === "series" && !allowSeries) return drop(`item ${id}: series without the episodes capability`);
     // Silently, like any invalid item: an apiVersion 1 plugin never declared it could go live.
     if (x.kind === "live" && !allowLive) return drop(`item ${id}: live needs apiVersion ${o().liveKindApiVersion}`);
+    // Like live below 2: music and podcast (audio kinds, output.audioKindApiVersion) need no `episodes` capability,
+    // but an older plugin never declared it could answer them.
+    if (o().audioKinds.includes(x.kind) && !allowAudio) return drop(`item ${id}: ${x.kind} needs apiVersion ${o().audioKindApiVersion}`);
     // Below apiVersion 6 (output.adultApiVersion) an adult title never reaches a screen; from 6 it is kept and
     // marked, and Kino lists it only while the person's 18+ code is unlocked.
     const adult = x.adult === true;
@@ -472,6 +492,8 @@ function items(list, max, { allowSeries, allowLive, allowAdult, servers }, drop)
       imdb: typeof ids.imdb === "string" && re(o().imdbPattern).test(ids.imdb) ? ids.imdb : "",
       badges: strings(x.badges, o().maxBadges, o().maxBadgeChars),
       ...(adult ? { adult: true } : {}),
+      // Only an audio item has one (and audio items only exist from apiVersion 8, dropped above below it).
+      ...(o().audioKinds.includes(x.kind) && text(x.artist, o().maxArtistChars) ? { artist: text(x.artist, o().maxArtistChars) } : {}),
     });
   });
   return out;
@@ -1432,9 +1454,10 @@ export function metaAnswer(value, servers = []) {
 /**
  * What the app keeps of a migrate() answer for `input` (PluginMigration.parse): the answer, or null
  * when the plugin does not claim the value. A wrong shape is not an error in the app, only "not
- * claimed" plus a log line: here it is a drop, so the author sees why.
+ * claimed" plus a log line: here it is a drop, so the author sees why. `allowAudio`: the plugin's apiVersion
+ * reaches `audioKindApiVersion`, so a title may be claimed as `music` or `podcast`.
  */
-export function migrateAnswer(value, input) {
+export function migrateAnswer(value, input, allowAudio = false) {
   const drops = [];
   const no = (m) => { drops.push(`migrate: ${m}`); return { value: null, drops }; };
   if (value === null || value === undefined) return { value: null, drops };
@@ -1443,7 +1466,9 @@ export function migrateAnswer(value, input) {
   const refOk = (r) => typeof r === "string" && r.length > 0 && r.length <= o().maxRefChars && !r.startsWith("plg1:");
   const kind = value.kind;
   if (input.kind === "title") {
-    if (kind !== "movie" && kind !== "series") return no(`a title answered kind "${kind}"`);
+    const audio = o().audioKinds.includes(kind);
+    if (audio && !allowAudio) return no(`a title answered kind "${kind}", which needs apiVersion ${o().audioKindApiVersion}`);
+    if (kind !== "movie" && kind !== "series" && !audio) return no(`a title answered kind "${kind}"`);
     if (typeof value.id !== "string" || !ID.test(value.id)) return no("invalid id");
     if (!refOk(value.ref)) return no("invalid ref");
     return { value: { kind, id: value.id, ref: value.ref }, drops };
@@ -1546,6 +1571,8 @@ export function checkOutput(fn, value, manifest, servers = [], { liveChannel = f
     allowNext: manifest.capabilities.includes("browse"),
     // Live channels are apiVersion 2: a v1 plugin's live item is dropped like any invalid one.
     allowLive: Number.isInteger(manifest.apiVersion) && manifest.apiVersion >= o().liveKindApiVersion,
+    // Music and podcast items are apiVersion 8: an older plugin's are dropped, the rest of its answer stays.
+    allowAudio: Number.isInteger(manifest.apiVersion) && manifest.apiVersion >= o().audioKindApiVersion,
     // 18+ entries are apiVersion 6: kept and marked (shown behind the person's 18+ code); below it, dropped.
     allowAdult: Number.isInteger(manifest.apiVersion) && manifest.apiVersion >= o().adultApiVersion,
     servers,
@@ -1581,7 +1608,7 @@ export function checkOutput(fn, value, manifest, servers = [], { liveChannel = f
       return { value: { items: found.items.slice(0, live().maxSearchChannels) }, drops };
     }
     case "guide": return { value: guide(parsed, drop), drops };
-    case "migrate": return migrateAnswer(parsed, migrateInput || { kind: "title" });
+    case "migrate": return migrateAnswer(parsed, migrateInput || { kind: "title" }, ctx.allowAudio);
     case "subtitles": return { value: subtitleTracks(parsed, { manifest, servers }, drop), drops };
     // Kino only needs track() to return (anything, `{ ok: true }` by convention) or throw: a kino.error code says whether to retry.
     case "track": return { value: parsed, drops };

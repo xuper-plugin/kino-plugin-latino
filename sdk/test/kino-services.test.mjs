@@ -6,7 +6,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { contract } from "../contract.mjs";
 import { createKino, errorReport, kinoMetaRequest, kinoTmdbRequest, signingLane, tokenBucket } from "../kino-shim.mjs";
-import { unguardedServiceNotes } from "../validate.mjs";
+import { unguardedBrowserNotes, unguardedServiceNotes } from "../validate.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const fixtures = join(here, "..", "..", "..", "docs", "plugins", "fixtures", "kino-services");
@@ -43,8 +43,10 @@ async function code(promise) {
 }
 
 test("contract: kino.meta and kino.tmdb are additive (no new apiVersion) and pinned", () => {
-  assert.equal(contract.apiVersion, 7);
-  assert.deepEqual(contract.additiveFromApp, { "kino.meta": "0.9.53", "kino.tmdb": "0.9.53" });
+  // apiVersion 8 is the music/podcast kinds' gate; kino.meta and kino.tmdb add none of their own.
+  assert.equal(contract.apiVersion, 8);
+  assert.deepEqual(contract.apiVersionFromApp, { "6": "0.9.50", "7": "0.9.51", "8": "0.9.54" });
+  assert.deepEqual(contract.additiveFromApp, { "kino.meta": "0.9.53", "kino.tmdb": "0.9.53", catalogOnly: "0.9.54", "kino.browser.captureAll": "0.9.54" });
   assert.deepEqual(contract.kinoMeta.idKeys, ["imdb", "tmdb", "tvdb", "kitsu", "mal", "anilist"]);
   assert.equal(contract.kinoMeta.perMinute, 30);
   assert.equal(contract.kinoTmdb.perWindow, 40);
@@ -54,8 +56,8 @@ test("contract: kino.meta and kino.tmdb are additive (no new apiVersion) and pin
   assert.deepEqual(contract.kinoTmdb.personKeyOn, [401, 403, 429, "kinoKeyLimit"]);
   assert.equal(contract.kinoTmdb.windowMs, 10000);
   assert.ok(contract.kinoTmdb.errorCodes.includes("no_tmdb_key"));
-  assert.equal(contract.kinoTmdb.noKeyUserMessage.es, "Agrega tu llave de TMDB en Ajustes, o instala un addon de TMDB de Stremio configurado con tu llave.");
-  assert.equal(contract.kinoTmdb.noKeyUserMessage.en, "Add your TMDB key in Settings, or install a Stremio TMDB addon set up with your key.");
+  assert.equal(contract.kinoTmdb.noKeyUserMessage.es, "Agrega tu llave de TMDB en Ajustes ▸ Tu llave de TMDB");
+  assert.equal(contract.kinoTmdb.noKeyUserMessage.en, "Add your TMDB key in Settings ▸ Your TMDB key");
 });
 
 test("kino.meta: the query is checked like the app does", () => {
@@ -235,4 +237,50 @@ test("validate warns about kino.meta / kino.tmdb used without feature detection"
 test("run.mjs reports an uncaught no_tmdb_key as the sentence Kino shows", async () => {
   const e = await kinoWith().tmdb("/movie/603").catch((x) => x);
   assert.match(errorReport(e, "Demo"), new RegExp(`the person reads: "${contract.kinoTmdb.noKeyUserMessage.es.replace(/[.()]/g, "\\$&")}"`));
+});
+
+test("kino.browser.capture: captureAll, alsoMatch, waitForCookie and returnCookiesOnTimeout (Kino 0.9.54) are checked like the app does", async () => {
+  const C = contract.browser.captureAll;
+  assert.equal(C.feature, "kino.browser.captureAll");
+  assert.equal(contract.additiveFromApp[C.feature], "0.9.54");
+  assert.equal(C.maxAlsoMatch, 10);
+  assert.equal(C.maxRequests, 20);
+  assert.equal(C.settleMs, 1000);
+  assert.deepEqual(C.answerAdds, ["requests", "cookies", "userAgent", "timedOut"]);
+  const k = kinoWith();
+  assert.equal(k.browser.captureAll, true);
+  const url = "https://example.com/e/1";
+  const bad = [
+    { alsoMatch: ["key"] },
+    { captureAll: true, alsoMatch: [] },
+    { captureAll: true, alsoMatch: Array.from({ length: 11 }, (_, i) => "p" + i) },
+    { captureAll: true, alsoMatch: ["x".repeat(501)] },
+    { captureAll: "yes" },
+    { returnCookiesOnTimeout: 1 },
+    { waitForCookie: "a b" },
+    { waitForCookie: "" },
+    { waitForCookie: "cf_clearance", captureAll: true },
+  ];
+  for (const opts of bad) assert.equal(await code(k.browser.capture(url, opts)), "invalid_request", JSON.stringify(opts));
+  // A well-formed request reaches the browser, which the Node kit does not have.
+  assert.equal(await code(k.browser.capture(url, { match: "m3u8", captureAll: true, alsoMatch: ["key", /sub/], waitForCookie: "cf_clearance", returnCookiesOnTimeout: true })), "browser_unavailable");
+  assert.equal(await code(k.browser.capture(url)), "browser_unavailable");
+  // Java regex syntax the app compiles (IGNORE_CASE, inline flags) is never refused by the kit.
+  assert.equal(await code(k.browser.capture(url, { match: "(?-i)Master" })), "browser_unavailable");
+  assert.equal(await code(k.browser.capture(url, { match: "master", captureAll: true, alsoMatch: ["(?-i)SUB"] })), "browser_unavailable");
+  // An old call (pre-0.9.54 options only) with a Java-only pattern answers exactly as before: no browser.
+  assert.equal(await code(k.browser.capture(url, { match: "(?i)x" })), "browser_unavailable");
+  // The app's messages.
+  const msg = async (p) => { try { await p; } catch (e) { return e.message; } return null; };
+  assert.equal(await msg(k.browser.capture(url, { match: "x".repeat(501) })), "match must be 1 to 500 characters");
+  assert.equal(await msg(k.browser.capture(url, { captureAll: true, alsoMatch: [""] })), "each alsoMatch must be 1 to 500 characters");
+  assert.equal(await msg(k.browser.capture(url, { alsoMatch: ["k"] })), "alsoMatch only works with captureAll");
+});
+
+test("validate: the new capture options without checking kino.browser.captureAll get a note", () => {
+  assert.deepEqual(unguardedBrowserNotes("await kino.browser.capture(u, { match: 'm3u8' })"), []);
+  assert.equal(unguardedBrowserNotes("await kino.browser.capture(u, { captureAll: true, alsoMatch: ['key'] })").length, 1);
+  assert.equal(unguardedBrowserNotes("await kino.browser.capture(u, { waitForCookie: 'cf_clearance' })").length, 1);
+  assert.deepEqual(unguardedBrowserNotes("if (kino.browser.captureAll) await kino.browser.capture(u, { returnCookiesOnTimeout: true })"), []);
+  assert.match(unguardedBrowserNotes("kino.browser.capture(u, { captureAll: true })")[0], /0\.9\.54/);
 });

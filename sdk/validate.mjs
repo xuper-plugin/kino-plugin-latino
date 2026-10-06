@@ -43,6 +43,8 @@ export const SCOPED_IGNORED = 'Declara "scopedSearch" pero search() no lee query
 export function consentLines(m, { authorFingerprint = null } = {}) {
   const out = [];
   const line = (text, danger = false) => out.push({ text, danger });
+  // "catalogOnly": true (Kino 0.9.54): not a grant, says what the plugin is (PluginConsent / PluginsStrings.catalogOnlyConsentLine).
+  if (m.catalogOnly) line(contract.manifest.catalogOnly.consentLine.es);
   (m.permissions || []).forEach((p) => line(`Permiso: ${p}`));
   if ((m.settings || []).some((s) => s.type === "password")) line("Este plugin usa tu usuario y contraseña");
   if ((m.settings || []).some((s) => s.type === "url")) line("Se conectará a los servidores que escribas en su configuración");
@@ -184,6 +186,22 @@ export function bindingFromGit(dir) {
 }
 
 /**
+ * "catalogOnly": true is additive (Kino 0.9.54): an older Kino ignores the field and applies its own rules, which ask for
+ * `resolve` and for `search` or `home`. Notes only: the plugin is valid, older apps just refuse it (or play its resolve).
+ */
+export function catalogOnlyNotes(m) {
+  if (!m.catalogOnly) return [];
+  const co = contract.manifest.catalogOnly;
+  const notes = [];
+  const older = co.olderApps;
+  const missing = [...contract.capabilities.required.filter((c) => !m.capabilities.includes(c))];
+  if (!contract.capabilities.atLeastOneOf.some((c) => m.capabilities.includes(c))) missing.push(contract.capabilities.atLeastOneOf.join('" o "'));
+  if (missing.length) notes.push(older.refusedNote.replace("{fromApp}", contract.additiveFromApp.catalogOnly).replace("{missing}", missing.join('", "')));
+  else notes.push(older.compatibleNote.replace("{fromApp}", contract.additiveFromApp.catalogOnly));
+  return notes;
+}
+
+/**
  * kino.meta and kino.tmdb exist from Kino 0.9.53 on, with no new apiVersion: a plugin that calls one without checking
  * `typeof kino.<name> === "function"` fails with a TypeError on older Kino. A warning only (contract.additiveFromApp).
  */
@@ -199,6 +217,19 @@ export function unguardedServiceNotes(source) {
   return notes;
 }
 
+/**
+ * kino.browser.capture's captureAll, alsoMatch, waitForCookie and returnCookiesOnTimeout exist from Kino 0.9.54 on, with no
+ * new apiVersion: older Kino ignores them and answers a plain capture. A plugin that uses them without checking
+ * `kino.browser.captureAll` gets a warning (contract.additiveFromApp["kino.browser.captureAll"]).
+ */
+export function unguardedBrowserNotes(source) {
+  const uses = /\b(captureAll|alsoMatch|waitForCookie|returnCookiesOnTimeout)\s*:/.test(source);
+  const guarded = /\bkino\s*\.\s*browser\s*\.\s*captureAll\b/.test(source);
+  if (!uses || guarded) return [];
+  const feature = contract.browser.captureAll.feature;
+  return [`Las opciones captureAll, alsoMatch, waitForCookie y returnCookiesOnTimeout de kino.browser.capture existen desde Kino ${contract.additiveFromApp[feature]}: comprueba ${feature} antes de usarlas; en versiones anteriores la captura las ignora`];
+}
+
 export async function validate(dirArg, { run = null, args = [], config = {}, replay = null, fetchImpl = globalThis.fetch, repo = null } = {}) {
   const problems = [];
   const dir = resolve(dirArg);
@@ -211,6 +242,7 @@ export async function validate(dirArg, { run = null, args = [], config = {}, rep
   const notes = [];
   let authorFingerprint = null;
   if (!m.discoverable) notes.push("No aparecerá en la búsqueda de Kino");
+  for (const note of catalogOnlyNotes(m)) notes.push(note);
   // "debug": true only turns every person's "Modo debug" switch on by default (Kino 0.9.50): the author is told what that means.
   if (m.debug) notes.push(contract.manifest.debug.defaultOnNote);
   if (m.theme && Object.keys(m.theme).length) for (const w of resolvePalette(m.theme).warnings) notes.push(w);
@@ -246,6 +278,7 @@ export async function validate(dirArg, { run = null, args = [], config = {}, rep
     notes.push(SCOPED_IGNORED);
   }
   for (const note of unguardedServiceNotes(readFileSync(entry, "utf8"))) notes.push(note);
+  for (const note of unguardedBrowserNotes(readFileSync(entry, "utf8"))) notes.push(note);
   if (m.apiVersion < contract.crypto.keyPairs.apiVersion && /\b(generateKeyPair|importKey|deriveSharedSecret)\b|crypto\s*\.\s*(sign|verify)\b/.test(readFileSync(entry, "utf8"))) {
     notes.push(KEY_PAIRS_OLD_API);
   }

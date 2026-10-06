@@ -30,7 +30,7 @@ const manifest = (extra = {}) => JSON.stringify({
 });
 
 test("contract.json is the one the app pins", () => {
-  assert.equal(contract.apiVersion, 7);
+  assert.equal(contract.apiVersion, 8);
   // apiVersion 5 stays what Kino 0.9.45 made it: the author-signed entry, nothing else.
   assert.equal(contract.manifest.signature.apiVersion, 5);
   assert.deepEqual(contract.capabilities.names, ["search", "home", "browse", "episodes", "resolve", "download", "drm", "channels", "migrate", "scopedSearch", "meta", "subtitles", "tracking", "segments"]);
@@ -743,8 +743,40 @@ test("checkOutput keeps a live item only for an apiVersion 2 plugin, and never i
   const onlyLive = [{ id: "vivo", title: "En vivo", items: [items[0]] }];
   assert.equal(checkOutput("home", onlyLive, { ...JSON.parse(manifest({ apiVersion: 5 })), capabilities: ["home", "resolve"] }).value.length, 0);
   assert.equal(contract.output.homeLiveApiVersion, 6);
-  assert.deepEqual(contract.output.itemKinds, ["movie", "series", "live"]);
+  assert.deepEqual(contract.output.itemKinds, ["movie", "series", "live", "music", "podcast"]);
   assert.equal(contract.output.liveKindApiVersion, 2);
+});
+
+test("checkOutput keeps music and podcast items only from apiVersion 8, with their duration and without episodes", () => {
+  const items = [
+    { id: "al", ref: "album-1", title: "Un álbum", kind: "music", runtimeMinutes: 42 },
+    { id: "pc", ref: "show-1", title: "Un podcast", kind: "podcast" },
+    { id: "m", ref: "r", title: "M", kind: "movie", runtimeMinutes: 90 },
+  ];
+  // No "episodes": an audio item doesn't need it (its ref then goes to resolve, like a movie's).
+  const at = (apiVersion) => ({ ...JSON.parse(manifest({ apiVersion })), capabilities: ["search", "home", "resolve"] });
+  const v7 = checkOutput("search", items, at(7));
+  assert.deepEqual(v7.value.items.map((i) => i.id), ["m"]);
+  assert.ok(v7.drops.some((d) => d.includes("al") && d.includes("music") && d.includes("apiVersion 8")), v7.drops.join("\n"));
+  assert.ok(v7.drops.some((d) => d.includes("pc") && d.includes("podcast") && d.includes("apiVersion 8")), v7.drops.join("\n"));
+  const v8 = checkOutput("search", items, at(8));
+  assert.deepEqual(v8.value.items.map((i) => [i.id, i.kind, i.runtimeMinutes]), [["al", "music", 42], ["pc", "podcast", 0], ["m", "movie", 90]]);
+  assert.deepEqual(checkOutput("home", [{ id: "musica", title: "Música", items }], at(8)).value[0].items.map((i) => i.kind), ["music", "podcast", "movie"]);
+  assert.equal(contract.output.audioKindApiVersion, 8);
+  assert.deepEqual(contract.output.audioKinds, ["music", "podcast"]);
+  assert.deepEqual(contract.search.types, ["movie", "series", "music", "podcast", "any"]);
+});
+
+test("checkOutput keeps an audio item's artist trimmed and cut, as the app does, and never on another kind", () => {
+  const at8 = { ...JSON.parse(manifest({ apiVersion: 8 })), capabilities: ["search", "resolve"] };
+  const r = checkOutput("search", [
+    { id: "al", ref: "a", title: "Un álbum", kind: "music", artist: "  Los Artistas  " },
+    { id: "pc", ref: "p", title: "Un podcast", kind: "podcast", artist: "x".repeat(250) },
+    { id: "nn", ref: "n", title: "Sin artista", kind: "music" },
+    { id: "m", ref: "r", title: "t", kind: "movie", artist: "Alguien" },
+  ], at8);
+  assert.deepEqual(r.value.items.map((i) => i.artist), ["Los Artistas", "x".repeat(200), undefined, undefined]);
+  assert.equal(contract.output.maxArtistChars, 200);
 });
 
 test("checkOutput validates a stream's audioTracks like its subtitles", () => {
@@ -1036,7 +1068,12 @@ test("kino.d.ts declares exactly what the kit's kino has", () => {
     else out.add(`${p}.${k}=value`);
   });
   walk(kino, "kino");
-  assert.deepEqual([...out].sort(), [...declaredKino()].sort());
+  // kino.cloudstream exists only in a plugin Kino generated from a CloudStream repository (KinoDtsTest's rule): a
+  // hand-written plugin's kino, which is the kit's, never has it.
+  const declared = [...declaredKino()];
+  const conditional = declared.filter((m) => m.startsWith("kino.cloudstream."));
+  assert.ok(conditional.length > 0, "kino.d.ts no longer declares kino.cloudstream");
+  assert.deepEqual([...out].sort(), declared.filter((m) => !conditional.includes(m)).sort());
 });
 
 test("telemetry: apiVersion 6 boolean, a consent line, and kino.log.report writes a line", () => {
@@ -2932,6 +2969,19 @@ test("migrate: the kit keeps what the app keeps", () => {
   assert.equal(keep({ kind: "live", code: "a:b" }, live).value, null);
 });
 
+test("migrate: a music or podcast title is claimed only from an apiVersion 8 plugin, as the app does", () => {
+  const title = { kind: "title", ref: "old:42" };
+  const keep = (apiVersion, v) => checkOutput("migrate", v, JSON.parse(manifest({ apiVersion, capabilities: ["search", "resolve", "migrate"] })), [], { migrateInput: title });
+  assert.deepEqual(keep(8, { kind: "music", id: "a1", ref: "A" }).value, { kind: "music", id: "a1", ref: "A" });
+  assert.deepEqual(keep(8, { kind: "podcast", id: "p1", ref: "P" }).value, { kind: "podcast", id: "p1", ref: "P" });
+  const old = keep(7, { kind: "music", id: "a1", ref: "A" });
+  assert.equal(old.value, null);
+  assert.deepEqual(old.drops, ['migrate: a title answered kind "music", which needs apiVersion 8']);
+  assert.equal(checkOutput("migrate", { kind: "music", id: "a1", ref: "A" }, JSON.parse(manifest({ apiVersion: 8, capabilities: ["search", "resolve", "migrate"] })), [],
+    { migrateInput: { kind: "chapter", ref: "x", season: 1, episode: 1 } }).value, null);
+  assert.deepEqual(contract.output.migrateKinds, ["movie", "series", "episode", "live", ...contract.output.audioKinds]);
+});
+
 test("run.mjs passes migrate its input object", async () => {
   const plugin = { migrate: async (input) => input };
   assert.deepEqual(await call(plugin, "migrate", ['{"kind":"title","ref":"x"}']), { kind: "title", ref: "x" });
@@ -3537,7 +3587,7 @@ test("the guide's kino.fetch limits row names every fetch limit the app enforces
 // apiVersion 5 is Kino 0.9.45's (the author's signature, nothing else): a v5 manifest using an apiVersion 6
 // field is refused, or reads it exactly as those apps do (an unknown field, ignored).
 test("apiVersion 5 manifests read as Kino 0.9.45 and 0.9.46 read them: every apiVersion 6 field is refused or ignored", () => {
-  assert.equal(contract.maxApiVersion, 7);
+  assert.equal(contract.maxApiVersion, 8);
   const v5 = (extra) => validateManifest(manifest({ apiVersion: 5, ...extra }));
   const ignored = v5({ debug: true, section: { label: "Mía" }, theme: { accent: "#3D5AFE" } });
   assert.equal(ignored.ok, true);
@@ -3559,7 +3609,7 @@ test("apiVersion 5 manifests read as Kino 0.9.45 and 0.9.46 read them: every api
 // apiVersion 5 shipped in Kino 0.9.45 (signature.fromApp); 6 first ships in 0.9.50 (nothing ships until the built-in source removal is done).
 test("each apiVersion above 4 names the Kino it first ships in, and validate's note reads it", async () => {
   assert.equal(contract.manifest.signature.fromApp, "0.9.45");
-  assert.deepEqual(contract.apiVersionFromApp, { "6": "0.9.50", "7": "0.9.51" });
+  assert.deepEqual(contract.apiVersionFromApp, { "6": "0.9.50", "7": "0.9.51", "8": "0.9.54" });
   const dir = mkdtempSync(join(tmpdir(), "kino-from-app-"));
   try {
     writeFileSync(join(dir, "plugin.js"), "export async function search(){ return { items: [] } }\nexport async function resolve(){ return { url: 'https://example.com/a.m3u8' } }");
@@ -3819,8 +3869,8 @@ test("browser pages: its own wider line, true keeps the old one, and page answer
   assert.equal(v({ browser: true }).manifest.browserPages, false);
   assert.equal(v({ browser: "pages" }, 5).manifest.browser, false);
   assert.deepEqual(v({ browser: "page" }), { ok: false, field: "browser", message: contract.manifest.browser.notBooleanMessage });
-  assert.equal(contract.maxApiVersion, 7);
-  assert.equal(v({}, 8).ok, false);
+  assert.equal(contract.maxApiVersion, 8);
+  assert.equal(v({}, 9).ok, false);
   const dir = mkdtempSync(join(tmpdir(), "kino-browser-page-"));
   try {
     writeFileSync(join(dir, "plugin.js"), "export async function search(q){ try { await kino.browser.page('https://example.com/?s=' + q, { waitFor: 'article' }) } catch (e) { return [{ id: e.code, title: e.code, ref: e.code, kind: 'movie' }] } }\nexport async function resolve(){ return { url: 'https://example.com/a.m3u8' } }");
@@ -4326,6 +4376,75 @@ test("validate --run: a settings function the plugin doesn't export is a problem
     assert.deepEqual(r.problems, ["the plugin doesn't export validateSettings()"]);
     const st = await validate(dir, { run: "settingsStatus" });
     assert.deepEqual(st.problems, ["the plugin doesn't export settingsStatus()"]);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+test("catalogOnly: resolve may be left out, one of home/browse/search/meta is needed; the same rules and words as the app", () => {
+  const co = contract.manifest.catalogOnly;
+  const cat = (capabilities, extra = {}) => manifest({ apiVersion: 7, capabilities, catalogOnly: true, ...extra });
+  for (const one of co.atLeastOneOf) {
+    const r = validateManifest(cat([one]));
+    assert.equal(r.ok, true, one);
+    assert.equal(r.manifest.catalogOnly, true);
+  }
+  const tmdb = validateManifest(cat(["search", "home", "browse", "episodes", "resolve", "meta"])).manifest;
+  assert.ok(requiredExports(tmdb.capabilities).includes("resolve"));
+  for (const apiVersion of [1, 4, 7, 8]) assert.equal(validateManifest(manifest({ apiVersion, capabilities: ["home", "resolve"], catalogOnly: true })).manifest.catalogOnly, true);
+  assert.equal(validateManifest(manifest()).manifest.catalogOnly, false);
+  for (const caps of [["resolve"], ["episodes"], ["subtitles"], []]) {
+    assert.deepEqual(validateManifest(cat(caps)), { ok: false, field: "catalogOnly", message: co.atLeastOneOfMessage });
+  }
+  const forbids = (name) => ({ ok: false, field: "catalogOnly", message: co.forbidsMessage.replace("{name}", name) });
+  assert.deepEqual(validateManifest(cat(["home", "drm", "download"])), forbids("download"));
+  assert.deepEqual(validateManifest(cat(["home", "drm"])), forbids("drm"));
+  assert.deepEqual(validateManifest(cat(["home", "channels"])), forbids("channels"));
+  assert.deepEqual(validateManifest(cat(["home"], { streamHosts: "any" })), forbids("streamHosts"));
+  assert.deepEqual(validateManifest(cat(["home"], { browser: true })), forbids("browser"));
+  assert.equal(validateManifest(cat(["home"], { browser: "pages" })).ok, true);
+  assert.equal(validateManifest(cat(["home"], { apiVersion: 3, streamHosts: "any" })).ok, true);
+  assert.equal(validateManifest(cat(["home"], { apiVersion: 5, browser: true })).ok, true);
+  for (const value of ["true", 1, null, []]) {
+    assert.deepEqual(validateManifest(manifest({ catalogOnly: value })), { ok: false, field: "catalogOnly", message: co.notBooleanMessage });
+  }
+  assert.deepEqual(validateManifest(manifest({ capabilities: ["home"] })), { ok: false, field: "capabilities", message: 'El plugin debe declarar "resolve"' });
+  assert.equal(contract.additiveFromApp.catalogOnly, "0.9.54");
+  // No apiVersion of its own: 8 is the audio kinds' gate, and catalogOnly is valid at every apiVersion.
+  assert.equal(contract.apiVersion, 8);
+});
+
+test("catalogOnly: validate prints the consent line and what an older Kino does with it", async () => {
+  const co = contract.manifest.catalogOnly;
+  const dir = mkdtempSync(join(tmpdir(), "kino-catalog-only-"));
+  try {
+    writeFileSync(join(dir, "plugin.js"), "export async function home(){ return [] }\nexport async function search(){ return [] }\nexport async function resolve(){ throw kino.error('not_found', 'catalog only') }");
+    writeFileSync(join(dir, "kino-plugin.json"), manifest({ capabilities: ["home", "search", "resolve"], catalogOnly: true }));
+    let r = await validate(dir);
+    assert.equal(r.ok, true);
+    assert.deepEqual(r.consent, [{ text: co.consentLine.es, danger: false }]);
+    assert.deepEqual(r.notes, [co.olderApps.compatibleNote.replace("{fromApp}", "0.9.54")]);
+    writeFileSync(join(dir, "kino-plugin.json"), manifest({ capabilities: ["browse", "meta"], catalogOnly: true, apiVersion: 6 }));
+    writeFileSync(join(dir, "plugin.js"), "export async function browse(){ return { items: [] } }\nexport async function meta(){ return null }");
+    r = await validate(dir);
+    assert.equal(r.ok, true, r.problems.join("; "));
+    assert.equal(r.notes.filter((n) => /catalogOnly/.test(n)).length, 1);
+    assert.ok(r.notes.some((n) => /rechaza este plugin porque le falta "resolve", "search" o "home"/.test(n)), r.notes.join("\n"));
+    assert.deepEqual(consentLines(validateManifest(manifest()).manifest), []);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("catalogOnly: run.mjs still runs resolve, and says Kino 0.9.54+ never calls it", () => {
+  const dir = mkdtempSync(join(tmpdir(), "kino-catalog-only-run-"));
+  try {
+    writeFileSync(join(dir, "plugin.js"), "export async function home(){ return [] }\nexport async function resolve(){ return { url: 'https://example.com/a.m3u8' } }");
+    writeFileSync(join(dir, "kino-plugin.json"), manifest({ capabilities: ["home", "resolve"], catalogOnly: true }));
+    const r = runCli([dir, "resolve", "x"]);
+    assert.equal(r.code, 0, r.stderr);
+    assert.match(r.stderr, /Kino 0\.9\.54 y posteriores nunca llaman resolve/);
+    const home = runCli([dir, "home"]);
+    assert.doesNotMatch(home.stderr, /nunca llaman resolve/);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
