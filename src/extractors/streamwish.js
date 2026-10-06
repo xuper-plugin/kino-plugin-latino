@@ -9,7 +9,7 @@ export async function extract(embedUrl, req) {
   const referer = u.origin + "/";
   const html = await pageText(req, u.href, { Referer: referer });
   if (html == null) return null;
-  const url = findIn(html, (t) => hlsKey(t, ["hls4", "hls3", "hls2"], u.origin) || fileM3u8(t, u.origin));
+  const url = findIn(html, (t) => hlsKey(t, ["hls4", "hls2", "hls3"], u.origin) || fileM3u8(t, u.origin));
   if (!url) return null;
   return { url, mime: HLS_MIME, headers: { "User-Agent": UA, Referer: referer } };
 }

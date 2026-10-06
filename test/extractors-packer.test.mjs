@@ -61,3 +61,10 @@ test("a failed page request gives null", async () => {
   const req = makeRequester(f.kino, { budget: 6, deadline: Date.now() + 60_000 });
   assert.equal(await extractorFor("https://vimeos.net/embed-x.html").extract("https://vimeos.net/embed-x.html", req), null);
 });
+
+test("streamwish: hls2 (m3u8) beats hls3 (master.txt) when there is no hls4", async () => {
+  const page = '<script>var links={"hls3":"https://c.example/hls3/a/master.txt","hls2":"https://c.example/hls2/a/master.m3u8?t=x"};</script>';
+  const { req } = reqFor(page);
+  const s = await extractorFor("https://hglink.to/e/abc").extract("https://hglink.to/e/abc", req);
+  assert.equal(s.url, "https://c.example/hls2/a/master.m3u8?t=x");
+});
