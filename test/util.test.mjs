@@ -38,3 +38,7 @@ test("language normalisation", () => {
   assert.equal(normLang("Castellano Subtitulado"), "sub");
   assert.equal(normLang("Latino Subtitulado"), "sub");
 });
+
+test("unpack of a real packed player block contains an m3u8 URL", () => {
+  assert.match(unpack(fixture("packed/real.txt")), /https:\/\/[^"']+\.m3u8/);
+});

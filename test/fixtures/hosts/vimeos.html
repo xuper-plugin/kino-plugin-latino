@@ -1,0 +1,1038 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	<link rel="icon" type="image/x-icon" href="https://vimeos.net/favicon.ico?v1">
+	<title>vimeos</title>
+	<!-- v1.0.0 -->
+	<!-- <script disable-devtool-auto src="https://cdn.jsdelivr.net/npm/disable-devtool"></script> -->
+	<script>
+		if (!window?.uo) { window.uo = {} };
+	</script>
+	<link rel="stylesheet" href="/la/style.css?v=v1">
+	<script src="https://cdn.jsdelivr.net/npm/jquery@3.7.0/dist/jquery.min.js"></script>
+	<script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+	<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto">
+	<script src="https://imasdk.googleapis.com/js/sdkloader/ima3.js"></script>
+	<script src="https://cdn.jsdelivr.net/npm/ima-ad-player@latest/dist/ima-ad-player.min.js"></script>
+	<script src="https://vimeos.net/js/xupload.js"></script>
+	<style>
+		.lm-modal-button,
+		.lm-modal-message,
+		.lm-modal-title {
+			font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif
+		}
+
+		.lm-modal-overlay {
+			position: fixed;
+			top: 0;
+			left: 0;
+			width: 100vw;
+			height: 100vh;
+			background: rgba(0, 0, 0, .6);
+			display: none;
+			justify-content: center;
+			align-items: center;
+			z-index: 9999
+		}
+
+		.lm-modal-container {
+			background: #1a1c22;
+			border-radius: 8px;
+			padding: 28px;
+			max-width: 480px;
+			width: 90%;
+			border: 1px solid #333
+		}
+
+		.lm-modal-title {
+			color: #fff;
+			font-size: 22px;
+			font-weight: 600;
+			margin-bottom: 14px
+		}
+
+		.lm-modal-message {
+			color: #c7c7c7;
+			font-size: 15px;
+			line-height: 1.5;
+			margin-bottom: 28px
+		}
+
+		.lm-modal-actions {
+			display: flex;
+			gap: 10px;
+			justify-content: flex-end
+		}
+
+		.lm-modal-button {
+			padding: 10px 20px;
+			border: none;
+			border-radius: 4px;
+			font-size: 14px;
+			font-weight: 500;
+			cursor: pointer;
+			transition: background .2s, color .2s
+		}
+
+		.lm-modal-button-secondary {
+			background: #242731;
+			color: #d0d0d0;
+			border: 1px solid #242731
+		}
+
+		.lm-modal-button-secondary:hover {
+			background: #3a3a3a;
+			color: #fff
+		}
+
+		.lm-modal-button-primary {
+			background: #ff4343;
+			color: #fff
+		}
+
+		.lm-modal-button-primary:hover {
+			background: #cc0812
+		}
+
+		.lm-modal-show {
+			display: flex
+		}
+	</style>
+	<script>
+		var publishers = [
+			{
+				name: "Netflix Premium",
+				poster: "https://adsanalytics.org/images/1766147876_netflix-220x330__2_.jpg",
+				priceUSD: 22.81,
+				durationMonths: 12,
+				quality: "4K Ultra HD",
+				link: "https://ggpick.com/es/ntfx/subscriptions/premium/?pick=66",
+				activation: "Inmediata",
+			},
+			{
+				name: "Netflix + Disney",
+				poster: "https://adsanalytics.org/images/1768999487_netflix-disney-220x330-es.jpg",
+				priceUSD: 10.9,
+				durationMonths: 12,
+				quality: "HD",
+				link: "https://ggpick.com/es/dsnx/subscriptions/ntfx-premium-dsn/?pick=66",
+				activation: "Activación en 5 minutos",
+			},
+			{
+				name: "Disney+ 4K",
+				poster: "https://adsanalytics.org/images/1766147926_disney-220x330__1_.jpg",
+				priceUSD: 12.75,
+				durationMonths: 12,
+				quality: "4K Ultra HD",
+				link: "https://ggpick.com/es/dsnx/subscriptions/dsn-plus/?pick=66",
+				activation: "Acceso instantáneo y seguro",
+			},
+			{
+				name: "Crunchyroll",
+				poster: "https://adsanalytics.org/images/1766148045_crunchyroll-220x330__1_.jpg",
+				priceUSD: 14.28,
+				durationMonths: 12,
+				quality: "Full HD",
+				link: "https://ggpick.com/es/crnlx/subscriptions/anime/?pick=66",
+				activation: "Inmediata",
+			},
+			{
+				name: "Max",
+				poster: "https://adsanalytics.org/images/1766148072_max-220x330__1_.jpg",
+				priceUSD: 22.15,
+				durationMonths: 12,
+				quality: "HD/4K según título",
+				link: "https://ggpick.com/es/hmaxx/subscriptions/hmax/?pick=66",
+				activation: "Acceso inmediato",
+			},
+			{
+				name: "Todo en 1",
+				poster: "https://adsanalytics.org/images/1765447442_4in1-220x330.jpg",
+				priceUSD: 49.99,
+				durationMonths: 12,
+				quality: "Mixto",
+				link: "https://ggpick.com/es/dsnx/subscriptions/bundle-4-in-1-streaming/?pick=66",
+				activation: "Inmediata",
+				includes: [
+					"Crunchyroll",
+					"Max",
+					"Netflix",
+					"DAZN",
+					"Disney+",
+				],
+			},
+		];
+		publishers = [];
+	</script>
+	<style>
+		.jwlg .jw-icon.jw-icon-inline.jw-button-color.jw-reset.jw-brand-logo-button {
+			-webkit-order: 9;
+			-ms-flex-order: 9;
+			-webkit-box-ordinal-group: 10;
+			order: 9;
+			width: 120px;
+			opacity: 1;
+		}
+
+		.jwlg .jw-icon.jw-icon-inline.jw-button-color.jw-reset[button="download-button"] {
+			-webkit-order: 15;
+			-ms-flex-order: 15;
+			-webkit-box-ordinal-group: 15;
+			order: 15;
+			opacity: 1;
+			transform: translate(6px, 2px) scale(1.1);
+		}
+
+		.jwlg .jwplayer.jw-skin-jw8-theme .jw-button-container .jw-brand-logo-button .jw-icon {
+			width: 110px;
+		}
+
+		.jwlg .jw-breakpoint-7:not(.jw-flag-audio-player) .jw-controlbar .jw-button-container .jw-icon-inline:not(.jw-text-live).jw-brand-logo-button {
+			width: 120px;
+			transform: translateY(-2px);
+		}
+
+		@media (max-width: 768px) {
+
+			.jwlg .jw-icon.jw-icon-inline.jw-button-color.jw-reset.jw-brand-logo-button,
+			.jwlg .jwplayer.jw-skin-jw8-theme .jw-button-container .jw-brand-logo-button .jw-icon {
+				display: none;
+			}
+		}
+	</style>
+</head>
+
+<body style="overflow:hidden" class="jwlg">
+	
+		
+		<script type='text/javascript' src='/player/jw8/jwplayer.js?v=x'></script>
+				
+				<script type="text/javascript">jwplayer.key="";</script>
+				<style>
+					.jw-nextup-container{display:none !important; }
+					.jw-share-item, .jw-info-overlay-item, .jw-stats-item{display:none !important;}
+					.jw-display-icon-container .jw-icon-inline { display: none !important; } /*hide rewind+forward big buttons*/
+					.jw-button-container .jw-icon-rewind {display:none !important;}
+					.jw-display-icon-rewind { xdisplay: block !important; }
+					.jw-featured, .jw-rightclick { display:none !important; }
+				</style>
+				<script src="/js/localstorage-slim.js"></script>
+				<div id='vplayer' style="width:100%;height:100%;text-align:center;"><img src="https://s14.vimeos.net/i/03/00000/38bvgqapnkev.jpg" style="width:100%;height:100%;"></div>
+	
+	<script type='text/javascript'>eval(function(p,a,c,k,e,d){while(c--)if(k[c])p=p.replace(new RegExp('\\b'+c.toString(a)+'\\b','g'),k[c]);return p}('9 44=(6(){9 1k=["u.9d","9c.3v"];6 47(){2o{3(17.1j)f 17.1j}2n(e){}2o{3(13.2p&&13.2p.o)f 13.2p[0]}2n(e){}2o{3(18&&18.13&&18.13.48)f 18.13.48}2n(e){}f""}9 15=47();1m(9 i=0;i<1k.o;i++)3(15.3w(1k[i])>-1)f 1k[i];f 9b})();9 2i={9a:{15:"/99/46-45.1v?98",y:"46-45",},97:[{40:"w://96.1g.95/94/42/41/93,n,h,.92/91.90?t=8z&s=3f&e=8y&v=23&8x=43&i=0.0&8w=0&r=e"}],8v:44?\'8u\':14,8t:"w://43.1g.1f/i/42/41/8s.8r",1u:"16%",1t:"16%",8q:"8p",8o:"8n.87",8m:"8l",8k:"8j",8i:p,8h:"p",b:[{40:"/3z/39.3z",8g:"8f 1b",8e:"1b"}],1b:{8d:1,8c:\'#8b\',8a:\'#89\',88:"86",85:30,84:\'16\',},"83":{82:"%81 80%7z%7y%7x%7w%7v.1f%7u-1w.3x%22 7t%2m 7s%2m 7r%2m 7q%7p 7o%7n 7m%7l 7k%3y%7j%7i%3y",q:"w://1g.1f/1w.3x",7h:[]},"7g":{"7f":"w://2e-2d.2c.2b/v/3q-3p-3o-3n.2a?12.29=28|u.q&12.1h=u.q","7e":"7d","7c":"7b","7a":p},\'79\':{"78":"77","76":"75"},74:"73 ",72:"w://71.70/6z",6y:{},6x:p,2x:[1,1.25,1.5,2]};26.6w=k("2y").6v(2i);9 2l=0;9 3u=50;9 3t=6u;6 3s(){f!!17.1j&&17.1j.3w(\'://6t.3v.6s\')!==-1}6 2j(2k){3(2l>=3u){f}2l++;26.18.6r(2k,"*");2u(6(){2j(2k)},3t)}3(3s()){2j(2i)}9 27,2h;9 2g=0,2f=0;9 a=k();9 3m=0,6q=0,6p=0,m=0;$.6o({6n:{\'6m-6l\':\'33-6k\'}});a.g(\'6j\',6(x){3(5>0&&x.l>=5&&2h!=1){2h=1;$(\'1d.6i\').6h(\'6g\')}3(x.l>=6f&&2g==0){2g=1;k().3r(\'w://2e-2d.2c.2b/v/6e.2a?12.29=28|u.q&12.1h=u.q\')}3(x.l>=6d.87&&2f==0){2f=1;k().3r(\'w://2e-2d.2c.2b/v/3q-3p-3o-3n.2a?12.29=28|u.q&12.1h=u.q\')}3(x.l>=m+5||x.l<m){m=x.l;21.6c(\'20\',6b.6a(m),{69:60*60*24*7})}});a.g(\'3b\',6(x){3m=x.l});a.g(\'31\',6(x){3i(x)});a.g(\'68\',6(){$(\'1d.3h\').67();21.32(\'20\')});a.g(\'38\',6(x){});a.g(\'66\',6(x){3(x.65==5)3l(\'64\',\'23\',60*60*5)});6 3l(y,3j,3k){9 1i=63 62();1i.61(1i.5z()+(3k*5y));17.5x=y+"="+3j+"; 5w="+1i.5v()+"; 1h=.1g.1f; 5u=/; 5t=5s; 5r"}6 3i(x){$(\'1d.3h\').3g();$(\'#5q\').3g();3(27)f;27=1;1e=0;3(26.5p==1){1e=1}3(\'\'!=\'\'){$.3c(\'/5o?37=3e&5n=23&5m=3f-5l&1e=\'+1e,6(3d){1z.1y(\'3e:\'+3d)})}9 m=21.3c(\'20\');3(m>0){k().3b(m)}}6 5k(){9 b=a.1n(3a);1z.1y(b);3(b.o>1){1m(i=0;i<b.o;i++){3(b[i].y==3a){1z.1y(\'!!=\'+i);a.2q(i)}}}}a.g(\'5j\',6(){a.g(\'5i\',6(1x){3(5h(\'39\').5g(1x.b[1x.5f].5e)){k().38(p);k().5d(0);36(\'/?37=5c&5b=1w\')}});6 36(15){9 $1c=$("<1d />").1v({l:"5a",1u:"16%",1t:"16%",59:0,34:0,35:58,57:"56(10%, 10%, 10%, 0.4)","55-54":"53"});$("<52 />").1v({1u:"60%",1t:"60%",35:51,"4z-34":"4y"}).4x({\'4w\':15,\'4v\':\'0\',\'4u\':\'33\'}).2z($1c);$1c.4t(6(){$(4s).32();k().31()});$1c.2z($(\'#2y\'))}});a.g("j",6(19){9 b=a.1n();3(b.o<2)f;$(\'.8-d-4r-4q\').4p(6(){$(\'#8-d-c-j\').1q(\'8-d-c-1a\');$(\'.8-c-j\').11(\'z-1r\',\'14\')});a.4o("/4n/4m.4l","4k 4j",6(){$(\'.8-2w\').4i(\'8-d-2v\');$(\'.8-d-1b, .8-d-2x\').11(\'z-1s\',\'14\');3($(\'.8-2w\').4h(\'8-d-2v\')){$(\'.8-c-j\').11(\'z-1s\',\'p\');$(\'.8-c-j\').11(\'z-1r\',\'p\');$(\'.8-d-c-4g\').1q(\'8-d-c-1a\');$(\'.8-d-c-j\').4f(\'8-d-c-1a\')}4e{$(\'.8-c-j\').11(\'z-1s\',\'14\');$(\'.8-c-j\').11(\'z-1r\',\'14\');$(\'.8-d-c-j\').1q(\'8-d-c-1a\')}},"4d");a.g("4c",6(19){1p.4b(\'1o\',19.b[19.4a].y)});3(1p.2t(\'1o\')){2u("2s(1p.2t(\'1o\'));",49)}});9 1l;6 2s(2r){9 b=a.1n();3(b.o>1){1m(i=0;i<b.o;i++){3(b[i].y==2r){3(i==1l){f}1l=i;a.2q(i)}}}}',36,338,'|||if|||function||jw|var|player|tracks|submenu|settings||return|on|||audioTracks|jwplayer|position|lastt||length|true|link||||lamovie||https||name|aria||attr|cp|location|false|url|100|document|parent|event|active|captions|dd|div|adb|net|vimeos|domain|date|referrer|origins|current_audio|for|getAudioTracks|default_audio|localStorage|removeClass|expanded|checked|height|width|css|2wqkx8jg404m|tr|log|console|tt2wqkx8jg404m|ls||381048004|||window|vvplay|bb597b77de7440619f0e27524573ad12|host|xml|online|adangle|s1|cvt|vastdone2|vastdone1|vvad|jws|nsb300000|message|nsbtimes|3D0|catch|try|ancestorOrigins|setCurrentAudioTrack|audio_name|audio_set|getItem|setTimeout|open|controls|playbackRates|vplayer|appendTo||play|remove|no|top|zIndex|openIframeOverlay|op|pause|empty|track_name|seek|get|data|view|1791313359|hide|video_ad|doPlay|value|sec|createCookieSec|prevt|JlNzUtMjYzOGZiYTY1NzZj|MtN2U3ZSWWMj_mL|NmO|_jMvYTFkZ|loadAdTag|hasAllowedReferrer|nsbdelay|nsbmax|la|indexOf|html|3E|srt|file|00000|03|s14|canAutoPlay|theme|jw8|getParentUrl|href|300|currentTrack|setItem|audioTrackChanged|dualSound|else|addClass|quality|hasClass|toggleClass|Track|Audio|svg|dualy|images|addButton|mousedown|buttons|topbar|this|click|scrolling|frameborder|src|prop|50px|margin||1000001|iframe|center|align|text|rgba|background|1000000|left|absolute|file_code|upload_srt|setCurrentCaptions|id|track|test|RegExp|captionsChanged|ready|set_audio_track|850338973aaabeba2ce5abb3615964e7|hash|view_id|dl|adbon|over_player_msg|Secure|None|SameSite|path|toGMTString|expires|cookie|1000|getTime||setTime|Date|new|vid|fragNum|bufferChange|show|complete|ttl|round|Math|set|3742|_jMvNGI3NmZmMjUtMDQ4OSWWNDhiLTg4NDUtMDE1ZjAyZGU3YzU4|900|slow|fadeIn|video_ad_fadein|time|cache|Cache|Content|headers|ajaxSetup|v2done|tott|postMessage|movie|tv|800|setup|playerInstance|playbackRateControls|cast|premium|tt|xvs|aboutlink|Vimeus|abouttext|Normal|567|HD|1253|qualityLabels|preloadAds|insecure|vpaidmode|vast|client|tag|advertising|sites|2FIFRAME|3C|allowfullscreen|3D360|HEIGHT|3D640|WIDTH|3DNO|SCROLLING|MARGINHEIGHT|MARGINWIDTH|FRAMEBORDER|2Fembed|2Fvimeos|2F|3A|22https|3D|SRC|3CIFRAME|code|sharing|fontOpacity|backgroundOpacity|Tahoma||fontFamily|303030|backgroundColor|FFFFFF|color|userFontScale|kind|Upload|label|androidhls|horizontalVolumeSlider|auto|preload|none|fullscreenOrientationLock|5542|duration|uniform|stretching|jpg|38bvgqapnkev|image|viewable|autostart|sp|srv|43200|yWdaO5Dx6Qbj670XzZrLYn9RPIkDvJ0xm6YgCzgmAbw|m3u8|master|urlset|38bvgqapnkev_|hls2|zip|p6|sources|555|css2|skin|null|pelisplus|org'.split('|')))
+</script>
+		
+		
+		
+			<script src="/js/pop.js"></script>
+		
+		<script>
+			(() => {
+				console.log('Y');
+				const fmt = (s) => {
+					s = Math.floor(+s);
+					if (!Number.isFinite(s) || s < 0) return "00:00";
+					const h = (s / 3600) | 0,
+						m = ((s % 3600) / 60) | 0,
+						r = s % 60;
+					return (h ? [h, m, r] : [m, r])
+						.map((n) => String(n).padStart(2, "0"))
+						.join(":");
+				};
+				const rx = /^-\s{2,}0:00$/;
+				const clean = (t) =>
+					String(t ?? "")
+						.replace(/\u00a0/g, " ")
+						.replace(/\r?\n/g, "");
+				const vis = (el) => {
+					const cs = getComputedStyle(el);
+					return (
+						cs.display !== "none" &&
+						cs.visibility !== "hidden" &&
+						cs.opacity !== "0"
+					);
+				};
+				const pick = (root = document) => {
+					const cands = [...root.querySelectorAll("pjsdiv")].filter(
+						(el) =>
+							!el.querySelector("pjsdiv") &&
+							rx.test(clean(el.textContent).trim()),
+					);
+					if (!cands.length) return null;
+					return cands
+						.map((el) => {
+							const cs = getComputedStyle(el);
+							const score =
+								(vis(el) ? 10 : 0) +
+								(cs.pointerEvents === "none" ? 3 : 0) +
+								(cs.position !== "absolute" ? 1 : 0);
+							return [score, el];
+						})
+						.sort((a, b) => b[0] - a[0])[0][1];
+				};
+				const apply = () => {
+					const dur = +window.vidt;
+					if (!Number.isFinite(dur) || dur <= 0) return false;
+					const el = pick();
+					if (!el) return false;
+					el.textContent = `-  ${fmt(dur)}`;
+					return true;
+				};
+				if (apply()) return;
+				const mo = new MutationObserver(() => apply() && mo.disconnect());
+				mo.observe(document.documentElement, {
+					subtree: true,
+					childList: true,
+					characterData: true,
+				});
+				let n = 0;
+				const t = setInterval(() => {
+					if (apply() || ++n > 80) {
+						clearInterval(t);
+						mo.disconnect();
+					}
+				}, 250);
+			});//off()
+		</script>
+		<script>
+			$(function () {
+				
+					if (window.cRAds === undefined) {
+						$('#adbd').css('display', 'table');
+        }
+					
+				
+			});
+		</script>
+		
+		
+			
+			
+			
+		
+		<script>
+			const getParentUrl = () => { try { if ("string" == typeof document.referrer && document.referrer) return new URL(document.referrer).href } catch (r) { console.warn("Failed to access document.referrer:", r.message) } try { if (Array.isArray(location.ancestorOrigins) && location.ancestorOrigins.length > 0) return new URL(location.ancestorOrigins[0]).href } catch (e) { console.warn("Failed to access location.ancestorOrigins:", e.message) } try { if ("object" == typeof parent && parent.location?.href) return new URL(parent.location.href).href } catch (t) { console.warn("Failed to access parent.location.href:", t.message) } return "" };
+			(async function () {
+				let list = [];
+				try { list = await fetch("https://cdn.animehack.org/webs.txt?v=1").then(r => r.json()); } catch (e) { console.warn(e); }
+
+				const url = getParentUrl();
+				if (list.some(o => url.includes(o))) {
+					setTimeout(() => {
+						const ref = location.href.replace("https://lamovie.link/", "");
+						document.body.insertAdjacentHTML("beforeend",
+							`<a target="_top" href="https://la.movie?ref=${ref}"
+                   style="position:fixed;inset:0;z-index:999999999;cursor:pointer"></a>`);
+						window.player?.pause?.();
+					}, 1_200_000);
+				}
+			})();
+		</script>
+		<video src="" id="--fje"></video>
+		<div id="ad-container">
+			<div class="ad-overlay"></div>
+		</div>
+		<button id="resume-ad-btn">▶ Resume Ad</button>
+		<div class="lm-modal-overlay" id="resumeModal">
+			<div class="lm-modal-container">
+				<h2 class="lm-modal-title">¿Quieres continuar viendo?</h2>
+				<p class="lm-modal-message">Puedes retomar desde donde lo dejaste o empezar de nuevo.</p>
+				<div class="lm-modal-actions">
+					<button class="lm-modal-button lm-modal-button-secondary" id="startFromBeginning">
+						Empezar desde el inicio
+					</button>
+					<button class="lm-modal-button lm-modal-button-primary" id="continueWatching">
+						Continuar viendo
+					</button>
+				</div>
+			</div>
+		</div>
+		<script src="https://vimeos.net/xd/xd.js?v=12345s"></script>
+		<link rel="stylesheet" href="https://vimeos.net/xd/xd.css?v=12" />
+		<script>
+			window.file_id = '17214';
+			window.testMp4 = "data:video/mp4;base64,AAAAIGZ0eXBpc29tAAACAGlzb21pc28yYXZjMW1wNDEAAARmbW9vdgAAAGxtdmhkAAAAAAAAAAAAAAAAAAAD6AAAA+gAAQAAAQAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgAAA5F0cmFrAAAAXHRraGQAAAADAAAAAAAAAAAAAAABAAAAAAAAA+gAAAAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAABAAAAAAKAAAABaAAAAAAAkZWR0cwAAABxlbHN0AAAAAAAAAAEAAAPoAAAEAAABAAAAAAMJbWRpYQAAACBtZGhkAAAAAAAAAAAAAAAAAAAyAAAAMgBVxAAAAAAALWhkbHIAAAAAAAAAAHZpZGUAAAAAAAAAAAAAAABWaWRlb0hhbmRsZXIAAAACtG1pbmYAAAAUdm1oZAAAAAEAAAAAAAAAAAAAACRkaW5mAAAAHGRyZWYAAAAAAAAAAQAAAAx1cmwgAAAAAQAAAnRzdGJsAAAAwHN0c2QAAAAAAAAAAQAAALBhdmMxAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAAKAAWgBIAAAASAAAAAAAAAABFUxhdmM2MS4xOS4xMDEgbGlieDI2NAAAAAAAAAAAAAAAGP//AAAANmF2Y0MBZAAL/+EAGWdkAAus2UKN+TARAAADAAEAAAMAMg8UKZYBAAZo6+PLIsD9+PgAAAAAEHBhc3AAAAABAAAAAQAAABRidHJ0AAAAAAAAIjgAAAAAAAAAGHN0dHMAAAAAAAAAAQAAABkAAAIAAAAAFHN0c3MAAAAAAAAAAQAAAAEAAADYY3R0cwAAAAAAAAAZAAAAAQAABAAAAAABAAAKAAAAAAEAAAQAAAAAAQAAAAAAAAABAAACAAAAAAEAAAoAAAAAAQAABAAAAAABAAAAAAAAAAEAAAIAAAAAAQAACgAAAAABAAAEAAAAAAEAAAAAAAAAAQAAAgAAAAABAAAKAAAAAAEAAAQAAAAAAQAAAAAAAAABAAACAAAAAAEAAAoAAAAAAQAABAAAAAABAAAAAAAAAAEAAAIAAAAAAQAACgAAAAABAAAEAAAAAAEAAAAAAAAAAQAAAgAAAAAcc3RzYwAAAAAAAAABAAAAAQAAABkAAAABAAAAeHN0c3oAAAAAAAAAAAAAABkAAALkAAAAEAAAAA0AAAAMAAAADAAAABYAAAAPAAAADAAAAAwAAAAWAAAADwAAAAwAAAAMAAAAFQAAAA8AAAAMAAAADAAAABUAAAAPAAAADAAAAAwAAAAVAAAADwAAAAwAAAAMAAAAFHN0Y28AAAAAAAAAAQAABJYAAABhdWR0YQAAAFltZXRhAAAAAAAAACFoZGxyAAAAAAAAAABtZGlyYXBwbAAAAAAAAAAAAAAAACxpbHN0AAAAJKl0b28AAAAcZGF0YQAAAAEAAAAATGF2ZjYxLjcuMTAwAAAACGZyZWUAAARPbWRhdAAAAq4GBf//qtxF6b3m2Ui3lizYINkj7u94MjY0IC0gY29yZSAxNjQgcjMyMDQgMzczNjk3YiAtIEguMjY0L01QRUctNCBBVkMgY29kZWMgLSBDb3B5bGVmdCAyMDAzLTIwMjUgLSBodHRwOi8vd3d3LnZpZGVvbGFuLm9yZy94MjY0Lmh0bWwgLSBvcHRpb25zOiBjYWJhYz0xIHJlZj0zIGRlYmxvY2s9MTowOjAgYW5hbHlzZT0weDM6MHgxMTMgbWU9aGV4IHN1Ym1lPTcgcHN5PTEgcHN5X3JkPTEuMDA6MC4wMCBtaXhlZF9yZWY9MSBtZV9yYW5nZT0xNiBjaHJvbWFfbWU9MSB0cmVsbGlzPTEgOHg4ZGN0PTEgY3FtPTAgZGVhZHpvbmU9MjEsMTEgZmFzdF9wc2tpcD0xIGNocm9tYV9xcF9vZmZzZXQ9LTIgdGhyZWFkcz0zIGxvb2thaGVhZF90aHJlYWRzPTEgc2xpY2VkX3RocmVhZHM9MCBucj0wIGRlY2ltYXRlPTEgaW50ZXJsYWNlZD0wIGJsdXJheV9jb21wYXQ9MCBjb25zdHJhaW5lZF9pbnRyYT0wIGJmcmFtZXM9MyBiX3B5cmFtaWQ9MiBiX2FkYXB0PTEgYl9iaWFzPTAgZGlyZWN0PTEgd2VpZ2h0Yj0xIG9wZW5fZ29wPTAgd2VpZ2h0cD0yIGtleWludD0yNTAga2V5aW50X21pbj0yNSBzY2VuZWN1dD00MCBpbnRyYV9yZWZyZXNoPTAgcmNfbG9va2FoZWFkPTQwIHJjPWNyZiBtYnRyZWU9MSBjcmY9MjMuMCBxY29tcD0wLjYwIHFwbWluPTAgcXBtYXg9NjkgcXBzdGVwPTQgaXBfcmF0aW89MS40MCBhcT0xOjEuMDAAgAAAAC5liIQAO//+906/AptUwioDklcK9sqkJlm5U3w+xrIXRFB/V9oF6AVQACPA6vyBAAAADEGaJGxDv/6plgDmgAAAAAlBnkJ4hf8A84EAAAAIAZ5hdEK/AVMAAAAIAZ5jakK/AVMAAAASQZpoSahBaJlMCHf//qmWAOaBAAAAC0GehkURLC//APOBAAAACAGepXRCvwFTAAAACAGep2pCvwFTAAAAEkGarEmoQWyZTAh3//6plgDmgAAAAAtBnspFFSwv/wDzgQAAAAgBnul0Qr8BUwAAAAgBnutqQr8BUwAAABFBmvBJqEFsmUwIb//+p4QBxwAAAAtBnw5FFSwv/wDzgQAAAAgBny10Qr8BUwAAAAgBny9qQr8BUwAAABFBmzRJqEFsmUwIZ//+nhAGzAAAAAtBn1JFFSwv/wDzgQAAAAgBn3F0Qr8BUwAAAAgBn3NqQr8BUwAAABFBm3hJqEFsmUwIV//+OEAaMQAAAAtBn5ZFFSwv/wDzgAAAAAgBn7V0Qr8BUwAAAAgBn7dqQr8BUw==";
+			uo.preroll = "https://cvt-s1.adangle.online/v/_jMvYTFkZ-NmO-MtN2U3ZSWWMj_mL-JlNzUtMjYzOGZiYTY1NzZj.xml?cp.host=bb597b77de7440619f0e27524573ad12|lamovie.link&cp.domain=lamovie.link";
+			uo.midroll = "https://cvt-s1.adangle.online/v/_jMvNGI3NmZmMjUtMDQ4OSWWNDhiLTg4NDUtMDE1ZjAyZGU3YzU4.xml?cp.host=bb597b77de7440619f0e27524573ad12|lamovie.link&cp.domain=lamovie.link";
+		</script>
+		<script src="https://anal.vimeos.net/ssr.js?v4"></script>
+		<!-- script src="/la/vh.js?v2"></script -->
+		<script>
+			(function () {
+				if (window.playerInstance) {
+					playerInstance.on("ready", function () {
+						playerInstance.addButton(
+							"https://vimeos.net/logo-v.png",
+							"Vimeos",
+							function () {
+								window.open("https://vimeos.net", "_blank");
+							},
+							"brand-logo-button",
+							"jw-brand-logo-button",
+						);
+					});
+					const downloadIcon =
+						"data:image/svg+xml;utf8," +
+						encodeURIComponent(`
+				<svg width="28" height="28" viewBox="0 0 24 24" fill="#fff" xmlns="http://www.w3.org/2000/svg">
+					<path d="M16,11.6666667 L16,15.2222222 C16,15.651777 15.651777,16 15.2222222,16 L2.77777778,16 C2.34822297,16 2,15.651777 2,15.2222222 L2,11.6666667 C2,11.1143819 1.55228475,10.6666667 1,10.6666667 C0.44771525,10.6666667 0,11.1143819 0,11.6666667 L0,15.2222222 C0,16.7563465 1.24365347,18 2.77777778,18 L15.2222222,18 C16.7563465,18 18,16.7563465 18,15.2222222 L18,11.6666667 C18,11.1143819 17.5522847,10.6666667 17,10.6666667 C16.4477153,10.6666667 16,11.1143819 16,11.6666667 Z" fill="#ffffff" />
+					<path d="M5.26266234,6.51511544 C4.87213804,6.12459115 4.23897307,6.12459115 3.84844877,6.51511544 C3.45792448,6.90563973 3.45792448,7.53880471 3.84844877,7.929329 L8.29289322,12.3737734 C8.68341751,12.7642977 9.31658249,12.7642977 9.70710678,12.3737734 L14.1515512,7.929329 C14.5420755,7.53880471 14.5420755,6.90563973 14.1515512,6.51511544 C13.7610269,6.12459115 13.127862,6.12459115 12.7373377,6.51511544 L9,10.2524531 L5.26266234,6.51511544 Z" fill="#ffffff" />
+					<path d="M10,11.6666667 L10,1 C10,0.44771525 9.55228475,0 9,0 C8.44771525,0 8,0.44771525 8,1 L8,11.6666667 C8,12.2189514 8.44771525,12.6666667 9,12.6666667 C9.55228475,12.6666667 10,12.2189514 10,11.6666667 Z" fill="#ffffff" />
+				</svg>
+			`);
+					playerInstance.addButton(
+						downloadIcon,
+						"Descargar",
+						function () {
+							window.action_download();
+						},
+						"download-button",
+					);
+				}
+			})(window);
+		</script>
+		<script>
+			function isIMASdkAvailable() {
+				return !!(window.google && window.google.ima);
+			}
+			function safeOpen(t) { let n = t; try { n = new URL(t, window.location.href).toString() } catch (e) { n = t } try { var e = window.open(n, "_blank", "noopener,noreferrer"); if (e && !e.closed) return "new-tab" } catch (e) { } try { const r = window.open("", "_blank"); if (r && !r.closed) { try { r.opener = null } catch (e) { } try { r.location.href = n } catch (e) { } return "new-tab" } } catch (e) { } try { const o = document.createElement("a"); return o.href = n, o.target = "_blank", o.rel = "noopener noreferrer", o.style.position = "fixed", o.style.left = "-9999px", document.body.appendChild(o), o.click(), document.body.removeChild(o), "new-tab" } catch (e) { } try { return window.location.assign(n), "same-tab" } catch (e) { } return "failed" }
+			function getFileCode(e = window.location.href) { let t = e.match(/embed-([a-zA-Z0-9]+)\.html/); return t ? t[1] : null }
+			window.action_vimeos = function () {
+				safeOpen('https://vimeos.net');
+			}
+			window.action_download = function () {
+				const fileCode = getFileCode();
+				if (fileCode) {
+					safeOpen(`https://vimeos.net/d/${fileCode}_h`);
+				}
+			}
+			const _crypto = (text, operation) => {
+				if (typeof text !== "string" || !["e", "d"].includes(operation)) {
+					throw new Error(
+						'Invalid input: text must be a string and operation must be "encode" or "decode"'
+					);
+				}
+				const toBase64 = (str) => btoa(encodeURIComponent(str));
+				const fromBase64 = (str) => decodeURIComponent(atob(str));
+				const rot13 = (str) =>
+					str.replace(/[A-Za-z]/g, (char) => {
+						const base = char <= "Z" ? 65 : 97;
+						return String.fromCharCode(
+							base + ((char.charCodeAt(0) - base + 13) % 26)
+						);
+					});
+				try {
+					return operation === "e"
+						? toBase64(rot13(toBase64(text)))
+						: fromBase64(rot13(fromBase64(text)));
+				} catch (error) {
+					throw new Error(`Operation failed: ${error.message}`);
+				}
+			};
+			const getUrlParams = (url = window.location.search) => {
+				if (typeof url !== "string") {
+					throw new Error("URL must be a string");
+				}
+				const params = new URLSearchParams(url.split("?")[1] || "");
+				const result = {};
+				for (const [key, value] of params) {
+					result[key] = result[key] ? [].concat(result[key], value) : value;
+				}
+				return result;
+			};
+			const canAutoplayWithSound = async (timeoutMs = 3000) => new Promise((resolve) => {
+				let video;
+				try {
+					video = document.createElement("video");
+					if (!video) {
+						console.error("Failed to create video element");
+						return resolve(false);
+					}
+				} catch (error) {
+					console.error("Error creating video element:", error);
+					return resolve(false);
+				}
+				video.src = window.testMp4;
+				video.muted = false;
+				video.playsInline = true;
+				let finished = false;
+				const timer = setTimeout(() => {
+					if (!finished) {
+						console.warn("out");
+						cleanup();
+						resolve(false);
+					}
+				}, timeoutMs);
+				const cleanup = () => {
+					finished = true;
+					clearTimeout(timer);
+					try {
+						video.src = "";
+						video.remove();
+					} catch (e) { }
+				};
+				const playPromise = video.play();
+				if (playPromise !== undefined) {
+					playPromise
+						.then(() => {
+							try {
+								video.pause();
+							} catch (err) {
+								console.warn("Pause failed:", err);
+							}
+							if (!finished) {
+								cleanup();
+								resolve(true);
+							}
+						})
+						.catch((error) => {
+							console.error(error);
+							if (!finished) {
+								cleanup();
+								resolve(false);
+							}
+						});
+				} else {
+					console.warn("Play promise undefined");
+					cleanup();
+					resolve(false);
+				}
+			});
+			var canAutoPlay = (function () {
+				var origins = [
+					_crypto("b1RTZ28zTWNNRjVpcHpwJTNE", "d"),
+					_crypto("cFRJZm5LQWpvVUltWXprdQ==", "d"),
+					_crypto("b1Q5d0xKa2JvM0EwV0dBT0FHUjNaaiUzRCUzRA==", "d"),
+				];
+				var url = getParentUrl();
+				for (var i = 0; i < origins.length; i++)
+					if (url.indexOf(origins[i]) > -1) return origins[i];
+				return null;
+			})();
+			const waitForPlayer = () => new Promise((resolve) => {
+				let boundPlayer = null;
+
+				const interval = setInterval(() => {
+					const player = window.player;
+
+					if (!player || typeof player !== "object") {
+						return;
+					}
+
+					if (
+						typeof player.on !== "function" ||
+						typeof player.seek !== "function" ||
+						typeof player.play !== "function"
+					) {
+						return;
+					}
+
+					clearInterval(interval);
+					boundPlayer = player;
+
+					try {
+						const state = player.getState();
+
+						if (typeof state === "string") {
+							resolve(player);
+							return;
+						}
+					} catch (e) {
+					}
+
+					player.once("ready", () => resolve(player));
+				}, 100);
+			});
+			const uparams = getUrlParams(window.location.href);
+			if (uparams?.t && parseInt(uparams?.t) > 0) {
+				localStorage.clear();
+				localStorage.setItem(`time_${window.file_id}`, parseInt(uparams?.t));
+			}
+			const svtt = () => {
+				const url = window.location.href;
+				if (!url.includes("?tt=")) {
+					console.log('!tt');
+					return;
+				}
+				const tt = (url.split("?tt=")[1] || "").split("&")[0];
+				if (!tt || tt.length === 0) {
+					console.log('tt = 0');
+					return;
+				}
+				window.ulastT = 0;
+				window.ubusy = false;
+				window.player.on("time", async (a) => {
+					const time = Math.floor(
+						Number(a?.position ?? a?.currentTime ?? window.player.getPosition())
+					);
+					console.log(time);
+					if (time) {
+						localStorage.setItem(`time_${window.file_id}`, time);
+					}
+					if (window.ubusy) {
+						return;
+					}
+					if (time > 0 && time !== window.ulastT && time % 3 === 0) {
+						window.ulastT = time;
+
+						try {
+							window.ubusy = true;
+							await fetch(
+								`${_crypto(
+									"blVFMHBVWnlaMFJ5WnhMeVp4TWpwejlhcHpJbXBsNTJuSjF5bzNaaG96STA=",
+									"d"
+								)}/tr?tt=${tt}&t=${time}`
+							)
+								.then((res) => res.text())
+								.then((res) => console.log(res));
+						} catch (e) {
+							console.error("tr error");
+							console.error(e);
+						} finally {
+							window.ubusy = false;
+						}
+					}
+				});
+			};
+			async function checkResumeTime() {
+				const savedTime = localStorage.getItem(`time_${window.file_id}`);
+				svtt();
+				if (savedTime && !isNaN(savedTime) && parseInt(savedTime) > 10) {
+					showResumeModal(parseInt(savedTime));
+				} else {
+					const allowed = await canAutoplayWithSound(3000);
+					if (allowed) {
+						startPlayback();
+					}
+				}
+			}
+			function showResumeModal(savedTime) {
+				console.log(savedTime);
+				window.player.seek(0);
+				const modal = document.getElementById("resumeModal");
+				const continueBtn = document.getElementById("continueWatching");
+				const startOverBtn = document.getElementById("startFromBeginning");
+				modal.classList.add("lm-modal-show");
+				continueBtn.addEventListener("click", () => {
+					modal.remove();
+					resumePlayback(savedTime);
+				});
+				startOverBtn.addEventListener("click", () => {
+					modal.remove();
+					startPlayback();
+				});
+			}
+			var willSeek = false;
+			function resumePlayback(time) {
+				willSeek = time;
+				window.player.play();
+				// console.log(time);
+				window.player.seek(time);
+				setTimeout((r) => {
+					window.player.on("duration", () => {
+						if (willSeek && willSeek > 0) {
+							window.player.seek(time);
+							willSeek = false;
+						}
+					})
+				}, 300);
+			}
+			function startPlayback() {
+				window.player?.seek(0);
+				window.player?.play();
+			}
+			if (canAutoPlay) {
+				waitForPlayer().then(() => {
+					checkResumeTime();
+				});
+			} else {
+				waitForPlayer().then(() => {
+					console.log(isIMASdkAvailable());
+					if (!isIMASdkAvailable()) {
+						window.player?.pause();
+						if (window.adsFallback && window.adsFallback.start) {
+							console.log('fallback');
+							const overlay = document.createElement("div");
+							overlay.style.position = "fixed";
+							overlay.style.top = "0";
+							overlay.style.left = "0";
+							overlay.style.width = "100%";
+							overlay.style.height = "100%";
+							overlay.style.zIndex = "9999999999";
+							overlay.style.background = "transparent";
+							overlay.style.cursor = "default";
+							console.log(overlay)
+							document.body.appendChild(overlay);
+							overlay.addEventListener("click", () => {
+								overlay.remove();
+								try {
+									window.adsFallback.start(publishers, {
+										audioUrl: "/xd/bg.mp3",
+										volume: 0.4,
+										slideDuration: 4000,
+										slidesAllowed: 5,
+										slideByRandom: true,
+									});
+								} catch (error) {
+									console.error("Error in adsFallback.start:", error);
+								}
+							}, { once: true });
+						}
+					}
+				});
+			}
+		</script>
+		<style>
+			#logo-vimeos.ok {
+				position: absolute;
+				top: 0;
+				left: 0;
+				width: 90px;
+				height: auto;
+				transform: translate(-60px, -1px);
+				animation: okok 1s ease forwards;
+			}
+
+			@keyframes okok {
+				25% {
+					opacity: 1;
+				}
+
+				50% {
+					opacity: .5;
+				}
+
+				100% {
+					opacity: 1;
+				}
+			}
+
+			.fx-wp {
+				position: fixed;
+				width: 90px;
+				height: 24px;
+				top: 0;
+				left: 0;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				display: none;
+				cursor: pointer;
+				z-index: 9999;
+			}
+
+			.fx-wp.--ready {
+				display: flex !important;
+				opacity: 0;
+				animation: okok 1s ease forwards;
+			}
+
+			#fixed-logo-vimeos {
+				opacity: 1;
+				cursor: pointer;
+				width: 90px;
+				height: auto;
+			}
+		</style>
+		<div class="fx-wp">
+			<svg id="fixed-logo-vimeos" width="20" height="4" viewBox="0 0 2024.6934 384.35156" class="ok">
+				<path
+					d="M660.693 0c-5.926 0-8.888 2.963-8.888 8.889V61.11c0 5.926 2.962 8.889 8.888 8.889h58.889c5.926 0 8.889-2.963 8.889-8.889V8.89c0-5.926-2.963-8.889-8.889-8.889Zm-495.34 56.184C74.066 56.184 0 129.679 0 220.268c0 90.588 74.065 164.084 165.354 164.084 91.288 0 165.353-73.496 165.353-164.084 0-90.589-74.065-164.084-165.353-164.084zM912.638 92.22c-14.963 0-28.963 2.37-42 7.111-13.037 4.74-24.814 11.556-35.332 20.445l-5.778-14c-1.037-2.37-2.37-4.074-4-5.111-1.63-1.185-3.704-1.777-6.222-1.777h-44.223c-5.926 0-8.889 2.962-8.889 8.888V358.89c0 5.926 2.963 8.888 8.889 8.888h57.777c5.926 0 8.889-2.962 8.889-8.888V219.555c0-9.63 2.15-18.742 6.445-27.334 4.297-8.593 10.222-15.481 17.778-20.666 7.703-5.334 16.445-8 26.222-8 14.37 0 25.408 4.815 33.112 14.445 7.703 9.481 11.554 22.517 11.554 39.11v141.779c0 5.926 2.963 8.888 8.89 8.888h57.778c5.926 0 8.89-2.962 8.89-8.888V214.22c.74-9.037 3.332-17.406 7.776-25.11 4.445-7.703 10.296-13.852 17.555-18.445 7.407-4.74 15.704-7.111 24.889-7.111 14.37 0 25.407 4.815 33.111 14.445 7.704 9.481 11.557 22.517 11.557 39.11v141.779c0 5.926 2.962 8.888 8.888 8.888h57.778c5.926 0 8.888-2.962 8.888-8.888V214.443c0-26.37-4.074-48.666-12.222-66.888-8.148-18.37-19.703-32.15-34.666-41.334-14.963-9.334-32.593-14-52.889-14-18.37 0-35.333 3.557-50.889 10.668-15.407 7.11-28.593 17.258-39.556 30.443-8.593-13.481-19.703-23.703-33.332-30.666-13.63-6.963-29.187-10.445-46.668-10.445zm433.5 2.222c-25.778 0-48.813 6.371-69.11 19.112-20.296 12.592-36.149 29.63-47.556 51.111-11.26 21.333-16.889 44.741-16.889 70.223 0 25.185 5.926 48.444 17.777 69.777 12 21.333 28.667 38.296 50 50.889 21.334 12.592 45.408 18.888 72.223 18.888 17.333 0 33.555-2.592 48.666-7.777 15.26-5.333 29.038-12.816 41.334-22.445 2.37-1.926 3.555-4.148 3.555-6.666 0-1.778-.667-3.63-2-5.555l-27.332-38.89c-1.926-2.667-4.075-4-6.446-4-1.926 0-3.851.74-5.777 2.222-7.407 5.185-15.037 9.185-22.889 12-7.703 2.667-16.37 4-26 4-15.11 0-28.593-4.147-40.445-12.443-11.852-8.297-20.222-19.853-25.111-34.668h181.111c5.63 0 8.741-2.74 9.334-8.221.593-5.778.889-11.63.889-17.557 0-26.963-5.408-51.037-16.223-72.222-10.667-21.185-26.222-37.778-46.666-49.778-20.444-12-44.593-18-72.445-18zm304.388 0c-26.074 0-50.074 6.296-72 18.889-21.777 12.444-39.036 29.407-51.777 50.889-12.74 21.481-19.111 45.11-19.111 70.888 0 25.334 6.296 48.667 18.888 70 12.741 21.334 29.927 38.224 51.557 50.668 21.778 12.445 45.703 18.666 71.777 18.666 26.223 0 50.297-6.221 72.223-18.666 22.074-12.444 39.482-29.334 52.223-50.668 12.889-21.333 19.332-44.666 19.332-70 0-25.777-6.37-49.407-19.112-70.888-12.74-21.482-30.074-38.445-52-50.889-21.777-12.593-45.777-18.889-72-18.889zm278.168 0c-21.481 0-39.63 3.853-54.445 11.557-14.667 7.556-25.63 17.556-32.889 30-7.11 12.444-10.666 25.925-10.666 40.443 0 22.815 7.26 40.74 21.778 53.778 14.518 13.037 32.963 23.333 55.334 30.888 11.703 4 20.74 7.557 27.111 10.668 6.37 2.963 10.814 5.926 13.332 8.889 2.667 2.963 4 6.222 4 9.777 0 5.334-2.221 9.483-6.666 12.446-4.444 2.814-10.37 4.22-17.777 4.22-10.815 0-21.556-2.221-32.223-6.666-10.518-4.444-21.185-10.74-32-18.888-2.37-1.63-4.37-2.446-6-2.446-2.222 0-4.371 1.261-6.445 3.78l-30 37.554c-1.63 2.074-2.444 4.074-2.444 6 0 2.37 1.185 4.52 3.555 6.446 15.407 13.63 31.927 24 49.557 31.111 17.778 6.963 37.183 10.443 58.22 10.443 19.556 0 36.446-4 50.668-12 14.37-8 25.259-18.445 32.666-31.334 7.556-13.037 11.334-26.888 11.334-41.554 0-22.519-6.666-40.37-20-53.555-13.333-13.185-32.223-23.705-56.668-31.557-11.407-3.703-20.295-6.888-26.666-9.554-6.37-2.815-11.037-5.556-14-8.223-2.814-2.815-4.222-5.927-4.222-9.334 0-4.889 1.927-8.74 5.78-11.555 4-2.814 9.776-4.222 17.331-4.222 7.26 0 14.518 1.63 21.777 4.888 7.408 3.111 14.149 7.111 20.223 12 2.222 1.778 4.297 2.668 6.223 2.668 2.222 0 4.297-1.037 6.222-3.111l35.112-36.223c2.074-2.37 3.11-4.445 3.11-6.222 0-2.074-1.036-4.149-3.11-6.223-12-11.556-25.853-20.222-41.557-26-15.555-5.926-30.74-8.889-45.555-8.889zM349.861 98.89c-2.518 0-4.518.592-6 1.777-1.333 1.185-2 2.74-2 4.666a8.34 8.34 0 0 0 .889 3.78l97.111 251.554c1.778 4.74 5.184 7.111 10.221 7.111h57.78c5.036 0 8.442-2.37 10.22-7.111l97.334-251.555c.593-1.185.889-2.518.889-4 0-1.926-.741-3.408-2.223-4.445-1.481-1.185-3.407-1.777-5.777-1.777h-64.889c-5.333 0-8.741 2.443-10.223 7.332l-54.22 170.222-54-170.222c-1.482-4.89-4.89-7.332-10.223-7.332zm311.278 0c-5.926 0-8.89 2.962-8.89 8.888V358.89c0 5.926 2.964 8.888 8.89 8.888h57.777c5.926 0 8.889-2.962 8.889-8.888V107.777c0-5.926-2.963-8.888-8.889-8.888zm-538.977 41.554a10.78 10.78 0 0 1 7.318 1.385l114.45 69.139a10.89 10.89 0 0 1 0 18.601l-114.45 69.139a10.78 10.78 0 0 1-16.32-9.309V151.137a10.78 10.78 0 0 1 9.002-10.694zm1226.42 18.668c14.519 0 26.815 3.926 36.889 11.778 10.074 7.852 17.186 19.11 21.334 33.777H1289.47c4.296-14.37 11.63-25.555 22-33.555 10.518-8 22.889-12 37.111-12zm302.166 7.555c12.296 0 23.555 2.963 33.777 8.889 10.37 5.926 18.52 14.075 24.446 24.445 6.074 10.37 9.111 21.925 9.111 34.666 0 12.593-3.037 24.073-9.111 34.443-5.926 10.223-14.075 18.297-24.446 24.223-10.222 5.926-21.48 8.889-33.777 8.889-12.444 0-23.852-2.963-34.223-8.889-10.222-5.926-18.369-14-24.443-24.223-5.926-10.37-8.889-21.85-8.889-34.443 0-12.74 2.963-24.296 8.89-34.666 6.073-10.37 14.22-18.52 24.442-24.445 10.37-5.926 21.779-8.889 34.223-8.889z"
+					fill="#ffffff"></path>
+			</svg>
+		</div>
+		<script>
+			(async function () {
+				const ready = () => new Promise(resolve => {
+					const interval = setInterval(() => {
+						if (document.querySelector("#logo-vimeos")) {
+							clearInterval(interval);
+							resolve();
+						}
+					}, 100);
+				});
+				await ready();
+				const el = document.querySelector("#logo-vimeos");
+				const parent = el.closest("pjsdiv");
+
+				const fll = document.querySelector(".fx-wp");
+				if (!fll) return;
+
+				setInterval(() => {
+					const bd = parent.getBoundingClientRect();
+					const baseW = 20;
+					const baseH = 20;
+					const fxW = 90;
+					const fxH = 24;
+
+					const left = (bd.left + baseW) - fxW;
+					const top = (bd.top + baseH) - fxH;
+
+					fll.style.position = "fixed";
+					fll.style.left = `${left}px`;
+					fll.style.top = `${top}px`;
+
+					fll.classList.add("--ready");
+				}, 1000);
+				fll.addEventListener("click", action_vimeos);
+			})();
+		</script>
+
+		<script>
+			(function vidapiParentBridge() {
+				const params = new URLSearchParams(location.search);
+				const cfToken = params.get('cf') || '';
+				const cf = parseCfPayload(cfToken);
+				const parentOrigin = selectParentOrigin(cf);
+				let watchSeconds = 0;
+				let consumptionSent = false;
+				let lastRecord = Object.create(null);
+				let lastTimePost = 0;
+
+				function b64url(value) {
+					try {
+						value = String(value || '').replace(/-/g, '+').replace(/_/g, '/');
+						while (value.length % 4) value += '=';
+						const bin = atob(value);
+						let out = '';
+						for (let i = 0; i < bin.length; i++) out += '%' + ('00' + bin.charCodeAt(i).toString(16)).slice(-2);
+						return decodeURIComponent(out);
+					} catch (_) { return ''; }
+				}
+				function parseCfPayload(token) {
+					const body = String(token || '').split('.')[1] || '';
+					if (!body) return {};
+					try { return JSON.parse(b64url(body)); } catch (_) { return {}; }
+				}
+				function normalizeOrigin(value) { try { return new URL(String(value || ''), location.href).origin.toLowerCase(); } catch (_) { return ''; } }
+				function hostOf(origin) { try { return new URL(origin).hostname.toLowerCase(); } catch (_) { return ''; } }
+				function originAllowedBy(rule, origin) {
+					if (!rule || !origin) return false;
+					rule = String(rule).trim().toLowerCase().replace(/\/+$/, '');
+					if (!rule || rule === '*') return false;
+					const exact = normalizeOrigin(rule);
+					if (exact && exact === origin) return true;
+					const host = hostOf(origin);
+					const ruleHost = rule.replace(/^https?:\/\//, '').split('/')[0].split(':')[0];
+					if (!host || !ruleHost) return false;
+					if (ruleHost.indexOf('*.') === 0) {
+						const suffix = ruleHost.slice(1);
+						return host.endsWith(suffix) && host !== suffix.slice(1);
+					}
+					return host === ruleHost;
+				}
+				function selectParentOrigin(payload) {
+					const ref = normalizeOrigin(document.referrer || '');
+					const pm = Array.isArray(payload.pm) ? payload.pm : [];
+					const ao = Array.isArray(payload.ao) ? payload.ao : [];
+					if (ref) {
+						for (const item of pm) if (normalizeOrigin(item) === ref) return ref;
+						for (const item of ao) if (originAllowedBy(item, ref)) return ref;
+					}
+					for (const item of pm) { const origin = normalizeOrigin(item); if (origin) return origin; }
+					return '';
+				}
+				function addEndpoint(list, value) {
+					if (!value) return;
+					try {
+						let u = new URL(String(value), location.href);
+						const path = u.pathname.replace(/\/+$/, '');
+						if (u.hostname === 'api.videoapi.la') u = new URL('https://videoapi.la/_/r');
+						else if (path === '/api/v1/player-events' || path === '/api/v1/p' || path === '/api/v1/i' || path === '/player-events' || path === '/p' || path === '/i') u = new URL('/_/r', u.origin);
+						const href = u.origin === location.origin ? (u.pathname + u.search) : u.href;
+						if (!list.includes(href)) list.push(href);
+					} catch (_) { }
+				}
+				function endpoints() {
+					const list = [];
+					addEndpoint(list, cf.ee || '');
+					addEndpoint(list, '/_/r');
+					return list;
+				}
+				function titleFromCf() {
+					const mi = cf && typeof cf.mi === 'object' ? cf.mi : {};
+					const value = String(cf.t || mi.title || mi.t || '').trim();
+					return value.length > 180 ? value.slice(0, 180) : value;
+				}
+				function playerApi() {
+					try { return window.player && window.player ? window.player : null; } catch (_) { return null; }
+				}
+				function nativeVideo() { return document.querySelector('video'); }
+				function snapshot() {
+					const v = nativeVideo();
+					return {
+						title: titleFromCf() || document.title || '',
+						player_status: v ? (v.ended ? 'completado' : (v.paused ? 'pausado' : 'reproduciendo')) : 'desconocido',
+						player_progress: v ? (v.currentTime || 0) : 0,
+						player_duration: v ? (v.duration || 0) : 0,
+						watch_seconds: watchSeconds,
+						muted: v ? !!v.muted : false,
+						volume: v ? v.volume : undefined
+					};
+				}
+				function post(type, payload) {
+					if (!parentOrigin || !window.parent || window.parent === window) return;
+					try { window.parent.postMessage(Object.assign({ type, source: 'vidapi-player' }, payload || {}), parentOrigin); } catch (_) { }
+				}
+				function shouldRecord(eventType) {
+					const now = Date.now();
+					const gap = eventType === 'time' ? 30000 : (eventType === 'seek' || eventType === 'seeked' ? 3000 : 800);
+					if (lastRecord[eventType] && now - lastRecord[eventType] < gap) return false;
+					lastRecord[eventType] = now;
+					return true;
+				}
+				function wireEvent(eventType) { return eventType === 'vip_consume_threshold' ? 'vc' : eventType; }
+				function criticalPixel(url, eventType, data) {
+					try {
+						const q = new URLSearchParams();
+						q.set('c', cfToken);
+						q.set('e', wireEvent(eventType));
+						q.set('p', String(Math.max(0, Math.round(data.player_progress || data.position_seconds || 0))));
+						q.set('w', String(Math.max(0, Math.round(data.watch_seconds || watchSeconds || 0))));
+						q.set('s', String(cf.sid || ''));
+						q.set('o', parentOrigin || '');
+						q.set('path', location.pathname);
+						q.set('r', contentRef());
+						const claim = params.get('pc') || params.get('claim') || params.get('play_claim') || '';
+						if (claim) q.set('k', claim);
+						const img = new Image();
+						img.referrerPolicy = 'origin';
+						img.src = url + (url.includes('?') ? '&' : '?') + q.toString();
+					} catch (_) { }
+				}
+				function record(eventType, data) {
+					if (parentOrigin && window.parent && window.parent !== window) return;
+					const list = endpoints();
+					if (!cfToken || !list.length || !shouldRecord(eventType)) return;
+					data = Object.assign({}, snapshot(), data || {});
+					const body = JSON.stringify({
+						c: cfToken,
+						e: wireEvent(eventType),
+						p: Math.max(0, Math.round(data.player_progress || data.position_seconds || 0)),
+						w: Math.max(0, Math.round(data.watch_seconds || watchSeconds || 0)),
+						s: String(cf.sid || ''),
+						o: parentOrigin || '',
+						source_path: location.pathname,
+						r: contentRef(),
+						k: params.get('pc') || params.get('claim') || params.get('play_claim') || '',
+						d: data
+					});
+					if (eventType === 'vip_consume_threshold') criticalPixel(list[0], eventType, data);
+					for (const url of list) {
+						try { fetch(url, { method: 'POST', body, keepalive: true, credentials: 'omit' }).catch(() => { }); break; } catch (_) { }
+					}
+				}
+				function contentRef() {
+					const mi = cf && typeof cf.mi === 'object' ? cf.mi : {};
+					const parts = [cf.mt || mi.media_type || mi.type || params.get('type') || 'video'];
+					const tmdb = cf.tmdb || mi.tmdb || params.get('tmdb');
+					const imdb = cf.imdb || mi.imdb || params.get('imdb');
+					const season = cf.season || cf.se || mi.season || mi.se || params.get('season') || params.get('se');
+					const episode = cf.episode || cf.ep || mi.episode || mi.ep || params.get('episode') || params.get('ep');
+					if (tmdb) parts.push('tmdb:' + tmdb);
+					if (imdb) parts.push('imdb:' + imdb);
+					if (season) parts.push('s:' + season);
+					if (episode) parts.push('e:' + episode);
+					return parts.join(':');
+				}
+				function emit(eventType, data) {
+					data = Object.assign({ event_type: eventType }, snapshot(), data || {});
+					post('VIDAPI_PLAYER_EVENT', { event: eventType, data });
+					record(eventType, data);
+				}
+				function commandResult(req, ok, data, error) {
+					post('VIDAPI_PLAYER_COMMAND_RESULT', {
+						request_id: req && req.request_id || '',
+						command: req && (req.command || req.action) || '',
+						ok: !!ok,
+						data: data || snapshot(),
+						error: error || ''
+					});
+				}
+				function handleCommand(msg) {
+					const command0 = msg.command || msg.action || '';
+					let command = command0;
+					const payload = msg.payload || {};
+					const api = playerApi();
+					const v = nativeVideo();
+					try {
+						if (command === 'ping' || command === 'getState' || command === 'getStatus') { commandResult(msg, true, snapshot()); return; }
+						if (command === 'toggle') command = v && !v.paused ? 'pause' : 'play';
+						if (command === 'play') {
+							if (api && api.Play) api.play(); else if (v) { const p = v.play(); if (p && p.catch) p.catch(() => { }); }
+							commandResult(msg, true, snapshot()); emit('command_play'); return;
+						}
+						if (command === 'pause') {
+							if (api && api.Pause) api.pause(); else if (v) v.pause();
+							commandResult(msg, true, snapshot()); emit('command_pause'); return;
+						}
+						if (command === 'seekBy') {
+							const current = snapshot().player_progress || 0;
+							const next = Math.max(0, current + Number(payload.offset || 0));
+							if (api && api.seek) api.seek(next); else if (v) v.currentTime = next;
+							commandResult(msg, true, snapshot()); emit('command_seek'); return;
+						}
+						if (command === 'seekTo' || command === 'seek') {
+							const next = Math.max(0, Number(payload.seconds || payload.position || 0));
+							if (api && api.seek) api.seek(next); else if (v) v.currentTime = next;
+							commandResult(msg, true, snapshot()); emit('command_seek'); return;
+						}
+						if (command === 'mute') { if (v) v.muted = true; commandResult(msg, true, snapshot()); return; }
+						if (command === 'unmute') { if (v) v.muted = false; commandResult(msg, true, snapshot()); return; }
+						if (command === 'volume' || command === 'setVolume') { if (v) v.volume = Math.max(0, Math.min(1, Number(payload.volume || 1))); commandResult(msg, true, snapshot()); return; }
+						commandResult(msg, false, snapshot(), 'unknown_command');
+					} catch (e) { commandResult(msg, false, snapshot(), e && e.message || 'command_failed'); }
+				}
+				function bindPlayerEvents() {
+					const title = titleFromCf();
+					if (title) {
+						document.title = title;
+						const titleText = document.getElementById('titleText');
+						if (titleText) titleText.textContent = title;
+					}
+					try {
+						if (window.player && typeof window.player.on === 'function') {
+							['ready', 'play', 'pause', 'ended', 'complete', 'seek', 'seeked', 'error', 'ad_start', 'ad_end', 'ad_error'].forEach(name => {
+								try { window.player.on(name, data => emit(name, data && typeof data === 'object' ? data : {})); } catch (_) { }
+							});
+							try { window.player.on('time', data => { const now = Date.now(); if (now - lastTimePost >= 5000) { lastTimePost = now; emit('time', data && typeof data === 'object' ? data : {}); } }); } catch (_) { }
+						}
+					} catch (_) { }
+					const v = nativeVideo();
+					if (v) {
+						['play', 'pause', 'ended', 'seeked', 'error', 'loadedmetadata'].forEach(name => {
+							v.addEventListener(name, () => emit(name === 'loadedmetadata' ? 'ready' : name));
+						});
+						v.addEventListener('timeupdate', () => {
+							const now = Date.now();
+							if (now - lastTimePost >= 5000) { lastTimePost = now; emit('time'); }
+						});
+					}
+					emit('bridge_ready', { parent_origin: parentOrigin || '' });
+				}
+				window.addEventListener('message', ev => {
+					const msg = ev.data;
+					if (!msg || typeof msg !== 'object') return;
+					if (!parentOrigin || ev.origin !== parentOrigin) return;
+					if (msg.type === 'VIDAPI_PLAYER_COMMAND' || msg.type === 'PLAYER_COMMAND') handleCommand(msg);
+				});
+				setInterval(() => {
+					const v = nativeVideo();
+					if (v && !v.paused && !v.ended) {
+						watchSeconds += 1;
+						if (watchSeconds >= 30 && !consumptionSent) {
+							consumptionSent = true;
+							emit('vip_consume_threshold', { consume_after: 30 });
+						}
+					}
+				}, 1000);
+				if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bindPlayerEvents);
+				else bindPlayerEvents();
+			})();
+		</script>
+</body>
+
+</html>
