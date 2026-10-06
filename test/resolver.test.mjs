@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { fakeKino } from "./helpers/fakeKino.mjs";
-import { listEmbeds, pickLanguage, rank, resolveTitle, lazyRef, resolveLazy } from "../src/resolver.js";
+import { listEmbeds, pickLanguage, rank, resolveTitle, lazyRef, resolveLazy, attemptMs, callLimitMs } from "../src/resolver.js";
 
 const T = { kind: "movie", tmdbId: 550, season: null, episode: null, titles: {}, year: 1999 };
 const src = (id, embeds, delay = 0) => ({ id, name: id, kinds: ["movie", "tv"], list: async () => { if (delay) await new Promise((r) => setTimeout(r, delay)); return embeds; } });
@@ -313,4 +313,60 @@ test("quality order follows the height: 1080p, lower ones, 1440p, unknown, 4K", 
   const qs = ["2160p", null, "240p", "1440p", "576p", "1080p", "720p", "480p", "360p"];
   const r = rank(qs.map((q, i) => E("a", "lat", "vimeos", i, q)));
   assert.deepEqual(r.map((e) => e.quality), ["1080p", "720p", "576p", "480p", "360p", "240p", "1440p", null, "2160p"]);
+});
+
+// ---------- time budgets (R22) ----------
+
+const capturing = { captureAll: true, capture: async () => ({ media: [] }) };
+const VOE = (n) => ({ source: "a", lang: "lat", server: "voe", embedUrl: `https://voe.sx/e/${n}`, quality: null });
+
+test("budgets: a VOE copy gets 14 s on a Kino that can capture; every other copy, and VOE without capture, 6 s", () => {
+  const { kino } = fakeKino();
+  const withBrowser = { ...kino, browser: capturing };
+  assert.equal(attemptMs(withBrowser, VOE(1)), 14000);
+  assert.equal(attemptMs(withBrowser, E("a", "lat", "vimeos", 1)), 6000);
+  assert.equal(attemptMs({ ...kino, browser: undefined }, VOE(1)), 6000);
+  assert.equal(attemptMs({ ...kino, browser: { capture: async () => ({}) } }, VOE(1)), 6000, "an old Kino's capture has no captureAll");
+  // Kino's automatic switch waits 20 s for a lazy copy: the longest attempt stays under it.
+  assert.ok(attemptMs(withBrowser, VOE(1)) + 500 < 20000);
+});
+
+test("budgets: resolve caps itself at 18.5 s (20 s limit), 43.5 s with the hidden browser (75 s limit)", () => {
+  const { kino } = fakeKino();
+  assert.equal(callLimitMs({ ...kino, browser: undefined }), 18500);
+  assert.equal(callLimitMs({ ...kino, browser: capturing }), 43500);
+  // Worst case with the browser: a 9 s phase and three VOE attempts still end before the cap, far from 75 s.
+  assert.ok(callLimitMs({ ...kino, browser: capturing }) < 75000 - 20000);
+});
+
+test("budgets: the extractor's requester sees the attempt's own deadline (VOE 14 s, others 6 s)", async () => {
+  const { kino } = fakeKino();
+  const k = { ...kino, browser: capturing };
+  const seen = {};
+  const ex = async (e, req) => { seen[e.server] = req.left(); return null; };
+  ex.accepts = () => true;
+  await assert.rejects(resolveTitle(k, T, {}, { sources: [src("a", [E("a", "lat", "vimeos", 1), VOE(2)])], extract: ex }));
+  assert.ok(seen.vimeos <= 6000 && seen.vimeos > 5000, String(seen.vimeos));
+  assert.ok(seen.voe <= 14000 && seen.voe > 12000, String(seen.voe));
+});
+
+test("budgets: a lazy VOE copy resolves within 14 s (under the 20 s automatic switch), a lazy vimeos copy within 6 s", async () => {
+  const { kino } = fakeKino();
+  const k = { ...kino, browser: capturing };
+  let left = null;
+  const ex = async (e, req) => { left = req.left(); return { url: "https://cdn.example/v.m3u8" }; };
+  ex.accepts = () => true;
+  await resolveLazy(k, lazyRef(VOE(3)), { sources: [src("a", [])], extract: ex });
+  assert.ok(left > 12000 && left <= 14000, String(left));
+  await resolveLazy(k, lazyRef(E("a", "lat", "vimeos", 4)), { sources: [src("a", [])], extract: ex });
+  assert.ok(left > 5000 && left <= 6000, String(left));
+});
+
+test("budgets: a resolve that starts with little time left shortens phase 1 but never below 3 s, and stays inside callMs", async () => {
+  const { kino } = fakeKino();
+  const t0 = Date.now();
+  const hung = { id: "hung", name: "hung", kinds: ["movie"], list: () => new Promise(() => {}) };
+  await assert.rejects(resolveTitle(realSleep(kino), T, {}, { sources: [hung], extract: okExtract, callMs: 4000 }));
+  const took = Date.now() - t0;
+  assert.ok(took >= 2900 && took < 4300, `took ${took}`);
 });

@@ -8,12 +8,13 @@ import { decodeVoe } from "../src/extractors/voe.js";
 const far = () => Date.now() + 60_000;
 const hostBlocked = () => { const e = new Error("x"); e.code = "host_not_allowed"; return e; };
 
-test("voe: follows the redirect and decodes the json payload", async () => {
+test("voe: with fetchAnyHost, follows the rotating redirect and decodes the json payload", async () => {
   const pages = [fixture("hosts/voe-redirect.html"), fixture("hosts/voe-player.html")];
-  const { kino } = fakeKino({ fetch: async () => ({ status: 200, body: pages.shift() }) });
+  const { kino, calls } = fakeKino({ fetch: async () => ({ status: 200, body: pages.shift() }), extra: { fetchAnyHost: true } });
   const s = await extractorFor("https://voe.sx/e/abc").extract("https://voe.sx/e/abc", makeRequester(kino, { budget: 4, deadline: far() }), kino);
   assert.match(s.url, /^https:\/\/.+\.(m3u8|mp4)/);
   assert.equal(s.headers.Referer, "https://voe.sx/e/abc");
+  assert.equal(new URL(calls[1].url).hostname, "teresapoliticallearn.com");
 });
 
 test("voe: decodeVoe is the documented chain", () => {
@@ -26,22 +27,56 @@ test("voe: decodeVoe is the documented chain", () => {
   assert.equal(decodeVoe(rot).source, "https://cdn.example/x/master.m3u8");
 });
 
-test("voe: an undeclared redirect host without browser gives null", async () => {
-  const { kino } = fakeKino({ fetch: async (u) => { if (u.includes("random")) throw hostBlocked(); return { status: 200, body: "<script>window.location.href = 'https://random.example/e/abc';</script>" }; } });
+const REDIRECT = "<script>window.location.href = 'https://random.example/e/abc';</script>";
+
+test("voe: an undeclared redirect host without the browser gives null and is never fetched", async () => {
+  const { kino, calls } = fakeKino({ fetch: async () => ({ status: 200, body: REDIRECT }) });
   const s = await extractorFor("https://voe.sx/e/abc").extract("https://voe.sx/e/abc", makeRequester(kino, { budget: 4, deadline: far() }), { ...kino, browser: undefined });
   assert.equal(s, null);
+  assert.deepEqual(calls.map((c) => c.url), ["https://voe.sx/e/abc"]);
 });
 
-test("voe: an undeclared redirect host falls back to the hidden browser when available", async () => {
-  const { kino } = fakeKino({ fetch: async (u) => { if (u.includes("random")) throw hostBlocked(); return { status: 200, body: "<script>window.location.href = 'https://random.example/e/abc';</script>" }; } });
+test("voe: an undeclared redirect host goes straight to the hidden browser (never fetched), media[0] played", async () => {
+  const { kino, calls } = fakeKino({ fetch: async () => ({ status: 200, body: REDIRECT }) });
   const seen = [];
-  const browser = { captureAll: true, capture: async (url, o) => { seen.push([url, o]); return { url: "https://cdn.example/v/master.m3u8", headers: { Origin: "https://random.example" } }; } };
+  const browser = { captureAll: true, capture: async (url, o) => { seen.push([url, o]); return { media: [{ url: "https://cdn.example/v/master.m3u8", headers: { Origin: "https://random.example" } }], subtitles: [], finalUrl: "https://random.example/e/abc" }; } };
   const s = await extractorFor("https://voe.sx/e/abc").extract("https://voe.sx/e/abc", makeRequester(kino, { budget: 4, deadline: far() }), { ...kino, browser });
   assert.equal(s.url, "https://cdn.example/v/master.m3u8");
+  assert.equal(s.mime, "application/vnd.apple.mpegurl");
   assert.equal(s.headers.Referer, "https://voe.sx/e/abc");
   assert.equal(s.headers.Origin, "https://random.example");
   assert.equal(seen[0][0], "https://voe.sx/e/abc");
-  assert.equal(seen[0][1].captureAll, false);
+  assert.equal(seen[0][1].timeoutMs, 12000);
+  assert.equal(calls.length, 1, "the rotating host is not fetched");
+});
+
+test("voe: the capture never runs past the requester's deadline, and is skipped with under 3 s left", async () => {
+  const { kino } = fakeKino({ fetch: async () => ({ status: 200, body: REDIRECT }) });
+  const seen = [];
+  const browser = { captureAll: true, capture: async (url, o) => { seen.push(o.timeoutMs); return { media: [{ url: "https://cdn.example/v.mp4" }] }; } };
+  const s = await extractorFor("https://voe.sx/e/abc").extract("https://voe.sx/e/abc", makeRequester(kino, { budget: 4, deadline: Date.now() + 8000 }), { ...kino, browser });
+  assert.ok(seen[0] <= 7700 && seen[0] > 6000, String(seen[0]));
+  assert.equal(s.mime, "video/mp4");
+  const late = await extractorFor("https://voe.sx/e/abc").extract("https://voe.sx/e/abc", makeRequester(kino, { budget: 4, deadline: Date.now() + 2500 }), { ...kino, browser });
+  assert.equal(late, null);
+  assert.equal(seen.length, 1);
+});
+
+test("voe: an old Kino's browser (no captureAll) is not used; a failing capture is null", async () => {
+  const { kino } = fakeKino({ fetch: async () => ({ status: 200, body: REDIRECT }) });
+  let used = 0;
+  const old = { capture: async () => { used++; return { media: [{ url: "https://cdn.example/v.m3u8" }] }; } };
+  assert.equal(await extractorFor("https://voe.sx/e/abc").extract("https://voe.sx/e/abc", makeRequester(kino, { budget: 4, deadline: far() }), { ...kino, browser: old }), null);
+  assert.equal(used, 0);
+  const failing = { captureAll: true, capture: async () => { throw Object.assign(new Error("t"), { code: "timeout" }); } };
+  assert.equal(await extractorFor("https://voe.sx/e/abc").extract("https://voe.sx/e/abc", makeRequester(kino, { budget: 4, deadline: far() }), { ...kino, browser: failing }), null);
+});
+
+test("voe: Kino's own host_not_allowed on the redirect (fetchAnyHost but refused) falls back to the browser", async () => {
+  const { kino } = fakeKino({ fetch: async (u) => { if (u.includes("random")) throw hostBlocked(); return { status: 200, body: REDIRECT }; }, extra: { fetchAnyHost: true } });
+  const browser = { captureAll: true, capture: async () => ({ media: [{ url: "https://cdn.example/v.m3u8" }] }) };
+  const s = await extractorFor("https://voe.sx/e/abc").extract("https://voe.sx/e/abc", makeRequester(kino, { budget: 4, deadline: far() }), { ...kino, browser });
+  assert.equal(s.url, "https://cdn.example/v.m3u8");
 });
 
 test("voe: other network errors propagate", async () => {
@@ -60,16 +95,17 @@ test("okru: picks the best mp4", async () => {
 
 test.skip("okru: live embed fixture (no live ok.ru video available on 2026-10-06; zoowomaniacos testplayer only served removed videos)", () => {});
 
-test("nupload: final url comes from the manual redirect", async () => {
+test("nupload: the decoded rotating address is the Stream itself, never fetched; the player follows its 302", async () => {
   const html = fixture("hosts/nupload.html");
   const sesz = /var sesz\s*=\s*"([^"]+)"/.exec(html)[1];
-  const { kino, calls } = fakeKino({ fetch: async (u, o) => o.redirect === "manual" ? { status: 302, body: "", headers: { Location: "https://cdn.nupload.me/v.mp4" } } : { status: 200, body: html } });
+  const { kino, calls } = fakeKino({ fetch: async () => ({ status: 200, body: html }) });
   const s = await extractorFor("https://nupload.me/watch/abc").extract("https://nupload.me/watch/abc", makeRequester(kino, { budget: 3, deadline: far() }));
-  assert.equal(s.url, "https://cdn.nupload.me/v.mp4");
+  assert.equal(calls.length, 1, "only the embed page is fetched");
+  assert.ok(s.url.endsWith("?s=" + sesz));
+  assert.match(s.url, /^https:\/\/[^?]+\?s=/);
+  assert.equal(new URL(s.url).hostname.endsWith("nupload.me"), false, "the rotating host, not the embed's");
   assert.equal(s.headers.Origin, "https://nupload.me");
-  const hop = calls.find((c) => c.opts.redirect === "manual");
-  assert.ok(hop.url.endsWith("?s=" + sesz));
-  assert.match(hop.url, /^https:\/\/[^?]+\?s=/);
+  assert.equal(s.headers.Referer, "https://nupload.me/");
 });
 
 test("nupload: the .my domain is routed too", () => {

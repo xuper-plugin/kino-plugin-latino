@@ -20,9 +20,9 @@ function response({ status = 200, body = "", headers = {}, url = "" }) {
 
 /**
  * The kit's kino with `fetch` scripted: `fetch(url, opts) -> {status, body, headers, url} | throws`.
- * `calls` records every request [{url, opts}].
+ * `calls` records every request [{url, opts}]. `extra` adds or replaces kino members (fetchAnyHost, browser, tmdb...).
  */
-export function fakeKino({ fetch, tmdb = {}, config = {}, lang = "es-CO" } = {}) {
+export function fakeKino({ fetch, tmdb = {}, config = {}, lang = "es-CO", extra = {} } = {}) {
   const dir = mkdtempSync(join(tmpdir(), "latino-"));
   const { kino } = createKino(manifest, {
     storageFile: join(dir, "s.json"), cookiesFile: join(dir, "c.json"),
@@ -38,6 +38,7 @@ export function fakeKino({ fetch, tmdb = {}, config = {}, lang = "es-CO" } = {})
         return response({ url, ...(await fetch(url, opts)) });
       },
       sleep: async () => {},
+      ...extra, // e.g. fetchAnyHost, browser, tmdb
     }),
     calls,
   };

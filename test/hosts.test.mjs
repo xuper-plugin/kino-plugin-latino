@@ -4,12 +4,14 @@ import { readFileSync, readdirSync, statSync } from "node:fs";
 import { SOURCES } from "../src/sources/index.js";
 import { HOSTS as EXTRACTOR_HOSTS } from "../src/extractors/index.js";
 import { readSettings } from "../src/settings.js";
+import { hostDeclared } from "../src/util/hosts.js";
 
 const manifest = JSON.parse(readFileSync(new URL("../kino-plugin.json", import.meta.url)));
 const hostEntries = manifest.hosts.map((h) => (typeof h === "string" ? h : h.host));
 
-/** Whether `host` is declared: exact, or under a `*.x` entry (which never covers `x` itself). */
-const covered = (host) => hostEntries.some((h) => (h.startsWith("*.") ? host.endsWith(h.slice(1)) && host.length > h.length - 1 : host === h));
+// The same matcher the requester's host guard uses (src/util/hosts.js, built from this manifest): the audit and the
+// guard can never disagree.
+const covered = hostDeclared;
 
 // Named in the code but never fetched: image URLs are not checked against `hosts` (contract.md, images), and
 // sololatino.net is only a Referer header value.
@@ -38,6 +40,8 @@ test("hosts audit: every hostname in src/ that can be fetched is declared", () =
   // Known redirect targets and hosts only reached through other pages.
   for (const h of ["nupload.my", "vibuxer.com", "morencius.com", "a.goodstream.one", "cdn.goodstream.one", "archive.org", "ia800000.us.archive.org",
     "player.pelisserieshoy.com", "ok.ru", "m.ok.ru"]) found.add(h);
+  // VOE's and Nupload's rotating domains are never fetched: VOE goes through the hidden browser (or fetchAnyHost),
+  // Nupload's is handed to the player.
   const missing = [...found].filter((h) => !NOT_FETCHED.has(h) && !covered(h));
   assert.deepEqual(missing, []);
   assert.ok(found.size > 30, "the audit saw the code's hostnames");
@@ -47,6 +51,17 @@ test("hosts audit: the wildcard rule is exact (the apex is not covered by *.x)",
   assert.equal(covered("archive.org"), true);
   assert.equal(covered("ia1.us.archive.org"), true);
   assert.equal(covered("notarchive.org"), false);
+});
+
+test("manifest: fetchHosts any (Kino 0.9.54+ hand-written plugins), the explicit hosts list kept as the fallback", () => {
+  assert.equal(manifest.fetchHosts, "any");
+  assert.ok(manifest.apiVersion >= 8);
+  assert.ok(hostEntries.length > 30);
+});
+
+test("the built plugin.js carries the manifest's hosts for the guard (rebuilt after any hosts change)", () => {
+  const built = readFileSync(new URL("../plugin.js", import.meta.url), "utf8");
+  for (const h of hostEntries) assert.ok(built.includes(JSON.stringify(h)), h);
 });
 
 test("the manifest does not declare api.themoviedb.org (kino.tmdb needs no host)", () => {

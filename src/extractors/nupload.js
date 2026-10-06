@@ -16,7 +16,9 @@ export async function extract(embedUrl, req) {
   for (const v of JSON.parse(list[1])) {
     path += String.fromCharCode(parseInt(atob(v).replace(/\D/g, ""), 10) - parseInt(off[1], 10));
   }
-  const hop = await req(path + "?s=" + sesz[1], { headers: { Referer: origin + "/" }, redirect: "manual" });
-  const url = hop.headers && hop.headers.location;
-  return url ? { url, headers: { Referer: origin + "/", Origin: origin } } : null;
+  // The decoded address sits on a rotating host that 302s to the file. It is never fetched here (that host is not in
+  // `hosts`); the player follows the redirect itself, which `streamHosts: "any"` covers.
+  let url;
+  try { url = new URL(path + "?s=" + sesz[1], origin).href; } catch (_) { return null; }
+  return /^https:\/\//i.test(url) ? { url, headers: { Referer: origin + "/", Origin: origin } } : null;
 }

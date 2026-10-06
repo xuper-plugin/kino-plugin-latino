@@ -1,16 +1,27 @@
+import { urlDeclared } from "./hosts.js";
+
 export const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36";
 const RETRY_STATUS = new Set([408, 425, 429, 500, 502, 503, 504, 520, 521, 522, 524]);
+
+/**
+ * Whether a direct kino.fetch of this URL can go out without Kino stopping the call to ask the person about a host:
+ * the manifest declares its host, or Kino says (kino.fetchAnyHost, Kino 0.9.54+) the approved `fetchHosts: "any"`
+ * covers every public host.
+ */
+export const fetchAllowed = (kino, url) => (kino && kino.fetchAnyHost === true) || urlDeclared(url);
 
 export function makeRequester(kino, { budget = 12, deadline = Date.now() + 8000 } = {}) {
   let used = 0;
 
   function makeLocalError(code, message) {
-    const e = kino.error("unavailable", message);
+    const e = kino.error(code, message);
     e.local = true;
     return e;
   }
 
   async function once(url, opts) {
+    // An undeclared host would pause playback on a host question: refused here, never asked.
+    if (!fetchAllowed(kino, url)) throw makeLocalError("host_not_allowed", "host not declared: " + hostOf(url));
     if (used >= budget) throw makeLocalError("unavailable", "budget spent at " + url);
     const left = deadline - Date.now();
     if (left <= 0) throw makeLocalError("unavailable", "deadline before " + url);
@@ -45,5 +56,9 @@ export function makeRequester(kino, { budget = 12, deadline = Date.now() + 8000 
   }
 
   req.used = () => used;
+  /** Milliseconds left before this requester's deadline (0 when past it). */
+  req.left = () => Math.max(0, deadline - Date.now());
   return req;
 }
+
+const hostOf = (url) => { try { return new URL(url).hostname; } catch (_) { return String(url).slice(0, 80); } };

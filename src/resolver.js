@@ -2,8 +2,8 @@
 // language, ranks the copies, extracts at most two (phase 2) and hands Kino one Stream whose other
 // copies of the same language are lazy alternatives, resolved only when Kino needs them.
 //
-// QuickJS has no setTimeout: every wait is kino.sleep, in short steps that stop as soon as the work
-// they guard is done.
+// Time: without the hidden browser Kino gives resolve 20 s; with it approved, 75 s, of which the resolver uses at
+// most 45 s. A copy gets 6 s to open, except a VOE copy on a Kino that can capture: 14 s (a 12 s capture, see voe.js).
 
 import { SOURCES } from "./sources/index.js";
 import { extractorFor } from "./extractors/index.js";
@@ -11,6 +11,8 @@ import { HLS_MIME } from "./extractors/shared.js";
 import { makeRequester } from "./util/http.js";
 import { t } from "./i18n.js";
 import { recordRun } from "./health.js";
+import { within, BROWSER_RESOLVE_MS } from "./util/time.js";
+import { canCapture } from "./extractors/voe.js";
 
 export const LANGS = ["lat", "esp", "sub"];
 const QUALITIES = ["auto", "2160p", "1080p", "720p", "480p"];
@@ -36,7 +38,11 @@ const NETWORK_CODES = new Set(["network", "timeout", "unavailable", "rate_limite
 const PHASE_MS = 9000;
 const SOURCE = { budget: 12, deadlineMs: 8000 };
 const EXTRACT = { budget: 6, deadlineMs: 6000, tries: 2 };
+const VOE_ATTEMPT_MS = 14000; // the redirect page plus a capture of at most 12 s
+const MIN_PHASE_MS = 3000;
 const CALL_MS = 18500; // Kino gives resolve 20 s; every wait is capped at this, leaving room to answer
+// With the hidden browser approved resolve has 75 s: room for VOE's longer attempts, still well under the limit.
+const BROWSER_CALL_MS = BROWSER_RESOLVE_MS - 1500;
 const MAX_COPIES = 8;
 const CACHE_TTL_MS = 1800000;
 const OFF_BY_DEFAULT = { peliserieshoy: false }; // R14
@@ -53,24 +59,6 @@ export function normalizeSettings(s = {}) {
 }
 
 const isOn = (enabled, id) => ({ ...OFF_BY_DEFAULT, ...(enabled || {}) })[id] !== false;
-
-/** Waits up to `ms` with kino.sleep in short steps; returns early once `done()` says so. */
-async function waitFor(kino, ms, done = () => false) {
-  const end = Date.now() + ms;
-  while (!done()) {
-    const left = end - Date.now();
-    if (left <= 0) return;
-    await kino.sleep(Math.min(250, left));
-  }
-}
-
-/** `promise`'s value, or `fallback` when it has not settled within `ms`; never throws. */
-async function within(kino, promise, ms, fallback) {
-  let settled = false;
-  const guarded = Promise.resolve(promise).then((v) => { settled = true; return { v }; }, (e) => { settled = true; return { e }; });
-  const r = await Promise.race([guarded, waitFor(kino, ms, () => settled).then(() => null, () => null)]);
-  return r || { v: fallback, late: true };
-}
 
 // ---------- phase 1: embeds ----------
 
@@ -220,14 +208,26 @@ export async function defaultExtract(e, req, kino, source) {
 /** Which embeds the default extraction can play: direct ones and known hosts; the rest are never offered. */
 defaultExtract.accepts = (e) => e.server === "direct" || !!extractorFor(e.embedUrl);
 
+/** The whole resolve's own cap: 18.5 s, or 43.5 s when the hidden browser is approved. */
+export const callLimitMs = (kino) => (kino && kino.browser ? BROWSER_CALL_MS : CALL_MS);
+
+/**
+ * How long one copy may take to open: 6 s; a VOE copy 14 s on a Kino that can capture, since its rotating domain is
+ * only reachable through the hidden browser. Kino's automatic switch waits 20 s for a lazy copy: both fit.
+ */
+export const attemptMs = (kino, e) => (serverOf(e) === "voe" && canCapture(kino) ? VOE_ATTEMPT_MS : EXTRACT.deadlineMs);
+
 /** One extraction attempt, bounded by its own requester and `untilMs`; null on any failure. */
 async function attempt(kino, extract, e, source, untilMs) {
-  const deadline = Math.min(Date.now() + EXTRACT.deadlineMs, untilMs);
+  const deadline = Math.min(Date.now() + attemptMs(kino, e), untilMs);
   const req = makeRequester(kino, { budget: EXTRACT.budget, deadline });
   const r = await within(kino, Promise.resolve().then(() => extract(e, req, kino, source)), Math.max(0, Math.min(deadline + 500, untilMs) - Date.now()), null);
   if (r.e) kino.log("[latino]", e.source, serverOf(e), (r.e && r.e.code) || "extract_failed");
+  else if (r.late) kino.log("[latino]", e.source, serverOf(e), "late");
   const s = r.v;
-  return s && typeof s.url === "string" && s.url ? s : null;
+  const ok = s && typeof s.url === "string" && s.url ? s : null;
+  if (!ok && !r.e && !r.late) kino.log("[latino]", e.source, serverOf(e), "no stream");
+  return ok;
 }
 
 /** A Stream from an extractor's answer, labelled like its copies; only fields that carry something. */
@@ -291,7 +291,7 @@ export async function resolveLazy(kino, ref, { sources = SOURCES, extract = defa
   const source = sources.find((s) => s.id === e.source);
   const accepts = extract.accepts || (() => true);
   if (!accepts(e) || (e.server === "direct" && !source)) throw fail("copy not playable: " + e.source + "/" + e.server);
-  const s = await attempt(kino, extract, e, source, untilMs ?? Date.now() + EXTRACT.deadlineMs);
+  const s = await attempt(kino, extract, e, source, untilMs ?? Date.now() + attemptMs(kino, e));
   if (!s) throw fail("copy did not open: " + e.source + "/" + serverOf(e));
   return toStream(kino, s, e, source ? source.name : e.source);
 }
@@ -302,10 +302,13 @@ export async function resolveLazy(kino, ref, { sources = SOURCES, extract = defa
  * The Stream for a title: one extracted copy in the chosen language, its other copies of that language
  * as lazy alternatives (at most 8, best first).
  */
-export async function resolveTitle(kino, title, settings, { sources = SOURCES, extract = defaultExtract, phaseMs = PHASE_MS, callMs = CALL_MS } = {}) {
-  const until = Date.now() + callMs;
+export async function resolveTitle(kino, title, settings, { sources = SOURCES, extract = defaultExtract, phaseMs = PHASE_MS, callMs } = {}) {
+  const ms = Math.min(callMs ?? Infinity, callLimitMs(kino));
+  const until = Date.now() + ms;
   const set = normalizeSettings(settings);
-  const { embeds, down, cached, key } = await collect(kino, title, { enabled: set.enabled, sources, phaseMs });
+  // A call that starts late (a slow TMDB before it) shortens phase 1 so a copy can still be opened.
+  const phase = Math.min(phaseMs, ms, Math.max(MIN_PHASE_MS, ms - 7000));
+  const { embeds, down, cached, key } = await collect(kino, title, { enabled: set.enabled, sources, phaseMs: phase });
   const accepts = extract.accepts || (() => true);
   const playable = embeds.filter(accepts);
   const lang = pickLanguage(playable, set.preferred, { includeSub: set.includeSub });

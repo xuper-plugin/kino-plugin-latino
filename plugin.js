@@ -240,17 +240,297 @@ __export(streamwish_exports, {
   extract: () => extract3
 });
 
+// kino-plugin.json
+var kino_plugin_default = {
+  id: "latino",
+  name: "Latino",
+  version: "1.0.0",
+  apiVersion: 8,
+  entry: "plugin.js",
+  icon: "icon.png",
+  description: "Pel\xEDculas y series en espa\xF1ol latino, castellano o subtituladas desde varias fuentes",
+  author: "xuper-plugin",
+  homepage: "https://github.com/xuper-plugin/kino-plugin-latino",
+  hosts: [
+    "lamovie.org",
+    "hackstore2.com",
+    "www.cinecalidad.vg",
+    "cinecalidad.vg",
+    "www3.seriesmetro.net",
+    "seriesmetro.net",
+    "seriesflixhd.casa",
+    "seriesflixhd.best",
+    "embed69.org",
+    "player.pelisserieshoy.com",
+    "proyectox.yoyatengoabuela.com",
+    "goodstream.one",
+    "*.goodstream.one",
+    "vimeos.net",
+    "*.vimeos.net",
+    "vimeos.zip",
+    "*.vimeos.zip",
+    "hlswish.com",
+    "*.hlswish.com",
+    "streamwish.com",
+    "*.streamwish.com",
+    "streamwish.to",
+    "*.streamwish.to",
+    "strwish.com",
+    "*.strwish.com",
+    "wishembed.com",
+    "*.wishembed.com",
+    "filelions.com",
+    "*.filelions.com",
+    "hglink.to",
+    "*.hglink.to",
+    "vibuxer.com",
+    "*.vibuxer.com",
+    "vidhide.com",
+    "*.vidhide.com",
+    "vidhidepro.com",
+    "*.vidhidepro.com",
+    "dintezuvio.com",
+    "*.dintezuvio.com",
+    "minochinos.com",
+    "*.minochinos.com",
+    "filelions.to",
+    "*.filelions.to",
+    "morencius.com",
+    "*.morencius.com",
+    "fastream.to",
+    "*.fastream.to",
+    "voe.sx",
+    "*.voe.sx",
+    "ok.ru",
+    "*.ok.ru",
+    "archive.org",
+    "*.archive.org",
+    "nupload.me",
+    "*.nupload.me",
+    "nupload.my",
+    "*.nupload.my"
+  ],
+  capabilities: [
+    "search",
+    "home",
+    "browse",
+    "episodes",
+    "resolve",
+    "scopedSearch",
+    "download"
+  ],
+  streamHosts: "any",
+  fetchHosts: "any",
+  categories: [
+    "movies",
+    "series"
+  ],
+  color: "#C62828",
+  section: {
+    label: "Latino"
+  },
+  theme: {
+    accent: "#BA2D2A",
+    onAccent: "#FFFFFF",
+    background: "#0B0707",
+    surface: "#1A1212",
+    highlight: "#F4C7C3"
+  },
+  browser: true,
+  telemetry: true,
+  settings: [
+    {
+      key: "langSection",
+      type: "section",
+      label: "Idioma y calidad",
+      hint: "Qu\xE9 copia se abre primero cuando un t\xEDtulo tiene varias."
+    },
+    {
+      key: "preferred",
+      type: "select",
+      label: "Idioma preferido",
+      default: "lat",
+      options: [
+        {
+          value: "lat",
+          label: "Latino"
+        },
+        {
+          value: "esp",
+          label: "Castellano"
+        },
+        {
+          value: "sub",
+          label: "Subtitulado"
+        }
+      ]
+    },
+    {
+      key: "maxQuality",
+      type: "select",
+      label: "Calidad m\xE1xima",
+      default: "auto",
+      options: [
+        {
+          value: "auto",
+          label: "Autom\xE1tica"
+        },
+        {
+          value: "1080p",
+          label: "Hasta 1080p"
+        },
+        {
+          value: "720p",
+          label: "Hasta 720p"
+        },
+        {
+          value: "480p",
+          label: "Hasta 480p (ahorra datos)"
+        }
+      ]
+    },
+    {
+      key: "includeSub",
+      type: "toggle",
+      label: "Incluir subtituladas",
+      default: true,
+      hint: "Si lo apagas, solo salen subtituladas cuando no hay otra opci\xF3n."
+    },
+    {
+      key: "srcSection",
+      type: "section",
+      label: "Fuentes",
+      hint: "Apaga una fuente si te da problemas. PelisSeriesHoy viene apagada: solo ofrece series y pel\xEDculas en pocos casos."
+    },
+    {
+      key: "src_lamovie",
+      type: "toggle",
+      label: "LaMovie",
+      default: true
+    },
+    {
+      key: "src_hackstore",
+      type: "toggle",
+      label: "HackStore",
+      default: true
+    },
+    {
+      key: "src_cinecalidad",
+      type: "toggle",
+      label: "CineCalidad",
+      default: true
+    },
+    {
+      key: "src_seriesmetro",
+      type: "toggle",
+      label: "SeriesMetro",
+      default: true
+    },
+    {
+      key: "src_seriesflix",
+      type: "toggle",
+      label: "Seriesflix",
+      default: true
+    },
+    {
+      key: "src_embed69",
+      type: "toggle",
+      label: "Embed69",
+      default: true
+    },
+    {
+      key: "src_peliserieshoy",
+      type: "toggle",
+      label: "PelisSeriesHoy",
+      default: false
+    },
+    {
+      key: "src_zoowomaniacos",
+      type: "toggle",
+      label: "Zoowomaniacos",
+      default: true
+    },
+    {
+      key: "homeSection",
+      type: "section",
+      label: "Inicio"
+    },
+    {
+      key: "homeRows",
+      type: "toggle",
+      label: "Filas en Inicio",
+      default: true,
+      hint: "Muestra los estrenos de Latino en el Inicio de Kino."
+    },
+    {
+      key: "toolsSection",
+      type: "section",
+      label: "Estado",
+      hint: "Cada fuente dice si respondi\xF3 en su \xFAltima consulta."
+    },
+    {
+      key: "health",
+      type: "status",
+      label: "Fuentes"
+    },
+    {
+      key: "probe",
+      type: "action",
+      label: "Probar fuentes ahora"
+    },
+    {
+      key: "clearCache",
+      type: "action",
+      label: "Borrar cach\xE9"
+    },
+    {
+      key: "resetPrefs",
+      type: "action",
+      label: "Restablecer preferencias",
+      confirm: "\xBFVolver a los valores de f\xE1brica de Latino?"
+    }
+  ]
+};
+
+// src/util/hosts.js
+function hostMatcher(entries) {
+  const exact = /* @__PURE__ */ new Set();
+  const suffixes = [];
+  for (const raw of entries || []) {
+    const h = String(typeof raw === "string" ? raw : raw && raw.host || "").toLowerCase();
+    if (!h) continue;
+    if (h.startsWith("*.")) suffixes.push(h.slice(1));
+    else exact.add(h);
+  }
+  return (host) => {
+    const h = String(host || "").toLowerCase();
+    return exact.has(h) || suffixes.some((s) => h.length > s.length && h.endsWith(s));
+  };
+}
+var hostDeclared = hostMatcher(kino_plugin_default.hosts);
+function urlDeclared(url) {
+  let host;
+  try {
+    host = new URL(url).hostname;
+  } catch (_) {
+    return false;
+  }
+  return hostDeclared(host);
+}
+
 // src/util/http.js
 var UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36";
 var RETRY_STATUS = /* @__PURE__ */ new Set([408, 425, 429, 500, 502, 503, 504, 520, 521, 522, 524]);
+var fetchAllowed = (kino, url) => kino && kino.fetchAnyHost === true || urlDeclared(url);
 function makeRequester(kino, { budget = 12, deadline = Date.now() + 8e3 } = {}) {
   let used = 0;
   function makeLocalError(code, message) {
-    const e = kino.error("unavailable", message);
+    const e = kino.error(code, message);
     e.local = true;
     return e;
   }
   async function once(url, opts) {
+    if (!fetchAllowed(kino, url)) throw makeLocalError("host_not_allowed", "host not declared: " + hostOf(url));
     if (used >= budget) throw makeLocalError("unavailable", "budget spent at " + url);
     const left = deadline - Date.now();
     if (left <= 0) throw makeLocalError("unavailable", "deadline before " + url);
@@ -278,8 +558,16 @@ function makeRequester(kino, { budget = 12, deadline = Date.now() + 8e3 } = {}) 
     }
   }
   req.used = () => used;
+  req.left = () => Math.max(0, deadline - Date.now());
   return req;
 }
+var hostOf = (url) => {
+  try {
+    return new URL(url).hostname;
+  } catch (_) {
+    return String(url).slice(0, 80);
+  }
+};
 
 // src/extractors/streamwish.js
 var HOSTS3 = ["hlswish.com", "streamwish.com", "streamwish.to", "strwish.com", "wishembed.com", "filelions.com", "hglink.to", "vibuxer.com"];
@@ -329,6 +617,7 @@ async function extract5(embedUrl, req) {
 var voe_exports = {};
 __export(voe_exports, {
   HOSTS: () => HOSTS6,
+  canCapture: () => canCapture,
   decodeVoe: () => decodeVoe,
   extract: () => extract6
 });
@@ -347,23 +636,59 @@ function decodeVoe(enc) {
   return JSON.parse(decodeURIComponent(escape(atob(s))));
 }
 var redirectOf = (html) => (/window\.location\.href\s*=\s*'([^']+)'/.exec(html) || [])[1] || null;
+var canCapture = (kino) => !!(kino && kino.browser && kino.browser.captureAll === true && typeof kino.browser.capture === "function");
+var CAPTURE_MS = 12e3;
+var MIN_CAPTURE_MS = 3e3;
+async function capture(embedUrl, req, kino) {
+  const ms = Math.min(CAPTURE_MS, (req.left ? req.left() : CAPTURE_MS) - 300);
+  if (ms < MIN_CAPTURE_MS) {
+    kino.log("[latino]", "voe", "no time to capture");
+    return null;
+  }
+  let cap;
+  try {
+    cap = await kino.browser.capture(embedUrl, { match: "\\.m3u8|\\.mp4", timeoutMs: ms });
+  } catch (e) {
+    kino.log("[latino]", "voe capture", e && e.code || "error");
+    return null;
+  }
+  const m = cap && Array.isArray(cap.media) ? cap.media.find((x) => x && typeof x.url === "string" && /^https?:\/\//i.test(x.url)) : null;
+  if (!m) {
+    kino.log("[latino]", "voe capture", "no media");
+    return null;
+  }
+  const mime = m.mime || (/\.mp4(?:[?#]|$)/i.test(m.url) ? "video/mp4" : HLS_MIME);
+  return { url: m.url, mime, headers: { Referer: embedUrl, ...m.headers || {} } };
+}
 async function extract6(embedUrl, req, kino) {
+  const log = (...a) => {
+    if (kino) kino.log("[latino]", "voe", ...a);
+  };
   const first = await req(embedUrl, { headers: { Referer: embedUrl } });
-  if (!first.ok) return null;
+  if (!first.ok) {
+    log("embed", first.status);
+    return null;
+  }
   let html = first.text();
   const next = redirectOf(html);
   if (next) {
+    if (!fetchAllowed(kino, next)) {
+      if (canCapture(kino)) return capture(embedUrl, req, kino);
+      log("rotating host, no browser");
+      return null;
+    }
     try {
       const r = await req(next, { headers: { Referer: embedUrl } });
-      if (!r.ok) return null;
+      if (!r.ok) {
+        log("player", r.status);
+        return null;
+      }
       html = r.text();
     } catch (e) {
-      if (e && e.code === "host_not_allowed" && kino && kino.browser && kino.browser.captureAll === true) {
-        const cap = await kino.browser.capture(embedUrl, { match: "\\.m3u8|\\.mp4", captureAll: false, timeoutMs: 12e3 });
-        return cap && cap.url ? { url: cap.url, headers: { Referer: embedUrl, ...cap.headers || {} } } : null;
-      }
-      if (e && e.code === "host_not_allowed") return null;
-      throw e;
+      if (!(e && e.code === "host_not_allowed")) throw e;
+      if (canCapture(kino)) return capture(embedUrl, req, kino);
+      log("host_not_allowed");
+      return null;
     }
   }
   const j = /<script type="application\/json">\s*\["([^"]+)"\]/.exec(html);
@@ -376,7 +701,11 @@ async function extract6(embedUrl, req, kino) {
     }
   }
   const h = /'hls'\s*:\s*'([^']+)'/.exec(html) || /(https?:\/\/[^"'\s]+\.mp4[^"'\s]*)/.exec(html);
-  return h ? { url: h[1], headers: { Referer: embedUrl } } : null;
+  if (!h) {
+    log("no stream in page");
+    return null;
+  }
+  return { url: h[1], headers: { Referer: embedUrl } };
 }
 
 // src/extractors/okru.js
@@ -426,9 +755,13 @@ async function extract8(embedUrl, req) {
   for (const v of JSON.parse(list9[1])) {
     path += String.fromCharCode(parseInt(atob(v).replace(/\D/g, ""), 10) - parseInt(off[1], 10));
   }
-  const hop = await req(path + "?s=" + sesz[1], { headers: { Referer: origin + "/" }, redirect: "manual" });
-  const url = hop.headers && hop.headers.location;
-  return url ? { url, headers: { Referer: origin + "/", Origin: origin } } : null;
+  let url;
+  try {
+    url = new URL(path + "?s=" + sesz[1], origin).href;
+  } catch (_) {
+    return null;
+  }
+  return /^https:\/\//i.test(url) ? { url, headers: { Referer: origin + "/", Origin: origin } } : null;
 }
 
 // src/extractors/index.js
@@ -1505,6 +1838,29 @@ function healthLine(kino, health = readHealth(kino)) {
   return parts2.join(" \xB7 ").slice(0, MAX_LINE);
 }
 
+// src/util/time.js
+async function waitFor(kino, ms, done = () => false) {
+  const end = Date.now() + ms;
+  while (!done()) {
+    const left = end - Date.now();
+    if (left <= 0) return;
+    await kino.sleep(Math.min(250, left));
+  }
+}
+async function within(kino, promise, ms, fallback) {
+  let settled = false;
+  const guarded = Promise.resolve(promise).then((v) => {
+    settled = true;
+    return { v };
+  }, (e) => {
+    settled = true;
+    return { e };
+  });
+  const r = await Promise.race([guarded, waitFor(kino, ms, () => settled).then(() => null, () => null)]);
+  return r || { v: fallback, late: true };
+}
+var BROWSER_RESOLVE_MS = 45e3;
+
 // src/resolver.js
 var LANGS = ["lat", "esp", "sub"];
 var QUALITIES = ["auto", "2160p", "1080p", "720p", "480p"];
@@ -1526,7 +1882,10 @@ var NETWORK_CODES = /* @__PURE__ */ new Set(["network", "timeout", "unavailable"
 var PHASE_MS = 9e3;
 var SOURCE = { budget: 12, deadlineMs: 8e3 };
 var EXTRACT = { budget: 6, deadlineMs: 6e3, tries: 2 };
+var VOE_ATTEMPT_MS = 14e3;
+var MIN_PHASE_MS = 3e3;
 var CALL_MS = 18500;
+var BROWSER_CALL_MS = BROWSER_RESOLVE_MS - 1500;
 var MAX_COPIES = 8;
 var CACHE_TTL_MS = 18e5;
 var OFF_BY_DEFAULT = { peliserieshoy: false };
@@ -1540,26 +1899,6 @@ function normalizeSettings(s = {}) {
   };
 }
 var isOn = (enabled, id9) => ({ ...OFF_BY_DEFAULT, ...enabled || {} })[id9] !== false;
-async function waitFor(kino, ms, done = () => false) {
-  const end = Date.now() + ms;
-  while (!done()) {
-    const left = end - Date.now();
-    if (left <= 0) return;
-    await kino.sleep(Math.min(250, left));
-  }
-}
-async function within(kino, promise, ms, fallback) {
-  let settled = false;
-  const guarded = Promise.resolve(promise).then((v) => {
-    settled = true;
-    return { v };
-  }, (e) => {
-    settled = true;
-    return { e };
-  });
-  const r = await Promise.race([guarded, waitFor(kino, ms, () => settled).then(() => null, () => null)]);
-  return r || { v: fallback, late: true };
-}
 var cacheKey = (title) => `emb:${title.kind}:${title.tmdbId}:${title.season ?? ""}:${title.episode ?? ""}`;
 var validEmbed = (e) => e && typeof e === "object" && typeof e.source === "string" && LANGS.includes(e.lang) && typeof e.server === "string" && typeof e.embedUrl === "string" && /^https?:\/\//i.test(e.embedUrl) && (e.quality == null || typeof e.quality === "string");
 function readCache(kino, key) {
@@ -1681,13 +2020,18 @@ async function defaultExtract(e, req, kino, source) {
   return ex ? ex.extract(e.embedUrl, req, kino) : null;
 }
 defaultExtract.accepts = (e) => e.server === "direct" || !!extractorFor(e.embedUrl);
+var callLimitMs = (kino) => kino && kino.browser ? BROWSER_CALL_MS : CALL_MS;
+var attemptMs = (kino, e) => serverOf(e) === "voe" && canCapture(kino) ? VOE_ATTEMPT_MS : EXTRACT.deadlineMs;
 async function attempt(kino, extract9, e, source, untilMs) {
-  const deadline = Math.min(Date.now() + EXTRACT.deadlineMs, untilMs);
+  const deadline = Math.min(Date.now() + attemptMs(kino, e), untilMs);
   const req = makeRequester(kino, { budget: EXTRACT.budget, deadline });
   const r = await within(kino, Promise.resolve().then(() => extract9(e, req, kino, source)), Math.max(0, Math.min(deadline + 500, untilMs) - Date.now()), null);
   if (r.e) kino.log("[latino]", e.source, serverOf(e), r.e && r.e.code || "extract_failed");
+  else if (r.late) kino.log("[latino]", e.source, serverOf(e), "late");
   const s = r.v;
-  return s && typeof s.url === "string" && s.url ? s : null;
+  const ok = s && typeof s.url === "string" && s.url ? s : null;
+  if (!ok && !r.e && !r.late) kino.log("[latino]", e.source, serverOf(e), "no stream");
+  return ok;
 }
 function toStream(kino, s, e, sourceName) {
   const out = { url: s.url };
@@ -1741,14 +2085,16 @@ async function resolveLazy(kino, ref, { sources = SOURCES, extract: extract9 = d
   const source = sources.find((s2) => s2.id === e.source);
   const accepts = extract9.accepts || (() => true);
   if (!accepts(e) || e.server === "direct" && !source) throw fail("copy not playable: " + e.source + "/" + e.server);
-  const s = await attempt(kino, extract9, e, source, untilMs ?? Date.now() + EXTRACT.deadlineMs);
+  const s = await attempt(kino, extract9, e, source, untilMs ?? Date.now() + attemptMs(kino, e));
   if (!s) throw fail("copy did not open: " + e.source + "/" + serverOf(e));
   return toStream(kino, s, e, source ? source.name : e.source);
 }
-async function resolveTitle(kino, title, settings, { sources = SOURCES, extract: extract9 = defaultExtract, phaseMs = PHASE_MS, callMs = CALL_MS } = {}) {
-  const until = Date.now() + callMs;
+async function resolveTitle(kino, title, settings, { sources = SOURCES, extract: extract9 = defaultExtract, phaseMs = PHASE_MS, callMs } = {}) {
+  const ms = Math.min(callMs ?? Infinity, callLimitMs(kino));
+  const until = Date.now() + ms;
   const set = normalizeSettings(settings);
-  const { embeds, down, cached, key } = await collect(kino, title, { enabled: set.enabled, sources, phaseMs });
+  const phase = Math.min(phaseMs, ms, Math.max(MIN_PHASE_MS, ms - 7e3));
+  const { embeds, down, cached, key } = await collect(kino, title, { enabled: set.enabled, sources, phaseMs: phase });
   const accepts = extract9.accepts || (() => true);
   const playable = embeds.filter(accepts);
   const lang = pickLanguage(playable, set.preferred, { includeSub: set.includeSub });
