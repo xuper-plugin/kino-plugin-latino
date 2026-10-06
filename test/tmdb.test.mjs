@@ -30,6 +30,15 @@ test("tv title context carries season and episode", async () => {
   assert.equal(t.titles.original, "Breaking Bad");
   assert.equal(t.season, 2);
   assert.equal(t.episode, 3);
+  assert.equal(t.lastYear, 2013, "from last_air_date");
+});
+
+test("lastYear is null for a film and for a series without last_air_date", async () => {
+  const { kino } = fakeKino({ tmdb: bb });
+  const film = await titleContext({ ...kino, tmdb: async () => ({ title: "X", release_date: "1999-10-15" }) }, { kind: "movie", tmdbId: 1 });
+  assert.equal(film.lastYear, null);
+  const open = await titleContext({ ...kino, tmdb: async () => ({ name: "Y", first_air_date: "2024-01-01" }) }, { kind: "tv", tmdbId: 2, season: 1, episode: 1 });
+  assert.equal(open.lastYear, null);
 });
 
 test("search keeps movies and series only", async () => {

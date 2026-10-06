@@ -26,6 +26,8 @@ async function titleContext(kino, { kind, tmdbId, season = null, episode = null 
     tmdbId: Number(tmdbId),
     imdbId: d.external_ids && d.external_ids.imdb_id || d.imdb_id || null,
     year: year(d.release_date || d.first_air_date),
+    // A series' last year on air (null for a film or when TMDB does not say): episode pages are judged against the run.
+    lastYear: kind === "tv" ? year(d.last_air_date) : null,
     titles: {
       esMX,
       esES: translated(d.translations, "ES") || esMX,
@@ -832,6 +834,13 @@ function yearMatches(found, wanted) {
   if (!wanted || !found) return true;
   return Math.abs(Number(found) - Number(wanted)) <= 1;
 }
+function episodeYearOk(found, title) {
+  if (!title || !title.year || found == null) return true;
+  const first = Number(title.year);
+  const last = Number(title.lastYear) || (/* @__PURE__ */ new Date()).getFullYear();
+  const y = Number(found);
+  return y >= first - 1 && y <= Math.max(first, last) + 1;
+}
 var yearIn = (text) => {
   const m = /\((\d{4})\)/.exec(String(text || ""));
   return m ? Number(m[1]) : null;
@@ -1284,10 +1293,10 @@ var yearOnPage = (html) => {
   const m = /<span class="year[^"]*fa-calendar[^"]*">(\d{4})<\/span>/.exec(html);
   return m ? Number(m[1]) : null;
 };
-var accepted = (html, wanted, episode = false) => {
+var accepted = (html, title, episode = false) => {
   const found = yearOnPage(html);
-  if (found == null) return !wanted;
-  return episode && wanted ? found >= Number(wanted) - 1 : yearMatches(found, wanted);
+  if (found == null) return !title.year;
+  return episode ? episodeYearOk(found, title) : yearMatches(found, title.year);
 };
 function options2(html) {
   const labels = {};
@@ -1327,7 +1336,7 @@ async function movieHit(title, req) {
     const r = await req(`${SITE4}/pelicula/${slug}/`);
     if (!r.ok) return null;
     const html = r.text();
-    return html.includes("trembed=") && accepted(html, title.year) ? html : null;
+    return html.includes("trembed=") && accepted(html, title) ? html : null;
   }, 4);
 }
 async function episodeHit(title, req) {
@@ -1355,7 +1364,7 @@ async function episodeHit(title, req) {
     const ep = await req(href, { headers: { Referer: `${SITE4}/serie/${slug}/` } });
     if (!ep.ok) return null;
     const html = ep.text();
-    return html.includes("trembed=") && accepted(html, title.year, true) ? html : null;
+    return html.includes("trembed=") && accepted(html, title, true) ? html : null;
   }, 3);
 }
 async function list4(title, { req }) {
@@ -1422,7 +1431,7 @@ async function list5(title, { req }) {
     const page = r.text();
     const y = /<span class="Date">(\d{4})<\/span>/.exec(page);
     if (!y && title.year) return null;
-    return !title.year || Number(y[1]) >= Number(title.year) - 1 ? page : null;
+    return !title.year || episodeYearOk(Number(y[1]), title) ? page : null;
   }, 4);
   if (!html) return [];
   return orEmpty(async () => toEmbeds(id5, rows(html)));
@@ -2428,6 +2437,7 @@ function siteContext(site, post4, { season = null, episode = null } = {}) {
     tmdbId: `${site.prefix}${site.postId}`,
     imdbId: null,
     year: post4 && Number(post4.year) || guess.year || null,
+    lastYear: null,
     titles: { esMX: title, esES: title, en: original, original },
     season: tv ? season : null,
     episode: tv ? episode : null

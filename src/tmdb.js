@@ -26,6 +26,8 @@ export async function titleContext(kino, { kind, tmdbId, season = null, episode 
     tmdbId: Number(tmdbId),
     imdbId: (d.external_ids && d.external_ids.imdb_id) || d.imdb_id || null,
     year: year(d.release_date || d.first_air_date),
+    // A series' last year on air (null for a film or when TMDB does not say): episode pages are judged against the run.
+    lastYear: kind === "tv" ? year(d.last_air_date) : null,
     titles: {
       esMX,
       esES: translated(d.translations, "ES") || esMX,

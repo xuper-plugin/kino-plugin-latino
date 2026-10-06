@@ -34,6 +34,19 @@ export function yearMatches(found, wanted) {
   return Math.abs(Number(found) - Number(wanted)) <= 1;
 }
 
+/**
+ * An episode page's year against its show's run: an episode page may show the episode's own air year, so anything
+ * from a year before the first season to a year after the last one (this year + 1 while the show still runs, or when
+ * the last year is unknown). Another show with the same slug and a year outside that run is turned away.
+ */
+export function episodeYearOk(found, title) {
+  if (!title || !title.year || found == null) return true;
+  const first = Number(title.year);
+  const last = Number(title.lastYear) || new Date().getFullYear();
+  const y = Number(found);
+  return y >= first - 1 && y <= Math.max(first, last) + 1;
+}
+
 export const yearIn = (text) => {
   const m = /\((\d{4})\)/.exec(String(text || ""));
   return m ? Number(m[1]) : null;

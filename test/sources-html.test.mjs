@@ -205,3 +205,47 @@ test("episode pages: year may be the air year (>= show year - 1), never earlier"
   assert.ok((await seriesflix.list(BB, ctx(sff(2010)))).length > 0);
   assert.deepEqual(await seriesflix.list(BB, ctx(sff(2006))), []);
 });
+
+// ---------- episode pages against the show's run (I2) ----------
+
+// Charmed (1998-2006) and its 2018 reboot share the slug "charmed"; a 2008-2013 show has 2010 episodes.
+const CHARMED = { ...BB, tmdbId: 1981, year: 1998, lastYear: 2006, titles: { esMX: "Charmed", esES: "Charmed", en: "Charmed", original: "Charmed" } };
+const RUN_2008 = { ...BB, lastYear: 2013 };
+
+function yearRouted(map, year) {
+  return fakeKino({ fetch: async (u) => {
+    for (const [re, fx, isEpisode] of map) {
+      if (!re.test(u)) continue;
+      let body = fixture(fx);
+      if (isEpisode) body = body.replace(/<span class="Date">\d{4}<\/span>/g, `<span class="Date">${year}</span>`).replace(/(<span class="year[^"]*fa-calendar[^"]*">)\d{4}/g, `$1${year}`);
+      return { status: 200, body };
+    }
+    return { status: 404, body: "" };
+  } });
+}
+
+test("seriesflix: an episode page from 2018 is not Charmed (1998-2006); a 2010 page fits a 2008-2013 show", async () => {
+  const charmed = yearRouted([[/\/episodio\/charmed-1x1$/, "seriesflix/episode.html", true]], 2018);
+  assert.deepEqual(await seriesflix.list(CHARMED, ctx(charmed.kino)), []);
+  const run = yearRouted([[/\/episodio\/breaking-bad-1x1$/, "seriesflix/episode.html", true]], 2010);
+  assert.ok((await seriesflix.list(RUN_2008, ctx(run.kino))).length > 0);
+  const before = yearRouted([[/\/episodio\/breaking-bad-1x1$/, "seriesflix/episode.html", true]], 2005);
+  assert.deepEqual(await seriesflix.list(RUN_2008, ctx(before.kino)), []);
+  const ongoing = yearRouted([[/\/episodio\/breaking-bad-1x1$/, "seriesflix/episode.html", true]], new Date().getFullYear());
+  assert.ok((await seriesflix.list(BB, ctx(ongoing.kino))).length > 0, "no lastYear: up to this year + 1");
+});
+
+test("seriesmetro: an episode page from 2018 is not Charmed (1998-2006); a 2010 page fits a 2008-2013 show", async () => {
+  const route = (slug) => [
+    [new RegExp(`/serie/${slug}/$`), "seriesmetro/series.html"],
+    [/admin-ajax\.php$/, "seriesmetro/season.html"],
+    [/\/capitulo\/breaking-bad-temporada-1-capitulo-1\/$/, "seriesmetro/episode.html", true],
+    [/trembed=\d+/, "seriesmetro/embed-e0.html"],
+  ];
+  const charmed = yearRouted(route("charmed"), 2018);
+  assert.deepEqual(await seriesmetro.list(CHARMED, ctx(charmed.kino)), []);
+  const run = yearRouted(route("breaking-bad"), 2010);
+  assert.ok((await seriesmetro.list(RUN_2008, ctx(run.kino))).length > 0);
+  const after = yearRouted(route("breaking-bad"), 2016);
+  assert.deepEqual(await seriesmetro.list(RUN_2008, ctx(after.kino)), []);
+});

@@ -133,6 +133,7 @@ export function siteContext(site, post, { season = null, episode = null } = {}) 
     tmdbId: `${site.prefix}${site.postId}`,
     imdbId: null,
     year: (post && Number(post.year)) || guess.year || null,
+    lastYear: null,
     titles: { esMX: title, esES: title, en: original, original },
     season: tv ? season : null,
     episode: tv ? episode : null,

@@ -1,6 +1,6 @@
 // SeriesMetro: movies and series. /pelicula|serie/<slug>/; a series season list is an admin-ajax POST, an episode is its own
 // page; every option is an iframe (?trembed=N) wrapping a player, its language in the option's label ("Fastream -Latino").
-import { orEmpty, firstHit, toEmbeds, titleSlugs, yearMatches } from "./wpapi.js";
+import { orEmpty, firstHit, toEmbeds, titleSlugs, yearMatches, episodeYearOk } from "./wpapi.js";
 
 export const id = "seriesmetro";
 export const name = "SeriesMetro";
@@ -17,11 +17,11 @@ const yearOnPage = (html) => {
   return m ? Number(m[1]) : null;
 };
 
-// A movie page shows its year (+-1); an episode page may show the episode's air year, so it is only "not before the show".
-const accepted = (html, wanted, episode = false) => {
+// A movie page shows its year (+-1); an episode page may show the episode's air year, so it is "inside the show's run".
+const accepted = (html, title, episode = false) => {
   const found = yearOnPage(html);
-  if (found == null) return !wanted;
-  return episode && wanted ? found >= Number(wanted) - 1 : yearMatches(found, wanted);
+  if (found == null) return !title.year;
+  return episode ? episodeYearOk(found, title) : yearMatches(found, title.year);
 };
 
 /** The player options of a movie or episode page: [{ trembed (absolute url), label }]. */
@@ -67,7 +67,7 @@ async function movieHit(title, req) {
     const r = await req(`${SITE}/pelicula/${slug}/`);
     if (!r.ok) return null;
     const html = r.text();
-    return html.includes("trembed=") && accepted(html, title.year) ? html : null;
+    return html.includes("trembed=") && accepted(html, title) ? html : null;
   }, 4);
 }
 
@@ -93,7 +93,7 @@ async function episodeHit(title, req) {
     const ep = await req(href, { headers: { Referer: `${SITE}/serie/${slug}/` } });
     if (!ep.ok) return null;
     const html = ep.text();
-    return html.includes("trembed=") && accepted(html, title.year, true) ? html : null;
+    return html.includes("trembed=") && accepted(html, title, true) ? html : null;
   }, 3);
 }
 
