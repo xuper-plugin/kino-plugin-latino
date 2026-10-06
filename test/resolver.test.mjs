@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { fakeKino } from "./helpers/fakeKino.mjs";
 import { listEmbeds, pickLanguage, rank, resolveTitle, lazyRef, resolveLazy, attemptMs, callLimitMs } from "../src/resolver.js";
+import { UA } from "../src/util/http.js";
 
 const T = { kind: "movie", tmdbId: 550, season: null, episode: null, titles: {}, year: 1999 };
 const src = (id, embeds, delay = 0) => ({ id, name: id, kinds: ["movie", "tv"], list: async () => { if (delay) await new Promise((r) => setTimeout(r, delay)); return embeds; } });
@@ -225,7 +226,7 @@ test("direct embeds play as they are, with the source site as Referer and a mime
   const s = await resolveTitle(kino, T, {}, { sources: [site("s1", embeds)] });
   assert.equal(s.url, "https://cdn.example/v/movie.mp4");
   assert.equal(s.mime, "video/mp4");
-  assert.deepEqual(s.headers, { Referer: "https://s1.example/" });
+  assert.deepEqual(s.headers, { "User-Agent": UA, Referer: "https://s1.example/" });
   assert.equal(s.label, "Latino · s1 · Directo 720p");
   assert.equal(s.alternatives, undefined, "an unknown host is never a copy");
 });

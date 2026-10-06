@@ -304,7 +304,7 @@ __export(streamwish_exports, {
 var kino_plugin_default = {
   id: "latino",
   name: "Latino",
-  version: "1.0.0",
+  version: "1.0.1",
   apiVersion: 8,
   entry: "plugin.js",
   icon: "icon.png",
@@ -2091,7 +2091,7 @@ function directStream(e, source) {
   const origin = source && source.ORIGIN;
   if (!origin) return null;
   const mime = mimeOf(e.embedUrl);
-  return { url: e.embedUrl, ...mime ? { mime } : {}, headers: { Referer: origin.replace(/\/+$/, "") + "/" } };
+  return { url: e.embedUrl, ...mime ? { mime } : {}, headers: { "User-Agent": UA, Referer: origin.replace(/\/+$/, "") + "/" } };
 }
 async function defaultExtract(e, req, kino, source) {
   if (e.server === "direct") return directStream(e, source);
@@ -2115,7 +2115,7 @@ async function attempt(kino, extract9, e, source, untilMs) {
 function toStream(kino, s, e, sourceName) {
   const out = { url: s.url };
   if (s.mime) out.mime = s.mime;
-  out.headers = s.headers && typeof s.headers === "object" ? s.headers : {};
+  out.headers = { "User-Agent": UA, ...s.headers && typeof s.headers === "object" ? s.headers : {} };
   out.label = label(kino, e, sourceName);
   const subs = Array.isArray(s.subtitles) ? s.subtitles.filter((x) => x && x.lang && x.url) : [];
   if (subs.length) out.subtitles = subs;

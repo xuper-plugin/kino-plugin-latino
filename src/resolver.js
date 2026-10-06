@@ -8,7 +8,7 @@
 import { SOURCES } from "./sources/index.js";
 import { extractorFor } from "./extractors/index.js";
 import { HLS_MIME } from "./extractors/shared.js";
-import { makeRequester } from "./util/http.js";
+import { makeRequester, UA } from "./util/http.js";
 import { t } from "./i18n.js";
 import { recordRun } from "./health.js";
 import { within, BROWSER_RESOLVE_MS } from "./util/time.js";
@@ -197,7 +197,7 @@ function directStream(e, source) {
   const origin = source && source.ORIGIN;
   if (!origin) return null;
   const mime = mimeOf(e.embedUrl);
-  return { url: e.embedUrl, ...(mime ? { mime } : {}), headers: { Referer: origin.replace(/\/+$/, "") + "/" } };
+  return { url: e.embedUrl, ...(mime ? { mime } : {}), headers: { "User-Agent": UA, Referer: origin.replace(/\/+$/, "") + "/" } };
 }
 
 /** The real extraction: direct copies as they are, others through their host's extractor. */
@@ -235,7 +235,9 @@ async function attempt(kino, extract, e, source, untilMs) {
 function toStream(kino, s, e, sourceName) {
   const out = { url: s.url };
   if (s.mime) out.mime = s.mime;
-  out.headers = s.headers && typeof s.headers === "object" ? s.headers : {};
+  // The player sends okhttp's User-Agent unless told otherwise, and the hosts' CDNs (GoodStream, Vimeos,
+  // Fastream...) answer 403 to anything that is not a browser: the page's fetches and the player must match.
+  out.headers = { "User-Agent": UA, ...(s.headers && typeof s.headers === "object" ? s.headers : {}) };
   out.label = label(kino, e, sourceName);
   const subs = Array.isArray(s.subtitles) ? s.subtitles.filter((x) => x && x.lang && x.url) : [];
   if (subs.length) out.subtitles = subs;
