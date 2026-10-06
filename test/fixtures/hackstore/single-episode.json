@@ -1,0 +1,18 @@
+{
+ "error": false,
+ "message": "",
+ "data": {
+  "episode": {
+   "_id": 41526,
+   "title": "Breaking Bad: Temporada 1 Episodio 1",
+   "season_number": 1,
+   "episode_number": 1
+  },
+  "serie": {
+   "_id": 41392,
+   "title": "Breaking Bad (2008)",
+   "slug": "breaking-bad-2008",
+   "release_date": "2008-01-20"
+  }
+ }
+}

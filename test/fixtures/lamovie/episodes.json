@@ -1,0 +1,62 @@
+{
+ "error": false,
+ "message": "",
+ "data": {
+  "posts": [
+   {
+    "_id": 37040,
+    "title": "Breaking Bad: Temporada 1 Episodio 1",
+    "season_number": 1,
+    "episode_number": 1
+   },
+   {
+    "_id": 37041,
+    "title": "Breaking Bad: Temporada 1 Episodio 2",
+    "season_number": 1,
+    "episode_number": 2
+   },
+   {
+    "_id": 37042,
+    "title": "Breaking Bad: Temporada 1 Episodio 3",
+    "season_number": 1,
+    "episode_number": 3
+   },
+   {
+    "_id": 37043,
+    "title": "Breaking Bad: Temporada 1 Episodio 4",
+    "season_number": 1,
+    "episode_number": 4
+   },
+   {
+    "_id": 37044,
+    "title": "Breaking Bad: Temporada 1 Episodio 5",
+    "season_number": 1,
+    "episode_number": 5
+   },
+   {
+    "_id": 37046,
+    "title": "Breaking Bad: Temporada 1 Episodio 6",
+    "season_number": 1,
+    "episode_number": 6
+   },
+   {
+    "_id": 37045,
+    "title": "Breaking Bad: Temporada 1 Episodio 7",
+    "season_number": 1,
+    "episode_number": 7
+   }
+  ],
+  "seasons": [
+   "5",
+   "4"
+  ],
+  "pagination": {
+   "current_page": 1,
+   "last_page": 1,
+   "per_page": 50,
+   "total": 7,
+   "next_page_url": null,
+   "prev_page_url": null
+  }
+ }
+}

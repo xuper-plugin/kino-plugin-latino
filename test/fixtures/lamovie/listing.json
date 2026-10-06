@@ -1,0 +1,105 @@
+{
+ "error": false,
+ "message": "",
+ "data": {
+  "posts": [
+   {
+    "_id": 90161,
+    "title": "Family Guy Happy Hell-o-ween (2026)",
+    "overview": "Aún no hemos añadido un resumen para este titulo. Estamos trabajando para agregarla pronto.",
+    "slug": "family-guy-happy-hell-o-ween-2026",
+    "images": {
+     "poster": "/thumbs/170f3985559ca82b67120c5551569708_hd.webp",
+     "backdrop": "/backdrops/170f3985559ca82b67120c5551569708.webp",
+     "logo": "/logos/170f3985559ca82b67120c5551569708.webp"
+    },
+    "type": "movies",
+    "release_date": "2026-10-05",
+    "original_title": "Family Guy Happy Hell-o-ween",
+    "genres": [
+     96,
+     520
+    ],
+    "lang": [
+     58651,
+     58652
+    ]
+   },
+   {
+    "_id": 90152,
+    "title": "UNABOMBER (2026)",
+    "overview": "En este drama inspirado en hechos reales, el FBI le da caza a Ted Kaczynski, prodigio de Harvard y víctima de un experimento, que se ha convertido en el Unabomber.",
+    "slug": "unabomber-2026",
+    "images": {
+     "poster": "/thumbs/3213b33b21d4755345b7f0c8a68579ab_hd.webp",
+     "backdrop": "/backdrops/3213b33b21d4755345b7f0c8a68579ab.webp",
+     "logo": "/logos/3213b33b21d4755345b7f0c8a68579ab.webp"
+    },
+    "type": "movies",
+    "release_date": "2026-09-25",
+    "original_title": "UNABOMBER",
+    "genres": [
+     17,
+     33,
+     180
+    ],
+    "lang": [
+     58651,
+     58652
+    ]
+   },
+   {
+    "_id": "90148",
+    "title": "La noche del demonio: Están entre nosotros (2026)",
+    "overview": "Un trío de acosadores se infiltra en un tranquilo suburbio y obliga a una nueva familia a entrar en el plano astral, donde descubren una verdad aterradora: el Más Allá se está filtrando al mundo real.",
+    "slug": "la-noche-del-demonio-estan-entre-nosotros-2026",
+    "images": {
+     "poster": "/thumbs/5fb7c8e43eecb211c2244e5b5f2fa363_hd.webp",
+     "backdrop": "/backdrops/5fb7c8e43eecb211c2244e5b5f2fa363.webp",
+     "logo": "/logos/5fb7c8e43eecb211c2244e5b5f2fa363.webp"
+    },
+    "type": "movies",
+    "release_date": "2026-08-19",
+    "original_title": "Insidious: Out of the Further",
+    "genres": [
+     33,
+     96
+    ],
+    "lang": [
+     58651,
+     58652
+    ]
+   },
+   {
+    "_id": 90147,
+    "title": "Spider-Man: Un nuevo día (2026)",
+    "overview": "A medida qué Spider-Man está en la cima de su carrera protegiendo la ciudad de Nueva York, una serie de crímenes inusuales lo arrastran a una red de misterios más grande de lo que jamás haya enfrentado.",
+    "slug": "spider-man-un-nuevo-dia-2026",
+    "images": {
+     "poster": "/thumbs/7e45c27b773a3ac057c085d6bee64344_hd.webp",
+     "backdrop": "/backdrops/7e45c27b773a3ac057c085d6bee64344.webp",
+     "logo": "/logos/7e45c27b773a3ac057c085d6bee64344.webp"
+    },
+    "type": "movies",
+    "release_date": "2026-07-29",
+    "original_title": "Spider-Man: Brand New Day",
+    "genres": [
+     32,
+     130,
+     131
+    ],
+    "lang": [
+     58651,
+     58652
+    ]
+   }
+  ],
+  "pagination": {
+   "current_page": 1,
+   "last_page": 309,
+   "next_page_url": "https://lamovie.org/wp-api/v1/listing/movies?page=2",
+   "prev_page_url": null,
+   "total": 7404
+  }
+ }
+}

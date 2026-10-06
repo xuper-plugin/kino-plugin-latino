@@ -1,0 +1,18 @@
+{
+ "error": false,
+ "message": "",
+ "data": {
+  "_id": 41956,
+  "title": "El Club de la Pelea (1999)",
+  "slug": "el-club-de-la-pelea-1999",
+  "release_date": "1999-10-15",
+  "original_title": "Fight Club",
+  "overview": "Una bomba de relojería insomne y un escurridizo vendedor de jabones canalizan la agresividad masculina primitiva en una nueva y sorprendente forma de terapia. Su concepto se pone de moda y se forman \"clubes de pelea\" clandestinos en todas las ciudades, hasta que un excéntrico se interpone en el camino y desencadena una espiral fuera de control hacia el olvido.",
+  "images": {
+   "poster": "/thumbs/01f78be6f7cad02658508fe4616098a9_hd.webp",
+   "backdrop": "/backdrops/01f78be6f7cad02658508fe4616098a9.webp",
+   "logo": "/logos/01f78be6f7cad02658508fe4616098a9.webp"
+  },
+  "type": "movies"
+ }
+}
