@@ -3,10 +3,12 @@ import * as vimeos from "./vimeos.js";
 import * as streamwish from "./streamwish.js";
 import * as vidhide from "./vidhide.js";
 import * as fastream from "./fastream.js";
-// Task 5 adds: voe, okru, nupload.
-const TABLE = { goodstream, vimeos, streamwish, vidhide, fastream };
+import * as voe from "./voe.js";
+import * as okru from "./okru.js";
+import * as nupload from "./nupload.js";
+const TABLE = { goodstream, vimeos, streamwish, vidhide, fastream, voe, okru, nupload };
 
-/** Callers pass `(embedUrl, req, kino)`; kino is optional and unused by the packer family. */
+/** Callers pass `(embedUrl, req, kino)`; kino is optional and used by voe. */
 export function extractorFor(embedUrl) {
   let host;
   try { host = new URL(embedUrl).hostname.replace(/^www\./, ""); } catch (_) { return null; }
