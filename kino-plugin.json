@@ -1,0 +1,12 @@
+{
+  "id": "latino",
+  "name": "Latino",
+  "version": "0.1.0",
+  "apiVersion": 8,
+  "entry": "plugin.js",
+  "description": "Películas y series en español latino, castellano o subtituladas desde varias fuentes",
+  "author": "xuper-plugin",
+  "homepage": "https://github.com/xuper-plugin/kino-plugin-latino",
+  "hosts": ["api.themoviedb.org"],
+  "capabilities": ["search", "episodes", "resolve"]
+}
