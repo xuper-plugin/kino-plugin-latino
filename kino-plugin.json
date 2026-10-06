@@ -81,16 +81,16 @@
     "movies",
     "series"
   ],
-  "color": "#F2A541",
+  "color": "#C62828",
   "section": {
     "label": "Latino"
   },
   "theme": {
-    "accent": "#F2A541",
-    "onAccent": "#1A1206",
-    "background": "#120D0A",
-    "surface": "#221A14",
-    "highlight": "#F7D08A"
+    "accent": "#BA2D2A",
+    "onAccent": "#FFFFFF",
+    "background": "#0B0707",
+    "surface": "#1A1212",
+    "highlight": "#F4C7C3"
   },
   "browser": true,
   "telemetry": true,
