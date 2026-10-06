@@ -1,0 +1,171 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { fakeKino, fixture } from "./helpers/fakeKino.mjs";
+import { makeRequester } from "../src/util/http.js";
+import * as cinecalidad from "../src/sources/cinecalidad.js";
+import * as seriesmetro from "../src/sources/seriesmetro.js";
+import * as seriesflix from "../src/sources/seriesflix.js";
+import { SOURCES, sourceById } from "../src/sources/index.js";
+
+const FIGHT = { kind: "movie", tmdbId: 550, imdbId: "tt0137523", year: 1999, season: null, episode: null,
+  titles: { esMX: "El club de la pelea", esES: "El club de la lucha", en: "Fight Club", original: "Fight Club" } };
+const PADRINO = { kind: "movie", tmdbId: 238, imdbId: "tt0068646", year: 1972, season: null, episode: null,
+  titles: { esMX: "El padrino", esES: "El padrino", en: "The Godfather", original: "The Godfather" } };
+const BB = { kind: "tv", tmdbId: 1396, imdbId: "tt0903747", year: 2008, season: 1, episode: 1,
+  titles: { esMX: "Breaking Bad", esES: "Breaking Bad", en: "Breaking Bad", original: "Breaking Bad" } };
+
+function routed(map, seen) {
+  const f = fakeKino({ fetch: async (u, o) => {
+    if (seen) seen.push(u);
+    for (const [re, fx] of map) if (re.test(u)) return { status: 200, body: fixture(fx) };
+    return { status: 404, body: "" };
+  } });
+  return f;
+}
+const ctx = (kino) => ({ kino, req: makeRequester(kino, { budget: 12, deadline: Date.now() + 60_000 }) });
+const valid = (e, source) => e.every((x) => x.source === source && ["lat", "esp", "sub"].includes(x.lang) && /^https?:/.test(x.embedUrl));
+
+test("cinecalidad: base64 data-src options become latino embeds", async () => {
+  const { kino } = routed([[/\/pelicula\/el-club-de-la-pelea\/$/, "cinecalidad/movie.html"]]);
+  const e = await cinecalidad.list(FIGHT, ctx(kino));
+  assert.equal(e.length, 5);
+  assert.ok(valid(e, "cinecalidad") && e.every((x) => x.lang === "lat"));
+  const byUrl = Object.fromEntries(e.map((x) => [x.embedUrl, x.server]));
+  assert.equal(byUrl["https://goodstream.one/embed-sgf4johjlyvz.html"], "goodstream");
+  assert.equal(byUrl["https://hlswish.com/e/65bq2s06y30z"], "streamwish");
+  assert.equal(byUrl["https://filemoon.sx/e/fwntpi9yftyj"], "filemoon");
+});
+
+test("cinecalidad: a page from another year is rejected, a year off by one is not", async () => {
+  const { kino } = routed([[/\/pelicula\/el-club-de-la-pelea\/$/, "cinecalidad/movie.html"]]);
+  assert.deepEqual(await cinecalidad.list({ ...FIGHT, year: 2005 }, ctx(kino)), []);
+  assert.equal((await cinecalidad.list({ ...FIGHT, year: 2000 }, ctx(kino))).length, 5);
+});
+
+test("cinecalidad: slugs go one after another, the -2 variant only after every distinct title, then stop", async () => {
+  const seen = [];
+  const { kino } = routed([], seen);
+  assert.deepEqual(await cinecalidad.list(FIGHT, ctx(kino)), []);
+  assert.deepEqual(seen.map((u) => new URL(u).pathname), [
+    "/pelicula/el-club-de-la-pelea/", "/pelicula/el-club-de-la-lucha/", "/pelicula/fight-club/",
+    "/pelicula/el-club-de-la-pelea-2/", "/pelicula/el-club-de-la-lucha-2/", "/pelicula/fight-club-2/",
+  ]);
+});
+
+test("cinecalidad: a wrong-year first page falls through to the -2 variant", async () => {
+  const seen = [];
+  const f = fakeKino({ fetch: async (u) => {
+    seen.push(new URL(u).pathname);
+    if (/el-club-de-la-pelea\/$/.test(u)) return { status: 200, body: fixture("cinecalidad/movie.html").replace("(1999)", "(1951)") };
+    if (/el-club-de-la-pelea-2\/$/.test(u)) return { status: 200, body: fixture("cinecalidad/movie.html") };
+    return { status: 404, body: "" };
+  } });
+  assert.equal((await cinecalidad.list(FIGHT, ctx(f.kino))).length, 5);
+  assert.equal(seen.at(-1), "/pelicula/el-club-de-la-pelea-2/");
+});
+
+test("cinecalidad: an undated page is not trusted", async () => {
+  const f = fakeKino({ fetch: async () => ({ status: 200, body: fixture("cinecalidad/movie.html").replace("(1999)", "") }) });
+  assert.deepEqual(await cinecalidad.list(FIGHT, ctx(f.kino)), []);
+});
+
+test("cinecalidad: an option that is an intermediate page is followed for #btn_enlace", async () => {
+  const inter = btoa("https://www.cinecalidad.vg/go/abc");
+  const page = `<h1>Algo (1999)</h1><ul><li><a data-src="${inter}" data-option> mystery</a></li></ul>`;
+  const seen = [];
+  const f = fakeKino({ fetch: async (u) => {
+    seen.push(u);
+    if (/\/pelicula\/algo\/$/.test(u)) return { status: 200, body: page };
+    if (/go\/abc/.test(u)) return { status: 200, body: `<a id="btn_enlace" href="https://voe.sx/e/zzz111"></a>` };
+    return { status: 404, body: "" };
+  } });
+  const e = await cinecalidad.list({ ...FIGHT, titles: { esMX: "Algo", esES: "Algo", en: "Algo", original: "Algo" } }, ctx(f.kino));
+  assert.deepEqual(e.map((x) => [x.embedUrl, x.server, x.lang]), [["https://voe.sx/e/zzz111", "voe", "lat"]]);
+});
+
+test("cinecalidad: series are not its business", async () => {
+  const { kino } = routed([[/./, "cinecalidad/movie.html"]]);
+  assert.deepEqual(await cinecalidad.list(BB, ctx(kino)), []);
+});
+
+test("seriesmetro: movie with every language it offers, castellano and vose kept", async () => {
+  const { kino } = routed([[/\/pelicula\/el-padrino\/$/, "seriesmetro/movie.html"], [/trembed=0&trid=6326&trtype=1/, "seriesmetro/embed-m0.html"], [/trembed=2&trid=6326&trtype=1/, "seriesmetro/embed-m2.html"]]);
+  const e = await seriesmetro.list(PADRINO, ctx(kino));
+  assert.deepEqual(e.map((x) => [x.lang, x.server, x.embedUrl]), [
+    ["esp", "fastream", "https://fastream.to/embed-lpz64cw5npj7.html"],
+    ["sub", "fastream", "https://fastream.to/embed-uq9sxwrr1kaa.html"],
+  ]);
+  assert.ok(valid(e, "seriesmetro"));
+});
+
+test("seriesmetro: wrong year is rejected", async () => {
+  const { kino } = routed([[/\/pelicula\/el-padrino\/$/, "seriesmetro/movie.html"]]);
+  assert.deepEqual(await seriesmetro.list({ ...PADRINO, year: 2010 }, ctx(kino)), []);
+});
+
+test("seriesmetro: episode posts the season form, then reads all three languages off the episode page", async () => {
+  const f = fakeKino({ fetch: async (u, o) => {
+    if (/\/serie\/breaking-bad\/$/.test(u)) return { status: 200, body: fixture("seriesmetro/series.html") };
+    if (/admin-ajax\.php$/.test(u)) return { status: 200, body: fixture("seriesmetro/season.html") };
+    if (/\/capitulo\/breaking-bad-temporada-1-capitulo-1\/$/.test(u)) return { status: 200, body: fixture("seriesmetro/episode.html") };
+    const m = /trembed=(\d)&trid=25241&trtype=2/.exec(u);
+    return m ? { status: 200, body: fixture(`seriesmetro/embed-e${m[1]}.html`) } : { status: 404, body: "" };
+  } });
+  const e = await seriesmetro.list(BB, ctx(f.kino));
+  assert.deepEqual(e.map((x) => x.lang), ["lat", "esp", "sub"]);
+  assert.ok(valid(e, "seriesmetro") && e.every((x) => x.server === "fastream"));
+  const post = f.calls.find((c) => /admin-ajax/.test(c.url));
+  assert.equal(post.opts.method, "POST");
+  assert.deepEqual(post.opts.body.form, { action: "action_select_season", season: "1", post: "10456" });
+});
+
+test("seriesmetro: an episode of another year or one missing from the season gives nothing", async () => {
+  const f = fakeKino({ fetch: async (u) => {
+    if (/\/serie\/breaking-bad\/$/.test(u)) return { status: 200, body: fixture("seriesmetro/series.html") };
+    if (/admin-ajax/.test(u)) return { status: 200, body: fixture("seriesmetro/season.html") };
+    if (/capitulo-1\/$/.test(u)) return { status: 200, body: fixture("seriesmetro/episode.html") };
+    return { status: 404, body: "" };
+  } });
+  assert.deepEqual(await seriesmetro.list({ ...BB, episode: 40 }, ctx(f.kino)), []);
+  assert.deepEqual(await seriesmetro.list({ ...BB, year: 1990 }, ctx(f.kino)), []);
+});
+
+test("seriesflix: episode gives latino, castellano and subtitulado embeds, wrapped players unwrapped", async () => {
+  const { kino } = routed([[/\/episodio\/breaking-bad-1x1$/, "seriesflix/episode.html"]]);
+  const e = await seriesflix.list(BB, ctx(kino));
+  assert.deepEqual(e.map((x) => x.lang), ["lat", "lat", "esp", "esp", "sub", "sub"]);
+  assert.ok(valid(e, "seriesflix"));
+  assert.equal(e[0].server, "nupload");
+  assert.ok(e[0].embedUrl.startsWith("https://nupload.my/watch/"));
+  assert.equal(e[1].embedUrl, "https://voe.sx/e/tugzhf5qhz4d");
+  assert.equal(e[1].server, "voe");
+});
+
+test("seriesflix: wrong year rejected, movies are not its business", async () => {
+  const { kino } = routed([[/\/episodio\/breaking-bad-1x1$/, "seriesflix/episode.html"]]);
+  assert.deepEqual(await seriesflix.list({ ...BB, year: 1990 }, ctx(kino)), []);
+  assert.deepEqual(await seriesflix.list(FIGHT, ctx(kino)), []);
+  assert.deepEqual(await seriesflix.list({ ...BB, episode: null }, ctx(kino)), []);
+});
+
+test("a spent budget is 'not found', a network error propagates", async () => {
+  const tiny = fakeKino({ fetch: async () => ({ status: 404, body: "" }) }).kino;
+  const c = { kino: tiny, req: makeRequester(tiny, { budget: 1, deadline: Date.now() + 60_000 }) };
+  for (const [m, t] of [[cinecalidad, FIGHT], [seriesmetro, FIGHT], [seriesflix, BB]]) assert.deepEqual(await m.list(t, c), []);
+  const down = fakeKino({ fetch: async () => { throw Object.assign(new Error("net"), { code: "unavailable" }); } }).kino;
+  for (const [m, t] of [[cinecalidad, FIGHT], [seriesmetro, FIGHT], [seriesflix, BB]]) await assert.rejects(m.list(t, ctx(down)));
+});
+
+test("a budget spent after the page is found gives [], not a throw", async () => {
+  const { kino } = routed([[/\/pelicula\/el-padrino\/$/, "seriesmetro/movie.html"]]);
+  assert.deepEqual(await seriesmetro.list(PADRINO, { kino, req: makeRequester(kino, { budget: 1, deadline: Date.now() + 60_000 }) }), []);
+});
+
+test("module shape and registry order", () => {
+  assert.deepEqual(cinecalidad.kinds, ["movie"]);
+  assert.deepEqual(seriesmetro.kinds, ["movie", "tv"]);
+  assert.deepEqual(seriesflix.kinds, ["tv"]);
+  for (const m of [cinecalidad, seriesmetro, seriesflix]) assert.ok(Array.isArray(m.HOSTS) && m.HOSTS.length && typeof m.name === "string");
+  assert.deepEqual(SOURCES.map((s) => s.id), ["lamovie", "hackstore", "cinecalidad", "seriesmetro", "seriesflix"]);
+  assert.equal(sourceById("seriesflix"), seriesflix);
+});

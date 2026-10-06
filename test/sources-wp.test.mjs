@@ -150,7 +150,7 @@ test("module shape and registry", () => {
     assert.deepEqual(m.kinds, ["movie", "tv"]);
     assert.ok(Array.isArray(m.HOSTS) && m.HOSTS.length && typeof m.name === "string");
   }
-  assert.deepEqual(SOURCES.map((s) => s.id), ["lamovie", "hackstore"]);
+  assert.deepEqual(SOURCES.map((s) => s.id).slice(0, 2), ["lamovie", "hackstore"]);
   assert.equal(sourceById("hackstore"), hackstore);
   assert.equal(sourceById("nope"), null);
 });
