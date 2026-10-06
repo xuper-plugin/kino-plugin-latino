@@ -51,3 +51,18 @@ test("i18n: Spanish by default, English for en-*, same keys in both", () => {
   assert.equal(t("sub", { lang: "en" }), "Subtitled");
   assert.deepEqual(KEYS.es, KEYS.en);
 });
+
+test("duration: CSS, units and short values are not a video duration", () => {
+  assert.equal(durationMsOf(".a{transition-duration: 0.3s}"), null);
+  assert.equal(durationMsOf("animation:{duration: 300ms}"), null);
+  assert.equal(durationMsOf("x{duration: 5s} jw({duration:\"125.5\"})"), 125500);
+  assert.equal(durationMsOf('{"duration":"30"}'), null);
+  assert.equal(durationMsOf('{"duration":"3600"}'), 3600000);
+});
+
+test("caption labels: 'Por defecto' is not Portuguese; quoted tracks keys are read", () => {
+  assert.equal(langCode("Por defecto"), null);
+  assert.equal(langCode("Português"), "pt");
+  const page = `{"tracks":[{"file":"https://x.example/e.vtt","label":"Español","kind":"captions"},{"file":"https://x.example/d.vtt","label":"Por defecto","kind":"captions"}]}`;
+  assert.deepEqual(captionTracks(page, "https://x.example/"), [{ lang: "es", url: "https://x.example/e.vtt", label: "Español", format: "vtt" }]);
+});

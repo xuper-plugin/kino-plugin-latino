@@ -264,3 +264,53 @@ test("a fallback main copy keeps its resolution in its label", async () => {
   const s = await resolveTitle(kino, T, {}, { sources: [{ ...src("a", [E("a", "lat", "vimeos", 1), E("a", "lat", "okru", 2), E("a", "lat", "voe", 3, "480p")]), name: "A" }], extract: ex });
   assert.equal(s.label, "Latino · A · VOE 480p");
 });
+
+// --- fix round 1 ---
+
+test("a copy whose ref would pass 512 chars is never an alternative, but can still be the fallback main copy", async () => {
+  const { kino } = fakeKino();
+  const long = "https://voe.example/e/" + "a".repeat(400);
+  const embeds = [E("a", "lat", "vimeos", 1), E("a", "lat", "vimeos", 2), { source: "a", lang: "lat", server: "voe", embedUrl: long, quality: null }];
+  let n = 0;
+  const ex = async (e) => (++n <= 2 ? null : { url: e.embedUrl + "/m.m3u8" });
+  const s = await resolveTitle(kino, T, {}, { sources: [src("a", embeds)], extract: ex });
+  assert.equal(s.url, long + "/m.m3u8");
+  const { kino: k2 } = fakeKino();
+  const s2 = await resolveTitle(k2, T, {}, { sources: [src("a", [E("a", "lat", "vimeos", 1), { source: "a", lang: "lat", server: "voe", embedUrl: long, quality: null }, E("a", "lat", "okru", 3)])], extract: okExtract });
+  assert.deepEqual(s2.alternatives.map((a) => a.label), ["Latino · a · OkRu"]);
+  assert.ok(s2.alternatives.every((a) => a.ref.length <= 512));
+});
+
+test("a hanging extractor never holds the call past its time budget", async () => {
+  const { kino } = fakeKino();
+  const t0 = Date.now();
+  const hang = async () => new Promise(() => {});
+  await assert.rejects(resolveTitle(realSleep(kino), T, {}, { sources: [src("a", [E("a", "lat", "vimeos", 1), E("a", "lat", "okru", 2)])], extract: hang, callMs: 2000 }), (e) => e.code === "not_found");
+  const took = Date.now() - t0;
+  assert.ok(took < 2300, `took ${took} ms with a 2000 ms budget`);
+});
+
+test("a rejecting kino.sleep does not turn into an unhandled rejection", async () => {
+  const { kino } = fakeKino();
+  const k = { ...kino, sleep: async () => { throw new Error("sleep refused"); } };
+  const out = await listEmbeds(k, T, { sources: [src("a", [E("a", "lat", "vimeos", 1)])] });
+  assert.ok(Array.isArray(out));
+});
+
+test("cache: when no copy from a cache hit opens, the entry is dropped so the sources are asked again", async () => {
+  const { kino } = fakeKino();
+  const a = counted(src("a", [E("a", "lat", "vimeos", 1)]));
+  await listEmbeds(kino, T, { sources: [a] });
+  assert.ok(kino.storage.get("emb:movie:550::"));
+  await assert.rejects(resolveTitle(kino, T, {}, { sources: [a], extract: async () => null }), (e) => e.code === "not_found");
+  assert.equal(a.calls, 1);
+  assert.equal(kino.storage.get("emb:movie:550::"), null);
+  await listEmbeds(kino, T, { sources: [a] });
+  assert.equal(a.calls, 2);
+});
+
+test("quality order follows the height: 1080p, lower ones, 1440p, unknown, 4K", () => {
+  const qs = ["2160p", null, "240p", "1440p", "576p", "1080p", "720p", "480p", "360p"];
+  const r = rank(qs.map((q, i) => E("a", "lat", "vimeos", i, q)));
+  assert.deepEqual(r.map((e) => e.quality), ["1080p", "720p", "576p", "480p", "360p", "240p", "1440p", null, "2160p"]);
+});

@@ -36,7 +36,7 @@ export async function pageText(req, url, headers) {
 const LANG_CODES = [
   [/^(español|espanol|spanish|castellano|latino|spa|esp?)\b/i, "es"],
   [/^(english|inglés|ingles|eng?)\b/i, "en"],
-  [/^(portugu[eê]s|portuguese|por|pt)\b/i, "pt"],
+  [/^(portugu[eê]s|portuguese|pt)\b/i, "pt"], // never a bare "por": "Por defecto" is not Portuguese
   [/^(fran[cç]ais|french|franc[eé]s|fre|fra|fr)\b/i, "fr"],
   [/^(italiano|italian|ita|it)\b/i, "it"],
   [/^(deutsch|german|alem[aá]n|ger|deu|de)\b/i, "de"],
@@ -51,7 +51,7 @@ export function langCode(label) {
 
 /** Caption tracks of a JW `tracks: [...]` list; thumbnails and unlabelled or unmappable tracks are left out. */
 export function captionTracks(text, base) {
-  const m = /\btracks\s*:\s*\[([\s\S]*?)\]/.exec(text || "");
+  const m = /["']?\btracks["']?\s*:\s*\[([\s\S]*?)\]/.exec(text || "");
   if (!m) return [];
   const out = [];
   for (const [obj] of m[1].matchAll(/\{[^{}]*\}/g)) {
@@ -69,11 +69,17 @@ export function captionTracks(text, base) {
   return out;
 }
 
-/** JW `duration: "3849.88"` (seconds) in ms, or null. */
+/**
+ * JW `duration: "3849.88"` (seconds) in ms, or null. CSS (`transition-duration: 0.3s`), values with a
+ * unit and anything under a minute (an animation, not a video) are not a duration.
+ */
 export function durationMsOf(text) {
-  const m = /\bduration\s*:\s*["']?(\d+(?:\.\d+)?)["']?/.exec(text || "");
-  const ms = m ? Math.round(Number(m[1]) * 1000) : 0;
-  return ms > 0 ? ms : null;
+  const re = /(?<![-\w])duration["']?\s*:\s*["']?(\d+(?:\.\d+)?)(?![\d.])(?!\s*m?s\b)/g;
+  for (const m of String(text || "").matchAll(re)) {
+    const ms = Math.round(Number(m[1]) * 1000);
+    if (ms >= 60000) return ms;
+  }
+  return null;
 }
 
 /** `{ subtitles?, durationMs? }` the player page reveals, from the page or its unpacked script; only keys it found. */

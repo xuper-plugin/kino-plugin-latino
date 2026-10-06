@@ -14,8 +14,18 @@ import { t } from "./i18n.js";
 export const LANGS = ["lat", "esp", "sub"];
 const QUALITIES = ["auto", "2160p", "1080p", "720p", "480p"];
 const SERVER_TIER = { goodstream: 0, streamwish: 0, vimeos: 0, vidhide: 0, fastream: 0, nupload: 0, direct: 0, okru: 1, voe: 2 };
-const QUALITY_ORDER = { "1080p": 0, "720p": 1, "480p": 2, "360p": 3, "2160p": 5 };
 const HEIGHT = (q) => { const m = /^(\d{3,4})p$/.exec(q || ""); return m ? Number(m[1]) : null; };
+/**
+ * Quality order from the height: 1080p first, then lower ones from the highest down (720p, 576p, 480p, 360p,
+ * 240p), then the heavy ones above 1080p (1440p), then an unknown quality, 4K and up last.
+ */
+const qualityOrder = (q) => {
+  const h = HEIGHT(q);
+  if (h == null) return 5000;
+  if (h >= 2160) return 10000 + h;
+  return h <= 1080 ? 1080 - h : 2000 + h;
+};
+const MAX_REF = 512; // Kino drops a lazy copy whose ref is longer
 // Display names for the servers (labels only; ranking and refs use the ids).
 const SERVER_LABEL = { goodstream: "GoodStream", vimeos: "Vimeos", streamwish: "StreamWish", vidhide: "VidHide", fastream: "Fastream", voe: "VOE", okru: "OkRu", nupload: "Nupload" };
 // Every value qualityOf() can give; a ref's quality must be one of them.
@@ -25,7 +35,7 @@ const NETWORK_CODES = new Set(["network", "timeout", "unavailable", "rate_limite
 const PHASE_MS = 9000;
 const SOURCE = { budget: 12, deadlineMs: 8000 };
 const EXTRACT = { budget: 6, deadlineMs: 6000, tries: 2 };
-const CALL_MS = 19000; // Kino gives resolve 20 s; keep a margin for assembling the answer
+const CALL_MS = 18500; // Kino gives resolve 20 s; every wait is capped at this, leaving room to answer
 const MAX_COPIES = 8;
 const CACHE_TTL_MS = 1800000;
 const OFF_BY_DEFAULT = { peliserieshoy: false }; // R14
@@ -57,7 +67,7 @@ async function waitFor(kino, ms, done = () => false) {
 async function within(kino, promise, ms, fallback) {
   let settled = false;
   const guarded = Promise.resolve(promise).then((v) => { settled = true; return { v }; }, (e) => { settled = true; return { e }; });
-  const r = await Promise.race([guarded, waitFor(kino, ms, () => settled).then(() => null)]);
+  const r = await Promise.race([guarded, waitFor(kino, ms, () => settled).then(() => null, () => null)]);
   return r || { v: fallback, late: true };
 }
 
@@ -139,7 +149,7 @@ async function collect(kino, title, { enabled, sources = SOURCES, phaseMs = PHAS
 
   const on = new Set(active.map((s) => s.id));
   const embeds = unique.filter((e) => on.has(e.source));
-  return { embeds, down: down && embeds.length === 0 };
+  return { embeds, down: down && embeds.length === 0, cached: !!cached, key };
 }
 
 /** Phase 1: every enabled source's embeds for the title, deduplicated by URL in source priority order. */
@@ -165,7 +175,7 @@ export function rank(embeds, { maxQuality = "auto" } = {}) {
   const cap = HEIGHT(maxQuality);
   const key = (e) => {
     const h = HEIGHT(e.quality);
-    return [cap && h && h > cap ? 1 : 0, SERVER_TIER[serverOf(e)] ?? 3, QUALITY_ORDER[e.quality] ?? 4];
+    return [cap && h && h > cap ? 1 : 0, SERVER_TIER[serverOf(e)] ?? 3, qualityOrder(e.quality)];
   };
   return (embeds || [])
     .map((e, i) => ({ e, i, k: key(e) }))
@@ -212,7 +222,7 @@ defaultExtract.accepts = (e) => e.server === "direct" || !!extractorFor(e.embedU
 async function attempt(kino, extract, e, source, untilMs) {
   const deadline = Math.min(Date.now() + EXTRACT.deadlineMs, untilMs);
   const req = makeRequester(kino, { budget: EXTRACT.budget, deadline });
-  const r = await within(kino, Promise.resolve().then(() => extract(e, req, kino, source)), Math.max(0, deadline - Date.now()) + 500, null);
+  const r = await within(kino, Promise.resolve().then(() => extract(e, req, kino, source)), Math.max(0, Math.min(deadline + 500, untilMs) - Date.now()), null);
   if (r.e) kino.log("[latino]", e.source, serverOf(e), (r.e && r.e.code) || "extract_failed");
   const s = r.v;
   return s && typeof s.url === "string" && s.url ? s : null;
@@ -293,7 +303,7 @@ export async function resolveLazy(kino, ref, { sources = SOURCES, extract = defa
 export async function resolveTitle(kino, title, settings, { sources = SOURCES, extract = defaultExtract, phaseMs = PHASE_MS, callMs = CALL_MS } = {}) {
   const until = Date.now() + callMs;
   const set = normalizeSettings(settings);
-  const { embeds, down } = await collect(kino, title, { enabled: set.enabled, sources, phaseMs });
+  const { embeds, down, cached, key } = await collect(kino, title, { enabled: set.enabled, sources, phaseMs });
   const accepts = extract.accepts || (() => true);
   const playable = embeds.filter(accepts);
   const lang = pickLanguage(playable, set.preferred, { includeSub: set.includeSub });
@@ -320,21 +330,20 @@ export async function resolveTitle(kino, title, settings, { sources = SOURCES, e
 
   const rest = pool.filter((e) => !failed.has(e) && (!main || e !== main.e));
   if (!main) {
+    // Extracted here, not through its ref: a copy whose ref is too long for Kino can still be the main one.
     const first = rest.shift();
-    if (!first || until - Date.now() < 1500) {
-      throw kino.error("not_found", `no copy opened (${tries} tried)`, { userMessage: t("noPlayable", kino) });
-    }
-    try {
-      const s = await resolveLazy(kino, lazyRef(first), { sources, extract, untilMs: until });
-      return withCopies(kino, s, rest, nameOf);
-    } catch (err) {
-      throw kino.error("not_found", "no copy opened: " + (err && err.message), { userMessage: t("noPlayable", kino) });
-    }
+    const s = first && until - Date.now() >= 1500 ? await attempt(kino, extract, first, sourceOf(first), until) : null;
+    if (s) return withCopies(kino, toStream(kino, s, first, nameOf(first)), rest, nameOf);
+    // Nothing opened: embeds from the cache may be stale, so the next call asks the sources again.
+    if (cached) { try { kino.storage.remove(key); } catch (_) { /* no cache to drop */ } }
+    throw kino.error("not_found", `no copy opened (${tries + (first ? 1 : 0)} tried)`, { userMessage: t("noPlayable", kino) });
   }
   return withCopies(kino, toStream(kino, main.s, main.e, nameOf(main.e)), rest, nameOf);
 }
 
 function withCopies(kino, stream, rest, nameOf) {
-  const alternatives = rest.slice(0, MAX_COPIES).map((e) => ({ label: label(kino, e, nameOf(e)), ref: lazyRef(e) }));
+  const alternatives = rest.map((e) => ({ label: label(kino, e, nameOf(e)), ref: lazyRef(e) }))
+    .filter((a) => a.ref.length <= MAX_REF)
+    .slice(0, MAX_COPIES);
   return alternatives.length ? { ...stream, alternatives } : stream;
 }
