@@ -3,8 +3,11 @@ import * as hackstore from "./hackstore.js";
 import * as cinecalidad from "./cinecalidad.js";
 import * as seriesmetro from "./seriesmetro.js";
 import * as seriesflix from "./seriesflix.js";
+import * as embed69 from "./embed69.js";
+import * as peliserieshoy from "./peliserieshoy.js";
+import * as zoowomaniacos from "./zoowomaniacos.js";
 
 /** Sources in priority order. */
-export const SOURCES = [lamovie, hackstore, cinecalidad, seriesmetro, seriesflix];
+export const SOURCES = [lamovie, hackstore, cinecalidad, seriesmetro, seriesflix, embed69, peliserieshoy, zoowomaniacos];
 
 export const sourceById = (id) => SOURCES.find((s) => s.id === id) || null;
