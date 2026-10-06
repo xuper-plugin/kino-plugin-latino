@@ -16,6 +16,10 @@ const QUALITIES = ["auto", "2160p", "1080p", "720p", "480p"];
 const SERVER_TIER = { goodstream: 0, streamwish: 0, vimeos: 0, vidhide: 0, fastream: 0, nupload: 0, direct: 0, okru: 1, voe: 2 };
 const QUALITY_ORDER = { "1080p": 0, "720p": 1, "480p": 2, "360p": 3, "2160p": 5 };
 const HEIGHT = (q) => { const m = /^(\d{3,4})p$/.exec(q || ""); return m ? Number(m[1]) : null; };
+// Display names for the servers (labels only; ranking and refs use the ids).
+const SERVER_LABEL = { goodstream: "GoodStream", vimeos: "Vimeos", streamwish: "StreamWish", vidhide: "VidHide", fastream: "Fastream", voe: "VOE", okru: "OkRu", nupload: "Nupload" };
+// Every value qualityOf() can give; a ref's quality must be one of them.
+const KNOWN_QUALITIES = ["2160p", "1440p", "1080p", "720p", "576p", "480p", "360p", "240p"];
 const NETWORK_CODES = new Set(["network", "timeout", "unavailable", "rate_limited"]);
 
 const PHASE_MS = 9000;
@@ -170,7 +174,8 @@ export function rank(embeds, { maxQuality = "auto" } = {}) {
 }
 
 function label(kino, e, sourceName) {
-  const server = serverOf(e) === "direct" ? t("direct", kino) : serverOf(e);
+  const id = serverOf(e);
+  const server = id === "direct" ? t("direct", kino) : SERVER_LABEL[id] || e.server;
   const q = e.quality ? " " + e.quality : "";
   const full = `${t(e.lang, kino)} · ${sourceName} · ${server}${q}`;
   return full.length <= 48 ? full : `${t(e.lang, kino)} · ${server}${q}`.slice(0, 48);
@@ -246,22 +251,24 @@ function unb64url(s) {
   }
 }
 
-/** The ref a copy is resolved from later: "x|<source>|<base64url embedUrl>|<lang>|<server>". */
+/** The ref a copy is resolved from later: "x|<source>|<base64url embedUrl>|<lang>|<server>|<quality or ->". */
 export function lazyRef(e) {
-  return ["x", e.source, b64url(e.embedUrl), e.lang, e.server].join("|");
+  return ["x", e.source, b64url(e.embedUrl), e.lang, e.server, KNOWN_QUALITIES.includes(e.quality) ? e.quality : "-"].join("|");
 }
 
 /** An embed back from its ref, or null when anything in it is off. */
 function readRef(ref) {
   if (typeof ref !== "string" || ref.length > 512) return null;
   const parts = ref.split("|");
-  if (parts.length !== 5 || parts[0] !== "x") return null;
-  const [, source, enc, lang, server] = parts;
+  // 6 fields; a 5-field ref (before the quality was added) is a copy of unknown quality.
+  if ((parts.length !== 5 && parts.length !== 6) || parts[0] !== "x") return null;
+  const [, source, enc, lang, server, q = "-"] = parts;
+  if (q !== "-" && !KNOWN_QUALITIES.includes(q)) return null;
   const embedUrl = unb64url(enc);
   if (!/^[a-z0-9]+$/.test(source) || !LANGS.includes(lang) || !/^[\w .-]{1,40}$/.test(server)) return null;
   if (!embedUrl || !/^https?:\/\//i.test(embedUrl)) return null;
   try { new URL(embedUrl); } catch (_) { return null; }
-  return { source, lang, server, embedUrl, quality: null };
+  return { source, lang, server, embedUrl, quality: q === "-" ? null : q };
 }
 
 /** Resolves one lazy copy; `not_found` with a sentence for the person when the ref is bad or the copy does not open. */
@@ -272,7 +279,6 @@ export async function resolveLazy(kino, ref, { sources = SOURCES, extract = defa
   const source = sources.find((s) => s.id === e.source);
   const accepts = extract.accepts || (() => true);
   if (!accepts(e) || (e.server === "direct" && !source)) throw fail("copy not playable: " + e.source + "/" + e.server);
-  // The quality only lives in the label the copy was offered with; the ref keeps it short.
   const s = await attempt(kino, extract, e, source, untilMs ?? Date.now() + EXTRACT.deadlineMs);
   if (!s) throw fail("copy did not open: " + e.source + "/" + serverOf(e));
   return toStream(kino, s, e, source ? source.name : e.source);

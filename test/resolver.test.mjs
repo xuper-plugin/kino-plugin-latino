@@ -38,10 +38,10 @@ test("ranking: reliable HLS before okru before voe; 1080p first, 4K last", () =>
 test("resolve: one stream, alternatives same language only, labelled with quality", async () => {
   const { kino } = fakeKino();
   const embeds = [E("lamovie", "lat", "vimeos", 1, "1080p"), E("lamovie", "lat", "goodstream", 2, "720p"), E("lamovie", "sub", "vimeos", 3)];
-  const s = await resolveTitle(kino, T, { preferred: "lat" }, { sources: [src("lamovie", embeds)], extract: okExtract });
+  const s = await resolveTitle(kino, T, { preferred: "lat" }, { sources: [{ ...src("lamovie", embeds), name: "LaMovie" }], extract: okExtract });
   assert.match(s.url, /master\.m3u8$/);
   assert.equal(s.alternatives.length, 1);
-  assert.match(s.alternatives[0].label, /^Latino · lamovie · goodstream 720p$/);
+  assert.match(s.alternatives[0].label, /^Latino · LaMovie · GoodStream 720p$/); // R15: display names
 });
 
 test("resolve: nothing found is not_found with a userMessage", async () => {
@@ -150,7 +150,7 @@ test("main copy carries its own label, subtitles and duration from the extractor
   const { kino } = fakeKino();
   const ex = async (e) => ({ url: e.embedUrl + "/m.m3u8", headers: {}, subtitles: [{ lang: "es", url: "https://vimeos.example/s.vtt", format: "vtt" }], durationMs: 5000 });
   const s = await resolveTitle(kino, T, {}, { sources: [{ ...src("lamovie", [E("lamovie", "lat", "vimeos", 1, "1080p")]), name: "LaMovie" }], extract: ex });
-  assert.equal(s.label, "Latino · LaMovie · vimeos 1080p");
+  assert.equal(s.label, "Latino · LaMovie · Vimeos 1080p");
   assert.equal(s.subtitles.length, 1);
   assert.equal(s.durationMs, 5000);
   assert.equal(s.alternatives, undefined);
@@ -159,8 +159,8 @@ test("main copy carries its own label, subtitles and duration from the extractor
 test("labels follow the person's language", async () => {
   const { kino } = fakeKino({ lang: "en-US" });
   const s = await resolveTitle(kino, T, { preferred: "esp" }, { sources: [src("a", [E("a", "esp", "vimeos", 1), E("a", "esp", "okru", 2, "480p")])], extract: okExtract });
-  assert.equal(s.label, "Spain Spanish · a · vimeos");
-  assert.equal(s.alternatives[0].label, "Spain Spanish · a · okru 480p");
+  assert.equal(s.label, "Spain Spanish · a · Vimeos");
+  assert.equal(s.alternatives[0].label, "Spain Spanish · a · OkRu 480p");
 });
 
 test("first extraction fails: the second is the stream and the failed one is not offered", async () => {
@@ -168,7 +168,7 @@ test("first extraction fails: the second is the stream and the failed one is not
   const ex = async (e) => (e.embedUrl.endsWith("/1") ? null : okExtract(e));
   const s = await resolveTitle(kino, T, {}, { sources: [src("a", [E("a", "lat", "vimeos", 1), E("a", "lat", "okru", 2), E("a", "lat", "voe", 3)])], extract: ex });
   assert.match(s.url, /okru/);
-  assert.deepEqual(s.alternatives.map((a) => a.label), ["Latino · a · voe"]);
+  assert.deepEqual(s.alternatives.map((a) => a.label), ["Latino · a · VOE"]);
 });
 
 test("at most 2 extractions in rank order, then the first remaining copy once more as main (via resolveLazy)", async () => {
@@ -185,7 +185,7 @@ test("at most 8 lazy alternatives, each a ref resolveLazy can read", async () =>
   const s = await resolveTitle(kino, T, {}, { sources: [src("a", many)], extract: okExtract });
   assert.equal(s.alternatives.length, 8);
   for (const a of s.alternatives) {
-    assert.match(a.ref, /^x\|a\|[A-Za-z0-9_-]+\|lat\|vimeos$/);
+    assert.match(a.ref, /^x\|a\|[A-Za-z0-9_-]+\|lat\|vimeos\|-$/);
     assert.ok(a.ref.length <= 512 && a.label.length <= 48);
   }
 });
@@ -212,7 +212,7 @@ test("Subtitulado: a copy with subtitles beats one without", async () => {
   const s = await resolveTitle(kino, T, { preferred: "sub" }, { sources: [src("a", [E("a", "sub", "vimeos", 1), E("a", "sub", "okru", 2)])], extract: ex });
   assert.match(s.url, /okru/);
   assert.equal(s.subtitles.length, 1);
-  assert.deepEqual(s.alternatives.map((a) => a.label), ["Subtitulado · a · vimeos"]);
+  assert.deepEqual(s.alternatives.map((a) => a.label), ["Subtitulado · a · Vimeos"]);
 });
 
 test("direct embeds play as they are, with the source site as Referer and a mime by extension", async () => {
@@ -237,13 +237,30 @@ test("lazy ref round trip for a real source's direct copy, and its labels", asyn
   assert.equal(s.url, e.embedUrl);
   assert.equal(s.mime, "application/vnd.apple.mpegurl");
   assert.equal(s.headers.Referer, "https://proyectox.yoyatengoabuela.com/");
-  assert.equal(s.label, "Castellano · Zoowomaniacos · Directo"); // the ref carries no quality
+  assert.equal(s.label, "Castellano · Zoowomaniacos · Directo 1080p"); // R16: the ref carries the quality
 });
 
 test("bad lazy refs of every shape are not_found", async () => {
   const { kino } = fakeKino();
   const good = lazyRef({ source: "zoowomaniacos", lang: "lat", server: "direct", embedUrl: "https://archive.org/a.mp4" });
-  for (const ref of [undefined, "", "x|a", good.replace("|lat|", "|xx|"), good.replace(/^x/, "y"), good.replace("zoowomaniacos", "nope"), lazyRef({ source: "lamovie", lang: "lat", server: "direct", embedUrl: "ftp://a/b" })]) {
+  for (const ref of [undefined, "", "x|a", good.replace("|lat|", "|xx|"), good.replace(/^x/, "y"), good.replace("zoowomaniacos", "nope"), good.replace(/\|-$/, "|999p"), good + "|extra", lazyRef({ source: "lamovie", lang: "lat", server: "direct", embedUrl: "ftp://a/b" })]) {
     await assert.rejects(resolveLazy(kino, ref), (err) => err.code === "not_found" && typeof err.userMessage === "string", String(ref));
   }
+});
+
+test("lazy refs: 6 fields carry the quality, 5-field refs still resolve without one", async () => {
+  const { kino } = fakeKino();
+  const e = { source: "zoowomaniacos", lang: "lat", server: "direct", embedUrl: "https://archive.org/download/x/a.mp4", quality: "720p" };
+  assert.match(lazyRef(e), /\|direct\|720p$/);
+  assert.equal((await resolveLazy(kino, lazyRef(e))).label, "Latino · Zoowomaniacos · Directo 720p");
+  const five = lazyRef(e).replace(/\|720p$/, "");
+  assert.equal((await resolveLazy(kino, five)).label, "Latino · Zoowomaniacos · Directo");
+});
+
+test("a fallback main copy keeps its resolution in its label", async () => {
+  const { kino } = fakeKino();
+  let n = 0;
+  const ex = async (e) => (++n <= 2 ? null : okExtract(e));
+  const s = await resolveTitle(kino, T, {}, { sources: [{ ...src("a", [E("a", "lat", "vimeos", 1), E("a", "lat", "okru", 2), E("a", "lat", "voe", 3, "480p")]), name: "A" }], extract: ex });
+  assert.equal(s.label, "Latino · A · VOE 480p");
 });
