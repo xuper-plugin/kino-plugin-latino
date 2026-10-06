@@ -4,11 +4,65 @@ var __export = (target, all) => {
     __defProp(target, name9, { get: all[name9], enumerable: true });
 };
 
+// src/util/time.js
+async function waitFor(kino, ms, done = () => false) {
+  const end = Date.now() + ms;
+  while (!done()) {
+    const left = end - Date.now();
+    if (left <= 0) return;
+    await kino.sleep(Math.min(250, left));
+  }
+}
+async function within(kino, promise, ms, fallback) {
+  let settled = false;
+  const guarded = Promise.resolve(promise).then((v) => {
+    settled = true;
+    return { v };
+  }, (e) => {
+    settled = true;
+    return { e };
+  });
+  const r = await Promise.race([guarded, waitFor(kino, ms, () => settled).then(() => null, () => null)]);
+  return r || { v: fallback, late: true };
+}
+async function bounded(kino, run, ms, what) {
+  await null;
+  if (!(ms > 0)) throw kino.error("timeout", `${what}: no time left`);
+  const r = await within(kino, Promise.resolve().then(run), ms, void 0);
+  if (r.late) throw kino.error("timeout", `${what}: over ${Math.round(ms)} ms`);
+  if (r.e) throw r.e;
+  return r.v;
+}
+var LIMIT_MS = {
+  search: 15e3,
+  scopedSearch: 6e3,
+  home: 2e4,
+  section: 2e4,
+  browse: 2e4,
+  categories: 2e4,
+  episodes: 2e4,
+  details: 2e4,
+  resolve: 2e4,
+  action: 3e4,
+  settingsStatus: 1e4,
+  validateSettings: 2e4
+};
+var BROWSER_RESOLVE_MS = 45e3;
+function callDeadline(kino, call) {
+  const limit = call === "resolve" && kino && kino.browser ? BROWSER_RESOLVE_MS : LIMIT_MS[call] || 15e3;
+  const margin = limit <= 6e3 ? 1e3 : 1500;
+  const end = Date.now() + limit - margin;
+  return { end, left: () => Math.max(0, end - Date.now()) };
+}
+
 // src/tmdb.js
 var IMG = "https://image.tmdb.org/t/p/";
-function tmdb(kino, path, params) {
+var TMDB_MS = 6e3;
+async function tmdb(kino, path, params, { untilMs } = {}) {
+  await null;
   if (typeof kino.tmdb !== "function") throw kino.error("unavailable", "kino.tmdb missing (Kino older than 0.9.53)");
-  return kino.tmdb(path, params);
+  const ms = Math.min(TMDB_MS, untilMs == null ? TMDB_MS : untilMs - Date.now());
+  return bounded(kino, () => kino.tmdb(path, params), ms, "tmdb " + path.split("/").slice(0, 2).join("/"));
 }
 var year = (d) => typeof d === "string" && /^\d{4}/.test(d) ? Number(d.slice(0, 4)) : null;
 var img = (size, p) => p ? IMG + size + p : null;
@@ -17,8 +71,8 @@ function translated(translations, country) {
   const hit = list9.find((t2) => t2.iso_3166_1 === country && t2.iso_639_1 === (country === "US" ? "en" : "es") && t2.data && (t2.data.title || t2.data.name));
   return hit ? hit.data.title || hit.data.name : "";
 }
-async function titleContext(kino, { kind, tmdbId, season = null, episode = null }) {
-  const d = await tmdb(kino, `/${kind === "tv" ? "tv" : "movie"}/${tmdbId}`, { language: "es-MX", append_to_response: "external_ids,translations" });
+async function titleContext(kino, { kind, tmdbId, season = null, episode = null }, { untilMs } = {}) {
+  const d = await tmdb(kino, `/${kind === "tv" ? "tv" : "movie"}/${tmdbId}`, { language: "es-MX", append_to_response: "external_ids,translations" }, { untilMs });
   const original = d.original_title || d.original_name || d.title || d.name || "";
   const esMX = d.title || d.name || original;
   return {
@@ -38,9 +92,9 @@ async function titleContext(kino, { kind, tmdbId, season = null, episode = null 
     episode: kind === "tv" ? episode ?? null : null
   };
 }
-async function searchTitles(kino, query) {
+async function searchTitles(kino, query, { untilMs } = {}) {
   if (typeof query !== "string" || !query.trim()) return [];
-  const r = await tmdb(kino, "/search/multi", { query, language: "es-MX" });
+  const r = await tmdb(kino, "/search/multi", { query, language: "es-MX" }, { untilMs });
   const items = [];
   for (const x of r && r.results || []) {
     if (x.media_type !== "movie" && x.media_type !== "tv") continue;
@@ -67,8 +121,8 @@ async function searchTitles(kino, query) {
   return items;
 }
 var CHUNK = 20;
-async function episodeList(kino, tmdbId) {
-  const s = await tmdb(kino, `/tv/${tmdbId}`, { language: "es-MX" });
+async function episodeList(kino, tmdbId, { untilMs } = {}) {
+  const s = await tmdb(kino, `/tv/${tmdbId}`, { language: "es-MX" }, { untilMs });
   const runtime = s.episode_run_time && s.episode_run_time[0] || s.last_episode_to_air && s.last_episode_to_air.runtime || null;
   const numbers = (s.seasons || []).map((x) => x.season_number).filter((n) => n > 0);
   const episodes2 = [];
@@ -78,7 +132,7 @@ async function episodeList(kino, tmdbId) {
     const chunk = numbers.slice(i, i + CHUNK);
     let r;
     try {
-      r = await tmdb(kino, `/tv/${tmdbId}`, { language: "es-MX", append_to_response: chunk.map((n) => "season/" + n).join(",") });
+      r = await tmdb(kino, `/tv/${tmdbId}`, { language: "es-MX", append_to_response: chunk.map((n) => "season/" + n).join(",") }, { untilMs });
     } catch (e) {
       failure = e;
       continue;
@@ -1671,6 +1725,7 @@ var WORDS = {
   es: {
     notFound: "No encontr\xE9 este t\xEDtulo en espa\xF1ol.",
     sourcesDown: "Las fuentes en espa\xF1ol no responden ahora.",
+    tmdbDown: "TMDB no responde ahora. Intenta de nuevo en un rato.",
     noPlayable: "Encontr\xE9 el t\xEDtulo, pero ninguna copia abri\xF3. Intenta de nuevo en un rato.",
     copyFailed: "Esta copia no abri\xF3. Prueba con otro servidor.",
     lat: "Latino",
@@ -1686,6 +1741,7 @@ var WORDS = {
     probeNoTmdb: "No pude consultar TMDB para la prueba. Intenta de nuevo en un rato.",
     probeNone: "No hay fuentes encendidas para probar.",
     cacheCleared: "Listo: borr\xE9 {n} datos guardados.",
+    cacheClearedOne: "Listo: borr\xE9 1 dato guardado.",
     prefsReset: "Restablec\xED tus preferencias.",
     rowMovies: "Estrenos en latino",
     rowSeries: "Series en latino",
@@ -1723,6 +1779,7 @@ var WORDS = {
   en: {
     notFound: "I couldn't find this title in Spanish.",
     sourcesDown: "The Spanish sources aren't answering right now.",
+    tmdbDown: "TMDB isn't answering right now. Try again in a while.",
     noPlayable: "I found the title, but no copy opened. Try again in a while.",
     copyFailed: "This copy didn't open. Try another server.",
     lat: "Latin Spanish",
@@ -1738,6 +1795,7 @@ var WORDS = {
     probeNoTmdb: "I couldn't reach TMDB for the test. Try again in a while.",
     probeNone: "No sources are on to test.",
     cacheCleared: "Done: cleared {n} saved items.",
+    cacheClearedOne: "Done: cleared 1 saved item.",
     prefsReset: "Your preferences are back to the defaults.",
     rowMovies: "New in Latin Spanish",
     rowSeries: "Series in Latin Spanish",
@@ -1846,29 +1904,6 @@ function healthLine(kino, health = readHealth(kino)) {
   });
   return parts2.join(" \xB7 ").slice(0, MAX_LINE);
 }
-
-// src/util/time.js
-async function waitFor(kino, ms, done = () => false) {
-  const end = Date.now() + ms;
-  while (!done()) {
-    const left = end - Date.now();
-    if (left <= 0) return;
-    await kino.sleep(Math.min(250, left));
-  }
-}
-async function within(kino, promise, ms, fallback) {
-  let settled = false;
-  const guarded = Promise.resolve(promise).then((v) => {
-    settled = true;
-    return { v };
-  }, (e) => {
-    settled = true;
-    return { e };
-  });
-  const r = await Promise.race([guarded, waitFor(kino, ms, () => settled).then(() => null, () => null)]);
-  return r || { v: fallback, late: true };
-}
-var BROWSER_RESOLVE_MS = 45e3;
 
 // src/resolver.js
 var LANGS = ["lat", "esp", "sub"];
@@ -2153,7 +2188,9 @@ var SITES = { lamovie: lamovie_exports, hackstore: hackstore_exports };
 var LIST_TTL_MS = 10 * 60 * 1e3;
 var MAX_PAGE = 500;
 var memo = /* @__PURE__ */ new Map();
-async function listing3(kino, { site, kind, genre = null, page = 1, deadlineMs = 1e4 }) {
+var PAGE_MS = 1e4;
+var upTo = (cap, untilMs) => Math.min(cap, untilMs == null ? cap : untilMs - Date.now());
+async function listing3(kino, { site, kind, genre = null, page = 1, deadlineMs = PAGE_MS }) {
   const key = `${site}:${kind}:${genre || ""}:${page}`;
   const hit = memo.get(key);
   if (hit && Date.now() - hit.at < LIST_TTL_MS) return hit.items;
@@ -2210,7 +2247,7 @@ var dedup = (items) => {
   const seen = /* @__PURE__ */ new Set();
   return items.filter((i) => seen.has(i.id) ? false : (seen.add(i.id), true));
 };
-async function browsePage(kino, settings, ref, cursor) {
+async function browsePage(kino, settings, ref, cursor, { untilMs } = {}) {
   const b = parseBrowseRef(ref);
   if (!b) throw kino.error("not_found", "unknown browse ref");
   const site = siteFor(settings, b);
@@ -2218,7 +2255,7 @@ async function browsePage(kino, settings, ref, cursor) {
   const page = pageOf(cursor);
   let raw;
   try {
-    raw = await listing3(kino, { ...b, site, page });
+    raw = await listing3(kino, { ...b, site, page, deadlineMs: upTo(PAGE_MS, untilMs) });
   } catch (e) {
     kino.log("[latino]", "browse", site, e && e.code || "error");
     throw kino.error("unavailable", `listing failed: ${site} page ${page}`, { userMessage: t("sourcesDown", kino) });
@@ -2229,7 +2266,7 @@ async function browsePage(kino, settings, ref, cursor) {
 var fold = (s) => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 var PAGES_PER_CALL = 4;
 var SCOPED_DEADLINE_MS = 5e3;
-async function searchWithin(kino, settings, within2, q, cursor) {
+async function searchWithin(kino, settings, within2, q, cursor, { untilMs } = {}) {
   const b = parseBrowseRef(within2);
   if (!b) return null;
   const words = fold(q).split(/[^a-z0-9ñ]+/).filter(Boolean);
@@ -2238,7 +2275,8 @@ async function searchWithin(kino, settings, within2, q, cursor) {
   const start = pageOf(cursor);
   const pages = [];
   for (let p = start; p < start + PAGES_PER_CALL && p <= MAX_PAGE; p++) pages.push(p);
-  const got = await Promise.all(pages.map((page) => listing3(kino, { ...b, site, page, deadlineMs: SCOPED_DEADLINE_MS }).catch(() => null)));
+  const deadlineMs = upTo(SCOPED_DEADLINE_MS, untilMs);
+  const got = await Promise.all(pages.map((page) => listing3(kino, { ...b, site, page, deadlineMs }).catch(() => null)));
   if (got.every((l) => l === null)) return null;
   const lists = got.map((l) => l || []);
   const hits = lists.flat().filter((i) => {
@@ -2276,12 +2314,13 @@ var TABS = {
     ...["drama", "comedia", "crimen", "animacion", "sci-fi-fantasy"].map((g) => genreRow(g, "tv"))
   ]
 };
-async function buildRows(kino, settings, defs) {
+async function buildRows(kino, settings, defs, { untilMs } = {}) {
+  const deadlineMs = upTo(PAGE_MS, untilMs);
   const rows2 = await Promise.all(defs.map(async (d) => {
     const site = siteFor(settings, { site: d.site, genre: d.genreSlug || null });
     if (!site) return null;
     try {
-      const raw = await listing3(kino, { site, kind: d.kind, genre: d.genreSlug || null, page: 1 });
+      const raw = await listing3(kino, { site, kind: d.kind, genre: d.genreSlug || null, page: 1, deadlineMs });
       const items = dedup(raw.map((i) => dress(kino, i))).slice(0, 60);
       if (!items.length) return null;
       const title = d.titleKey ? t(d.titleKey, kino) : d.kind === "tv" ? seriesTitle(kino, d.genreSlug) : genreName(kino, d.genreSlug);
@@ -2300,9 +2339,9 @@ var tabs = (kino) => [
   { id: "peliculas", label: t("tabMovies", kino) },
   { id: "series", label: t("tabSeries", kino) }
 ];
-async function sectionPage(kino, settings, tab) {
+async function sectionPage(kino, settings, tab, { untilMs } = {}) {
   const chosen = Object.prototype.hasOwnProperty.call(TABS, tab) ? tab : "inicio";
-  const rows2 = await buildRows(kino, settings, TABS[chosen]);
+  const rows2 = await buildRows(kino, settings, TABS[chosen], { untilMs });
   const out = { tabs: tabs(kino), tab: chosen, rows: rows2 };
   if (chosen === "inicio") {
     const star = rows2.flatMap((r) => r.items).find((i) => i.backdrop && i.overview);
@@ -2353,18 +2392,18 @@ function guessFromRef(site) {
   }
   return { title: slug.replace(/-/g, " ").trim(), year: year2 || null };
 }
-async function sitePostResult(kino, site) {
+async function sitePostResult(kino, site, { untilMs } = {}) {
   const source = siteOf(site);
   if (!source || typeof source.post !== "function") return { post: null, failed: false };
   try {
-    const req = makeRequester(kino, { budget: 2, deadline: Date.now() + 8e3 });
+    const req = makeRequester(kino, { budget: 2, deadline: Math.min(Date.now() + 8e3, untilMs ?? Infinity) });
     return { post: await source.post(site, { req }), failed: false };
   } catch (e) {
     kino.log("[latino]", "post", site.prefix, e && e.code || "error");
     return { post: null, failed: true };
   }
 }
-var sitePost = async (kino, site) => (await sitePostResult(kino, site)).post;
+var sitePost = async (kino, site, options3) => (await sitePostResult(kino, site, options3)).post;
 function pick2(results, names, year2) {
   const wanted = new Set(names.map(slugify).filter(Boolean));
   const near = (r) => {
@@ -2383,20 +2422,20 @@ function pick2(results, names, year2) {
   const prefix = list9.find((r) => namesOf(r).some((n) => [...wanted].some((w) => close(n, w))));
   return prefix && year2 ? prefix.id : null;
 }
-async function searchTmdb(kino, kind, names, year2) {
+async function searchTmdb(kino, kind, names, year2, untilMs) {
   const tried = /* @__PURE__ */ new Set();
   for (const q of names) {
     const key = slugify(q);
     if (!key || tried.has(key)) continue;
     tried.add(key);
-    const r = await tmdb(kino, `/search/${kind === "tv" ? "tv" : "movie"}`, { query: q, language: "es-MX" });
+    const r = await tmdb(kino, `/search/${kind === "tv" ? "tv" : "movie"}`, { query: q, language: "es-MX" }, { untilMs });
     const id9 = pick2(r && r.results, names, year2);
     if (id9) return id9;
   }
   return null;
 }
 var mapKey = (site) => `tmdb:${site.prefix}:${site.postId}`;
-async function tmdbIdFor(kino, site, { post: post4, postFailed = false } = {}) {
+async function tmdbIdFor(kino, site, { post: post4, postFailed = false, untilMs } = {}) {
   const key = mapKey(site);
   let cached = null;
   try {
@@ -2413,12 +2452,12 @@ async function tmdbIdFor(kino, site, { post: post4, postFailed = false } = {}) {
   };
   try {
     const guess = guessFromRef(site);
-    let id9 = guess.title ? await searchTmdb(kino, site.kind, [guess.title], guess.year) : null;
+    let id9 = guess.title ? await searchTmdb(kino, site.kind, [guess.title], guess.year, untilMs) : null;
     let failed = false;
     if (!id9) {
-      const r = post4 !== void 0 ? { post: post4, failed: postFailed } : await sitePostResult(kino, site);
+      const r = post4 !== void 0 ? { post: post4, failed: postFailed } : await sitePostResult(kino, site, { untilMs });
       failed = r.failed;
-      if (r.post) id9 = await searchTmdb(kino, site.kind, [r.post.title, r.post.originalTitle].filter(Boolean), Number(r.post.year) || guess.year);
+      if (r.post) id9 = await searchTmdb(kino, site.kind, [r.post.title, r.post.originalTitle].filter(Boolean), Number(r.post.year) || guess.year, untilMs);
     }
     if (id9 || !failed) remember(id9 || "none", id9 ? HIT_TTL_MS : MISS_TTL_MS);
     return id9;
@@ -2447,13 +2486,24 @@ function siteContext(site, post4, { season = null, episode = null } = {}) {
 // src/plugin.js
 var getKino = () => globalThis.kino;
 var notFound = (kino, detail) => kino.error("not_found", detail, { userMessage: t("notFound", kino) });
+var TMDB_FAILURES = /* @__PURE__ */ new Set(["timeout", "network", "unavailable", "rate_limited"]);
+var tmdbFailure = (kino, e) => e && TMDB_FAILURES.has(e.code) ? kino.error("unavailable", "tmdb: " + e.code, { userMessage: t("tmdbDown", kino) }) : e;
+var RESOLVE_RESERVE_MS = 1e4;
 async function search(query) {
   const kino = getKino();
   const q = typeof query === "string" ? query : query && query.q || "";
   if (query && typeof query === "object" && query.within) {
-    return searchWithin(kino, readSettings(kino), query.within, q, query.cursor);
+    const dl2 = callDeadline(kino, "scopedSearch");
+    return searchWithin(kino, readSettings(kino), query.within, q, query.cursor, { untilMs: dl2.end });
   }
-  const items = await searchTitles(kino, q);
+  const dl = callDeadline(kino, "search");
+  let items;
+  try {
+    items = await searchTitles(kino, q, { untilMs: dl.end });
+  } catch (e) {
+    kino.log("[latino]", "search tmdb", e && e.code || "error");
+    throw tmdbFailure(kino, e);
+  }
   const lean = query && (query.type === "movie" || query.type === "series") ? query.type : null;
   const sorted = lean ? [...items.filter((i) => i.kind === lean), ...items.filter((i) => i.kind !== lean)] : items;
   return sorted.slice(0, 100);
@@ -2462,15 +2512,15 @@ async function home() {
   const kino = getKino();
   const settings = readSettings(kino);
   if (!settings.homeRows) return [];
-  return buildRows(kino, settings, HOME_ROWS);
+  return buildRows(kino, settings, HOME_ROWS, { untilMs: callDeadline(kino, "home").end });
 }
 async function browse(ref, cursor) {
   const kino = getKino();
-  return browsePage(kino, readSettings(kino), ref, cursor);
+  return browsePage(kino, readSettings(kino), ref, cursor, { untilMs: callDeadline(kino, "browse").end });
 }
 async function section(arg) {
   const kino = getKino();
-  return sectionPage(kino, readSettings(kino), arg && arg.tab);
+  return sectionPage(kino, readSettings(kino), arg && arg.tab, { untilMs: callDeadline(kino, "section").end });
 }
 async function categories() {
   return categoryTiles(getKino());
@@ -2481,14 +2531,21 @@ var tmdbRef = (ref, prefix) => {
 };
 async function episodes(ref) {
   const kino = getKino();
+  const untilMs = callDeadline(kino, "episodes").end;
   let id9 = tmdbRef(String(ref || ""), "s");
   if (id9 == null) {
     const site = parseSiteRef(ref);
     if (!site || site.kind !== "tv") throw notFound(kino, "not a series ref");
-    id9 = await tmdbIdFor(kino, site);
+    id9 = await tmdbIdFor(kino, site, { untilMs });
     if (id9 == null) throw notFound(kino, "series not on TMDB");
   }
-  const out = await episodeList(kino, id9);
+  let out;
+  try {
+    out = await episodeList(kino, id9, { untilMs });
+  } catch (e) {
+    kino.log("[latino]", "episodes tmdb", e && e.code || "error");
+    throw tmdbFailure(kino, e);
+  }
   return { ...out, series: { ...out.series, ids: { tmdb: id9 } } };
 }
 var DETAIL_FIELDS = ["title", "overview", "poster", "backdrop", "year", "genres", "rating", "runtimeMinutes"];
@@ -2496,40 +2553,50 @@ async function details(ref) {
   const kino = getKino();
   const site = parseSiteRef(ref);
   if (!site) return null;
-  const { post: post4, failed } = await sitePostResult(kino, site);
+  const untilMs = callDeadline(kino, "details").end;
+  const { post: post4, failed } = await sitePostResult(kino, site, { untilMs });
   const info = {};
   if (post4) {
     const item3 = dress(kino, post4);
     for (const k of DETAIL_FIELDS) if (item3[k] !== void 0 && item3[k] !== "") info[k] = item3[k];
   }
-  const tmdb2 = await tmdbIdFor(kino, site, { post: post4, postFailed: failed });
+  const tmdb2 = await tmdbIdFor(kino, site, { post: post4, postFailed: failed, untilMs });
   if (tmdb2) info.ids = { tmdb: tmdb2 };
   return Object.keys(info).length ? info : null;
 }
-async function contextFor(kino, ref) {
+async function contextFor(kino, ref, untilMs) {
+  const tmdbTitle = async (args) => {
+    try {
+      return await titleContext(kino, args, { untilMs });
+    } catch (e) {
+      kino.log("[latino]", "tmdb context", e && e.code || "error");
+      throw tmdbFailure(kino, e);
+    }
+  };
   let m = /^m:(\d{1,10})$/.exec(ref);
-  if (m) return titleContext(kino, { kind: "movie", tmdbId: Number(m[1]) });
+  if (m) return tmdbTitle({ kind: "movie", tmdbId: Number(m[1]) });
   m = /^e:(\d{1,10}):(\d{1,3}):(\d{1,5})$/.exec(ref);
-  if (m) return titleContext(kino, { kind: "tv", tmdbId: Number(m[1]), season: Number(m[2]), episode: Number(m[3]) });
+  if (m) return tmdbTitle({ kind: "tv", tmdbId: Number(m[1]), season: Number(m[2]), episode: Number(m[3]) });
   const site = parseSiteRef(ref);
   if (!site || site.kind !== "movie") return null;
-  const id9 = await tmdbIdFor(kino, site);
+  const id9 = await tmdbIdFor(kino, site, { untilMs });
   if (id9 != null) {
     try {
-      return await titleContext(kino, { kind: "movie", tmdbId: id9 });
+      return await titleContext(kino, { kind: "movie", tmdbId: id9 }, { untilMs });
     } catch (e) {
       kino.log("[latino]", "tmdb context", e && e.code || "error");
     }
   }
-  return siteContext(site, await sitePost(kino, site));
+  return siteContext(site, await sitePost(kino, site, { untilMs }));
 }
 async function resolve(ref) {
   const kino = getKino();
   const r = String(ref || "");
   if (r.startsWith("x|")) return resolveLazy(kino, r);
-  const title = await contextFor(kino, r);
+  const dl = callDeadline(kino, "resolve");
+  const title = await contextFor(kino, r, dl.end - RESOLVE_RESERVE_MS);
   if (!title) throw notFound(kino, "not a playable ref");
-  return resolveTitle(kino, title, readSettings(kino));
+  return resolveTitle(kino, title, readSettings(kino), { callMs: dl.left() });
 }
 var PREFERENCE_KEYS = ["preferred", "maxQuality", "includeSub", "homeRows", ...SOURCES.map((s) => "src_" + s.id)];
 var PROBE_TMDB_ID = 550;
@@ -2539,12 +2606,13 @@ async function settingsStatus() {
   return { health: healthLine(kino, readHealth(kino)) };
 }
 async function probe(kino) {
+  const dl = callDeadline(kino, "action");
   const settings = readSettings(kino);
   const asked = SOURCES.filter((s) => sourceOn(settings, s.id) && (!s.kinds || s.kinds.includes("movie")));
   if (!asked.length) return { message: t("probeNone", kino) };
   let title;
   try {
-    title = await titleContext(kino, { kind: "movie", tmdbId: PROBE_TMDB_ID });
+    title = await titleContext(kino, { kind: "movie", tmdbId: PROBE_TMDB_ID }, { untilMs: dl.end - 1e4 });
   } catch (e) {
     kino.log("[latino]", "probe tmdb", e && e.code || "error");
     return { message: t("probeNoTmdb", kino) };
@@ -2562,7 +2630,7 @@ function clearCache(kino) {
       n++;
     }
   }
-  return { message: fill(t("cacheCleared", kino), { n }) };
+  return { message: n === 1 ? t("cacheClearedOne", kino) : fill(t("cacheCleared", kino), { n }) };
 }
 async function action(key) {
   const kino = getKino();

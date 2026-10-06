@@ -1,11 +1,20 @@
 // TMDB through kino.tmdb: the title context sources receive, search, and the episode list.
 
-const IMG = "https://image.tmdb.org/t/p/";
+import { bounded } from "./util/time.js";
 
-/** kino.tmdb (Kino 0.9.53+; apiVersion 8 already needs 0.9.54, the check keeps an old Kino's failure readable). */
-export function tmdb(kino, path, params) {
+const IMG = "https://image.tmdb.org/t/p/";
+/** Longest wait for one kino.tmdb answer (Kino's own is 15 s, more than some exports have). */
+export const TMDB_MS = 6000;
+
+/**
+ * kino.tmdb (Kino 0.9.53+; apiVersion 8 already needs 0.9.54, the check keeps an old Kino's failure readable), given
+ * at most 6 s and never past `untilMs`: a `timeout` error then, so the export can still answer in time.
+ */
+export async function tmdb(kino, path, params, { untilMs } = {}) {
+  await null;
   if (typeof kino.tmdb !== "function") throw kino.error("unavailable", "kino.tmdb missing (Kino older than 0.9.53)");
-  return kino.tmdb(path, params);
+  const ms = Math.min(TMDB_MS, untilMs == null ? TMDB_MS : untilMs - Date.now());
+  return bounded(kino, () => kino.tmdb(path, params), ms, "tmdb " + path.split("/").slice(0, 2).join("/"));
 }
 const year = (d) => (typeof d === "string" && /^\d{4}/.test(d) ? Number(d.slice(0, 4)) : null);
 const img = (size, p) => (p ? IMG + size + p : null);
@@ -17,8 +26,8 @@ function translated(translations, country) {
 }
 
 /** The TitleContext sources work from. [season]/[episode] only matter for kind "tv". */
-export async function titleContext(kino, { kind, tmdbId, season = null, episode = null }) {
-  const d = await tmdb(kino, `/${kind === "tv" ? "tv" : "movie"}/${tmdbId}`, { language: "es-MX", append_to_response: "external_ids,translations" });
+export async function titleContext(kino, { kind, tmdbId, season = null, episode = null }, { untilMs } = {}) {
+  const d = await tmdb(kino, `/${kind === "tv" ? "tv" : "movie"}/${tmdbId}`, { language: "es-MX", append_to_response: "external_ids,translations" }, { untilMs });
   const original = d.original_title || d.original_name || d.title || d.name || "";
   const esMX = d.title || d.name || original;
   return {
@@ -40,9 +49,9 @@ export async function titleContext(kino, { kind, tmdbId, season = null, episode 
 }
 
 /** Movies and series matching [query]; people and untitled results are dropped. */
-export async function searchTitles(kino, query) {
+export async function searchTitles(kino, query, { untilMs } = {}) {
   if (typeof query !== "string" || !query.trim()) return [];
-  const r = await tmdb(kino, "/search/multi", { query, language: "es-MX" });
+  const r = await tmdb(kino, "/search/multi", { query, language: "es-MX" }, { untilMs });
   const items = [];
   for (const x of (r && r.results) || []) {
     if (x.media_type !== "movie" && x.media_type !== "tv") continue;
@@ -71,9 +80,10 @@ const CHUNK = 20; // Kino's key allows 20 kino.tmdb calls per 10 s per plugin
 /**
  * A series' episodes, flat (specials, season 0, left out), plus its rating and typical runtime. Seasons ride along on
  * append_to_response, 20 per request, so a long show costs a few calls; a failed chunk keeps what earlier chunks gave.
+ * Every call ends by `untilMs`.
  */
-export async function episodeList(kino, tmdbId) {
-  const s = await tmdb(kino, `/tv/${tmdbId}`, { language: "es-MX" });
+export async function episodeList(kino, tmdbId, { untilMs } = {}) {
+  const s = await tmdb(kino, `/tv/${tmdbId}`, { language: "es-MX" }, { untilMs });
   const runtime = (s.episode_run_time && s.episode_run_time[0]) || (s.last_episode_to_air && s.last_episode_to_air.runtime) || null;
   const numbers = (s.seasons || []).map((x) => x.season_number).filter((n) => n > 0);
   const episodes = [];
@@ -83,7 +93,7 @@ export async function episodeList(kino, tmdbId) {
     const chunk = numbers.slice(i, i + CHUNK);
     let r;
     try {
-      r = await tmdb(kino, `/tv/${tmdbId}`, { language: "es-MX", append_to_response: chunk.map((n) => "season/" + n).join(",") });
+      r = await tmdb(kino, `/tv/${tmdbId}`, { language: "es-MX", append_to_response: chunk.map((n) => "season/" + n).join(",") }, { untilMs });
     } catch (e) {
       failure = e;
       continue;

@@ -11,12 +11,15 @@ const SITES = { lamovie, hackstore };
 const LIST_TTL_MS = 10 * 60 * 1000;
 const MAX_PAGE = 500;
 const memo = new Map(); // listings for this sandbox's life: the same page is asked by home, section and "Ver más"
+const PAGE_MS = 10000;
+/** At most `cap` ms, and never past `untilMs` (the export's own deadline). */
+const upTo = (cap, untilMs) => Math.min(cap, untilMs == null ? cap : untilMs - Date.now());
 
 /**
  * One listing page, raw items; cached 10 minutes in memory. A site that fails throws (an empty page is a real end).
  * [deadlineMs]: how long the page may take (scoped search must answer inside Kino's 6 s).
  */
-export async function listing(kino, { site, kind, genre = null, page = 1, deadlineMs = 10000 }) {
+export async function listing(kino, { site, kind, genre = null, page = 1, deadlineMs = PAGE_MS }) {
   const key = `${site}:${kind}:${genre || ""}:${page}`;
   const hit = memo.get(key);
   if (hit && Date.now() - hit.at < LIST_TTL_MS) return hit.items;
@@ -93,7 +96,7 @@ const dedup = (items) => {
 };
 
 /** One "Ver más" page: `{ items, next? }`, `next` the following page number while pages keep coming. */
-export async function browsePage(kino, settings, ref, cursor) {
+export async function browsePage(kino, settings, ref, cursor, { untilMs } = {}) {
   const b = parseBrowseRef(ref);
   if (!b) throw kino.error("not_found", "unknown browse ref");
   const site = siteFor(settings, b);
@@ -101,7 +104,7 @@ export async function browsePage(kino, settings, ref, cursor) {
   const page = pageOf(cursor);
   let raw;
   try {
-    raw = await listing(kino, { ...b, site, page });
+    raw = await listing(kino, { ...b, site, page, deadlineMs: upTo(PAGE_MS, untilMs) });
   } catch (e) {
     // The site failed: say so, never pass it off as an empty genre.
     kino.log("[latino]", "browse", site, (e && e.code) || "error");
@@ -121,7 +124,7 @@ const SCOPED_DEADLINE_MS = 5000; // Kino waits 6 s for a scoped search, then fil
  * Search inside a "Ver más" page: its listing, a few pages at a time, filtered by every word of [q] in the title or
  * the original title. Null for a ref that is not one of this plugin's pages (Kino then filters by itself).
  */
-export async function searchWithin(kino, settings, within, q, cursor) {
+export async function searchWithin(kino, settings, within, q, cursor, { untilMs } = {}) {
   const b = parseBrowseRef(within);
   if (!b) return null;
   const words = fold(q).split(/[^a-z0-9ñ]+/).filter(Boolean);
@@ -130,7 +133,8 @@ export async function searchWithin(kino, settings, within, q, cursor) {
   const start = pageOf(cursor);
   const pages = [];
   for (let p = start; p < start + PAGES_PER_CALL && p <= MAX_PAGE; p++) pages.push(p);
-  const got = await Promise.all(pages.map((page) => listing(kino, { ...b, site, page, deadlineMs: SCOPED_DEADLINE_MS }).catch(() => null)));
+  const deadlineMs = upTo(SCOPED_DEADLINE_MS, untilMs);
+  const got = await Promise.all(pages.map((page) => listing(kino, { ...b, site, page, deadlineMs }).catch(() => null)));
   if (got.every((l) => l === null)) return null; // the site failed: Kino filters the page's own titles instead
   const lists = got.map((l) => l || []);
   const hits = lists.flat().filter((i) => {
@@ -174,12 +178,13 @@ const TABS = {
  * Rows for these definitions, asked together: a row whose source is off, whose listing fails or comes back empty is
  * left out, never the whole answer.
  */
-export async function buildRows(kino, settings, defs) {
+export async function buildRows(kino, settings, defs, { untilMs } = {}) {
+  const deadlineMs = upTo(PAGE_MS, untilMs);
   const rows = await Promise.all(defs.map(async (d) => {
     const site = siteFor(settings, { site: d.site, genre: d.genreSlug || null });
     if (!site) return null;
     try {
-      const raw = await listing(kino, { site, kind: d.kind, genre: d.genreSlug || null, page: 1 });
+      const raw = await listing(kino, { site, kind: d.kind, genre: d.genreSlug || null, page: 1, deadlineMs });
       const items = dedup(raw.map((i) => dress(kino, i))).slice(0, 60);
       if (!items.length) return null;
       const title = d.titleKey ? t(d.titleKey, kino) : d.kind === "tv" ? seriesTitle(kino, d.genreSlug) : genreName(kino, d.genreSlug);
@@ -204,9 +209,9 @@ export const tabs = (kino) => [
 ];
 
 /** `section({ tab })`: three tabs; Inicio leads with a featured title (the newest one with art and a synopsis). */
-export async function sectionPage(kino, settings, tab) {
+export async function sectionPage(kino, settings, tab, { untilMs } = {}) {
   const chosen = Object.prototype.hasOwnProperty.call(TABS, tab) ? tab : "inicio";
-  const rows = await buildRows(kino, settings, TABS[chosen]);
+  const rows = await buildRows(kino, settings, TABS[chosen], { untilMs });
   const out = { tabs: tabs(kino), tab: chosen, rows };
   if (chosen === "inicio") {
     const star = rows.flatMap((r) => r.items).find((i) => i.backdrop && i.overview);

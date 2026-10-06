@@ -8,6 +8,7 @@ const WORDS = {
   es: {
     notFound: "No encontré este título en español.",
     sourcesDown: "Las fuentes en español no responden ahora.",
+    tmdbDown: "TMDB no responde ahora. Intenta de nuevo en un rato.",
     noPlayable: "Encontré el título, pero ninguna copia abrió. Intenta de nuevo en un rato.",
     copyFailed: "Esta copia no abrió. Prueba con otro servidor.",
     lat: "Latino",
@@ -23,6 +24,7 @@ const WORDS = {
     probeNoTmdb: "No pude consultar TMDB para la prueba. Intenta de nuevo en un rato.",
     probeNone: "No hay fuentes encendidas para probar.",
     cacheCleared: "Listo: borré {n} datos guardados.",
+    cacheClearedOne: "Listo: borré 1 dato guardado.",
     prefsReset: "Restablecí tus preferencias.",
     rowMovies: "Estrenos en latino",
     rowSeries: "Series en latino",
@@ -60,6 +62,7 @@ const WORDS = {
   en: {
     notFound: "I couldn't find this title in Spanish.",
     sourcesDown: "The Spanish sources aren't answering right now.",
+    tmdbDown: "TMDB isn't answering right now. Try again in a while.",
     noPlayable: "I found the title, but no copy opened. Try again in a while.",
     copyFailed: "This copy didn't open. Try another server.",
     lat: "Latin Spanish",
@@ -75,6 +78,7 @@ const WORDS = {
     probeNoTmdb: "I couldn't reach TMDB for the test. Try again in a while.",
     probeNone: "No sources are on to test.",
     cacheCleared: "Done: cleared {n} saved items.",
+    cacheClearedOne: "Done: cleared 1 saved item.",
     prefsReset: "Your preferences are back to the defaults.",
     rowMovies: "New in Latin Spanish",
     rowSeries: "Series in Latin Spanish",

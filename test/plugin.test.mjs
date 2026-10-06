@@ -11,10 +11,10 @@ const bb = JSON.parse(fixture("tmdb/breaking-bad.json"));
 const ID = /^[A-Za-z0-9._~-]{1,128}$/;
 
 /** A fake kino as the global, with fetch routed by regex to fixtures (or a function), 404 otherwise. */
-function install({ routes = [], tmdb = {}, config = null, lang, seen = [] } = {}) {
+function install({ routes = [], tmdb = {}, config = null, lang, seen = [], extra } = {}) {
   forgetListings();
   const { kino } = fakeKino({
-    tmdb, lang,
+    tmdb, lang, extra,
     fetch: async (u) => {
       seen.push(u);
       for (const [re, fx] of routes) {
@@ -339,4 +339,94 @@ test("words: Del Oeste in Spanish; English language words match the copy labels"
   install({});
   assert.ok((await plugin.categories(null)).some((c) => c.title === "Del Oeste"));
   assert.equal(t("lat", fakeKino({ lang: "en-US" }).kino), "Latin Spanish");
+});
+
+// ---------- per-export deadlines (I3) ----------
+
+/**
+ * A virtual clock: Date.now runs ahead by every kino.sleep, so a call that waits on a hanging kino.tmdb finishes at
+ * once in real time while its own clock says how long it took on a device.
+ */
+async function onVirtualClock(fn) {
+  const realNow = Date.now;
+  let offset = 0;
+  Date.now = () => realNow() + offset;
+  const sleep = async (ms) => { offset += Math.max(0, ms); };
+  const start = Date.now();
+  try {
+    const out = await fn(sleep).then((v) => ({ v }), (e) => ({ e }));
+    return { ...out, took: Date.now() - start };
+  } finally {
+    Date.now = realNow;
+  }
+}
+const hangingTmdb = () => new Promise(() => {});
+
+test("deadline: a hanging kino.tmdb never holds search past 15 s; the person reads that TMDB is not answering", async () => {
+  const r = await onVirtualClock(async (sleep) => {
+    install({ extra: { sleep, tmdb: hangingTmdb } });
+    return plugin.search({ q: "fight club" });
+  });
+  assert.ok(r.took <= 15000, `took ${r.took}`);
+  assert.equal(r.e && r.e.code, "unavailable");
+  assert.equal(r.e.userMessage, t("tmdbDown", globalThis.kino));
+});
+
+test("deadline: a hanging kino.tmdb fails resolve('m:550') inside 20 s with TMDB's sentence", async () => {
+  const r = await onVirtualClock(async (sleep) => {
+    install({ extra: { sleep, tmdb: hangingTmdb }, routes: FIGHT_ROUTES });
+    return plugin.resolve("m:550");
+  });
+  assert.ok(r.took <= 20000, `took ${r.took}`);
+  assert.equal(r.e && r.e.code, "unavailable");
+  assert.ok(r.e.userMessage);
+});
+
+test("deadline: a site movie with a hanging kino.tmdb still resolves from the site's names, inside 20 s", async () => {
+  const r = await onVirtualClock(async (sleep) => {
+    install({ extra: { sleep, tmdb: hangingTmdb }, routes: FIGHT_ROUTES });
+    return plugin.resolve("lm:26724:movie:el-club-de-la-pelea-1999");
+  });
+  assert.ok(r.took <= 20000, `took ${r.took}`);
+  assert.ok(r.v, r.e && r.e.message);
+  assert.match(r.v.label, /^Latino/);
+});
+
+test("deadline: a hanging kino.tmdb never holds episodes, details or the probe action past their limits", async () => {
+  const ep = await onVirtualClock(async (sleep) => { install({ extra: { sleep, tmdb: hangingTmdb } }); return plugin.episodes("s:1396"); });
+  assert.ok(ep.took <= 20000, `episodes took ${ep.took}`);
+  assert.equal(ep.e && ep.e.code, "unavailable");
+  const site = await onVirtualClock(async (sleep) => { install({ extra: { sleep, tmdb: hangingTmdb } }); return plugin.episodes("hs:123:tv:breaking-bad:2008"); });
+  assert.ok(site.took <= 20000, `site episodes took ${site.took}`);
+  const det = await onVirtualClock(async (sleep) => {
+    install({ extra: { sleep, tmdb: hangingTmdb }, routes: [[/single\/movies\?slug=unabomber-2026/, "lamovie/single-movie.json"]] });
+    return plugin.details("lm:90152:movie:unabomber-2026:2026");
+  });
+  assert.ok(det.took <= 20000, `details took ${det.took}`);
+  assert.ok(det.v && det.v.overview, "the site's own page still answers");
+  const probe = await onVirtualClock(async (sleep) => { install({ extra: { sleep, tmdb: hangingTmdb } }); return plugin.action("probe"); });
+  assert.ok(probe.took <= 30000, `probe took ${probe.took}`);
+  assert.equal(probe.v.message, t("probeNoTmdb", globalThis.kino));
+});
+
+test("deadline: each kino.tmdb gets at most 6 s, and a slow first answer leaves the rest of the call its time", async () => {
+  let calls = 0;
+  const r = await onVirtualClock(async (sleep) => {
+    install({ extra: { sleep, tmdb: () => { calls++; return hangingTmdb(); } } });
+    return plugin.search({ q: "x" });
+  });
+  assert.equal(calls, 1);
+  assert.ok(r.took >= 6000 && r.took < 7000, `took ${r.took}`);
+});
+
+test("cacheCleared: one saved item is singular, several are plural (Spanish and English)", async () => {
+  const { kino } = install({});
+  kino.storage.set("emb:movie:1::", "x");
+  assert.equal((await plugin.action("clearCache")).message, "Listo: borré 1 dato guardado.");
+  kino.storage.set("emb:movie:1::", "x");
+  kino.storage.set("tmdb:lm:2", "3");
+  assert.equal((await plugin.action("clearCache")).message, "Listo: borré 2 datos guardados.");
+  const en = install({ lang: "en-US" });
+  en.kino.storage.set("tmdb:lm:2", "3");
+  assert.equal((await plugin.action("clearCache")).message, "Done: cleared 1 saved item.");
 });
