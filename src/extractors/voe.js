@@ -3,16 +3,16 @@ import { HLS_MIME } from "./shared.js";
 export const HOSTS = ["voe.sx"];
 const JUNK = ["@$", "^^", "~@", "%?", "*~", "!!", "#&"];
 const rot13 = (s) => s.replace(/[a-z]/gi, (c) => { const b = c <= "Z" ? 65 : 97; return String.fromCharCode(((c.charCodeAt(0) - b + 13) % 26) + b); });
-const b64 = (s) => Buffer.from(s, "base64").toString("latin1");
 
 /** The player page's payload: ROT13, junk tokens out, base64, shift -3, reverse, base64, JSON. */
 export function decodeVoe(enc) {
   let s = rot13(enc);
   for (const j of JUNK) s = s.split(j).join("");
-  s = b64(s);
+  s = atob(s);
   s = [...s].map((c) => String.fromCharCode(c.charCodeAt(0) - 3)).join("");
   s = [...s].reverse().join("");
-  return JSON.parse(Buffer.from(s, "base64").toString("utf8"));
+  // atob yields one char per byte; re-read those bytes as UTF-8.
+  return JSON.parse(decodeURIComponent(escape(atob(s))));
 }
 
 const redirectOf = (html) => (/window\.location\.href\s*=\s*'([^']+)'/.exec(html) || [])[1] || null;

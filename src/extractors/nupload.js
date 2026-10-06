@@ -14,7 +14,7 @@ export async function extract(embedUrl, req) {
   if (!off || !list || !sesz) return null;
   let path = "";
   for (const v of JSON.parse(list[1])) {
-    path += String.fromCharCode(parseInt(Buffer.from(v, "base64").toString("latin1").replace(/\D/g, ""), 10) - parseInt(off[1], 10));
+    path += String.fromCharCode(parseInt(atob(v).replace(/\D/g, ""), 10) - parseInt(off[1], 10));
   }
   const hop = await req(path + "?s=" + sesz[1], { headers: { Referer: origin + "/" }, redirect: "manual" });
   const url = hop.headers && hop.headers.location;

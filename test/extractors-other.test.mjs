@@ -75,3 +75,21 @@ test("nupload: final url comes from the manual redirect", async () => {
 test("nupload: the .my domain is routed too", () => {
   assert.equal(extractorFor("https://nupload.my/watch/x").name, "nupload");
 });
+
+test("voe: decodeVoe keeps UTF-8 in the payload", () => {
+  const json = JSON.stringify({ source: "https://cdn.example/x.m3u8", title: "Película Ñandú" });
+  const b1 = Buffer.from(json, "utf8").toString("base64");
+  const shifted = [...[...b1].reverse()].map((c) => String.fromCharCode(c.charCodeAt(0) + 3)).join("");
+  const b2 = Buffer.from(shifted, "latin1").toString("base64");
+  const rot = b2.replace(/[a-z]/gi, (c) => String.fromCharCode((c <= "Z" ? 90 : 122) >= (c = c.charCodeAt(0) + 13) ? c : c - 26));
+  assert.equal(decodeVoe(rot).title, "Película Ñandú");
+});
+
+test("src/ uses no Node-only globals (QuickJS has none)", async () => {
+  const { readdirSync, readFileSync, statSync } = await import("node:fs");
+  const { join } = await import("node:path");
+  const walk = (d) => readdirSync(d).flatMap((f) => { const p = join(d, f); return statSync(p).isDirectory() ? walk(p) : [p]; });
+  const root = new URL("../src", import.meta.url).pathname;
+  const bad = walk(root).filter((f) => f.endsWith(".js") && /\bBuffer\b|\bprocess\.|\brequire\(/.test(readFileSync(f, "utf8")));
+  assert.deepEqual(bad, []);
+});
