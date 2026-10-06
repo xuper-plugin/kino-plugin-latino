@@ -127,7 +127,7 @@ test("seriesmetro: an episode of another year or one missing from the season giv
     return { status: 404, body: "" };
   } });
   assert.deepEqual(await seriesmetro.list({ ...BB, episode: 40 }, ctx(f.kino)), []);
-  assert.deepEqual(await seriesmetro.list({ ...BB, year: 1990 }, ctx(f.kino)), []);
+  assert.deepEqual(await seriesmetro.list({ ...BB, year: 2020 }, ctx(f.kino)), []);
 });
 
 test("seriesflix: episode gives latino, castellano and subtitulado embeds, wrapped players unwrapped", async () => {
@@ -143,7 +143,7 @@ test("seriesflix: episode gives latino, castellano and subtitulado embeds, wrapp
 
 test("seriesflix: wrong year rejected, movies are not its business", async () => {
   const { kino } = routed([[/\/episodio\/breaking-bad-1x1$/, "seriesflix/episode.html"]]);
-  assert.deepEqual(await seriesflix.list({ ...BB, year: 1990 }, ctx(kino)), []);
+  assert.deepEqual(await seriesflix.list({ ...BB, year: 2020 }, ctx(kino)), []);
   assert.deepEqual(await seriesflix.list(FIGHT, ctx(kino)), []);
   assert.deepEqual(await seriesflix.list({ ...BB, episode: null }, ctx(kino)), []);
 });
@@ -168,4 +168,40 @@ test("module shape and registry order", () => {
   for (const m of [cinecalidad, seriesmetro, seriesflix]) assert.ok(Array.isArray(m.HOSTS) && m.HOSTS.length && typeof m.name === "string");
   assert.deepEqual(SOURCES.map((s) => s.id), ["lamovie", "hackstore", "cinecalidad", "seriesmetro", "seriesflix"]);
   assert.equal(sourceById("seriesflix"), seriesflix);
+});
+
+test("cinecalidad: a budget spent mid-loop keeps the embeds already found", async () => {
+  const link = (u) => `<a data-src="${btoa(u)}" data-option> x</a>`;
+  const page = `<h1>Algo (1999)</h1>${link("https://voe.sx/e/aaa111")}${link("https://www.cinecalidad.vg/go/1")}${link("https://www.cinecalidad.vg/go/2")}`;
+  const f = fakeKino({ fetch: async (u) => /\/pelicula\/algo\/$/.test(u) ? { status: 200, body: page }
+    : /go\/1/.test(u) ? { status: 200, body: `<a id="btn_enlace" href="https://voe.sx/e/bbb222"></a>` } : { status: 404, body: "" } });
+  const c = { kino: f.kino, req: makeRequester(f.kino, { budget: 2, deadline: Date.now() + 60_000 }) };
+  const e = await cinecalidad.list({ ...FIGHT, titles: { esMX: "Algo", esES: "Algo", en: "Algo", original: "Algo" } }, c);
+  assert.deepEqual(e.map((x) => x.embedUrl), ["https://voe.sx/e/aaa111", "https://voe.sx/e/bbb222"]);
+});
+
+test("seriesmetro: one failing option page does not lose the others; all failing propagates", async () => {
+  const mk = (failAll) => fakeKino({ fetch: async (u) => {
+    if (/\/pelicula\/el-padrino\/$/.test(u)) return { status: 200, body: fixture("seriesmetro/movie.html") };
+    if (/trembed=2/.test(u) || failAll) throw Object.assign(new Error("net"), { code: "unavailable" });
+    return { status: 200, body: fixture("seriesmetro/embed-m0.html") };
+  } }).kino;
+  const e = await seriesmetro.list(PADRINO, ctx(mk(false)));
+  assert.deepEqual(e.map((x) => x.lang), ["esp"]);
+  await assert.rejects(seriesmetro.list(PADRINO, ctx(mk(true))));
+});
+
+test("episode pages: year may be the air year (>= show year - 1), never earlier", async () => {
+  const smf = (year) => fakeKino({ fetch: async (u) => {
+    if (/\/serie\/breaking-bad\/$/.test(u)) return { status: 200, body: fixture("seriesmetro/series.html") };
+    if (/admin-ajax/.test(u)) return { status: 200, body: fixture("seriesmetro/season.html") };
+    if (/capitulo-1\/$/.test(u)) return { status: 200, body: fixture("seriesmetro/episode.html").replace("2008", String(year)) };
+    const m = /trembed=(\d)&trid=25241/.exec(u);
+    return m ? { status: 200, body: fixture(`seriesmetro/embed-e${m[1]}.html`) } : { status: 404, body: "" };
+  } }).kino;
+  assert.ok((await seriesmetro.list(BB, ctx(smf(2010)))).length > 0);
+  assert.deepEqual(await seriesmetro.list(BB, ctx(smf(2006))), []);
+  const sff = (year) => fakeKino({ fetch: async () => ({ status: 200, body: fixture("seriesflix/episode.html").replace("2008", String(year)) }) }).kino;
+  assert.ok((await seriesflix.list(BB, ctx(sff(2010)))).length > 0);
+  assert.deepEqual(await seriesflix.list(BB, ctx(sff(2006))), []);
 });

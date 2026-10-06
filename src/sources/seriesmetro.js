@@ -15,9 +15,11 @@ const yearOnPage = (html) => {
   return m ? Number(m[1]) : null;
 };
 
-const accepted = (html, wanted) => {
+// A movie page shows its year (+-1); an episode page may show the episode's air year, so it is only "not before the show".
+const accepted = (html, wanted, episode = false) => {
   const found = yearOnPage(html);
-  return found == null ? !wanted : yearMatches(found, wanted);
+  if (found == null) return !wanted;
+  return episode && wanted ? found >= Number(wanted) - 1 : yearMatches(found, wanted);
 };
 
 /** The player options of a movie or episode page: [{ trembed (absolute url), label }]. */
@@ -40,6 +42,7 @@ const splitLabel = (label) => {
 
 async function embedRows(page, req) {
   const opts = options(page).slice(0, MAX_OPTIONS);
+  const failures = [];
   const rows = await Promise.all(opts.map(async (o) => {
     try {
       const r = await req(o.url, { headers: { Referer: SITE + "/" } });
@@ -48,10 +51,13 @@ async function embedRows(page, req) {
       return m ? { url: m[1], ...splitLabel(o.label) } : null;
     } catch (e) {
       if (e && e.local) return null;
-      throw e;
+      failures.push(e);
+      return null;
     }
   }));
-  return rows.filter(Boolean);
+  const ok = rows.filter(Boolean);
+  if (!ok.length && opts.length && failures.length === opts.length) throw failures[0]; // every option failed on the network
+  return ok;
 }
 
 async function movieHit(title, req) {
@@ -85,7 +91,7 @@ async function episodeHit(title, req) {
     const ep = await req(href, { headers: { Referer: `${SITE}/serie/${slug}/` } });
     if (!ep.ok) return null;
     const html = ep.text();
-    return html.includes("trembed=") && accepted(html, title.year) ? html : null;
+    return html.includes("trembed=") && accepted(html, title.year, true) ? html : null;
   }, 3);
 }
 

@@ -1,5 +1,5 @@
 // Seriesflix: series only. /episodio/<slug>-<s>x<e> lists a block of players per language, each a base64 `data-url`.
-import { orEmpty, firstHit, toEmbeds, titleSlugs, yearMatches } from "./wpapi.js";
+import { orEmpty, firstHit, toEmbeds, titleSlugs } from "./wpapi.js";
 
 export const id = "seriesflix";
 export const name = "Seriesflix";
@@ -43,7 +43,8 @@ export async function list(title, { req }) {
     const page = r.text();
     const y = /<span class="Date">(\d{4})<\/span>/.exec(page);
     if (!y && title.year) return null;
-    return yearMatches(y && y[1], title.year) ? page : null;
+    // The page may show the episode's air year rather than the show's: not before the show is enough.
+    return !title.year || Number(y[1]) >= Number(title.year) - 1 ? page : null;
   }, 4);
   if (!html) return [];
   return orEmpty(async () => toEmbeds(id, rows(html)));

@@ -1,5 +1,5 @@
 // CineCalidad: movies only. /pelicula/<slug>/ page; the options are base64 `data-src` links, always Latin-American audio.
-import { orEmpty, firstHit, toEmbeds, titleSlugs, yearMatches, yearIn } from "./wpapi.js";
+import { firstHit, toEmbeds, titleSlugs, yearMatches, yearIn } from "./wpapi.js";
 
 export const id = "cinecalidad";
 export const name = "CineCalidad";
@@ -66,19 +66,22 @@ export async function list(title, { req }) {
   if (title.kind !== "movie") return [];
   const html = await findPage(title, req);
   if (!html) return [];
-  return orEmpty(async () => {
-    const rows = [];
-    let followed = 0;
-    for (const o of options(html)) {
-      let url = o.url;
-      if (isOwn(url)) {
-        if (followed >= MAX_INTERMEDIATE) continue;
-        followed++;
+  const rows = [];
+  let followed = 0;
+  for (const o of options(html)) {
+    let url = o.url;
+    if (isOwn(url)) {
+      if (followed >= MAX_INTERMEDIATE) continue;
+      followed++;
+      try {
         url = await resolveIntermediate(url, req);
-        if (!url) continue;
+      } catch (e) {
+        if (e && e.local) break; // budget or deadline spent: keep what was collected
+        throw e;
       }
-      rows.push({ url, lang: "latino", server: o.label });
+      if (!url) continue;
     }
-    return toEmbeds(id, rows);
-  });
+    rows.push({ url, lang: "latino", server: o.label });
+  }
+  return toEmbeds(id, rows);
 }
