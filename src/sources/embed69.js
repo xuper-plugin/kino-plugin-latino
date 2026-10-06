@@ -12,11 +12,14 @@ const SITE = "https://embed69.org";
 export const ORIGIN = SITE;
 const HEADERS = { Referer: "https://sololatino.net/" }; // the site only answers requests that come from its partner
 
+// Hashes are synchronous and cannot be interrupted: past this many the page is not worth a TV's time.
+const POW_CAP = 100000;
+
 /**
  * Smallest n such that sha256(challenge + n) (hex) starts with `difficulty` zeros; null past `cap`. Synchronous and
  * allocation-light: a difficulty of 3 takes a few thousand hashes.
  */
-export function solvePow(kino, challenge, difficulty, cap = 200000) {
+export function solvePow(kino, challenge, difficulty, cap = POW_CAP) {
   const zeros = "0".repeat(difficulty);
   for (let n = 0; n <= cap; n++) if (kino.crypto.hash("sha256", challenge + n).startsWith(zeros)) return n;
   return null;

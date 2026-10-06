@@ -24,6 +24,14 @@ test("embed69: proof of work finds n with the required zeros, and gives up past 
   assert.equal(solvePow(kino, "abc", 64, 50), null);
 });
 
+test("embed69: the proof of work stops at 100000 hashes by default", () => {
+  const { kino } = fakeKino();
+  let hashes = 0;
+  const counting = { ...kino, crypto: { ...kino.crypto, hash: (...a) => { hashes++; return kino.crypto.hash(...a); } } };
+  assert.equal(solvePow(counting, "abc", 64), null);
+  assert.equal(hashes, 100001);
+});
+
 test("embed69: decryptLink reverses an AES-256-CBC link built the documented way", () => {
   const { kino } = fakeKino();
   const keyHex = kino.crypto.hash("sha256", "abc" + "7" + "salt");

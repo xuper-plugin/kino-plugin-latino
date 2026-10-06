@@ -1315,6 +1315,10 @@ async function list3(title, { req }) {
       try {
         url = await resolveIntermediate(url, req);
       } catch (e) {
+        if (e && e.code === "host_not_allowed") {
+          if (e.local) followed--;
+          continue;
+        }
         if (e && e.local) break;
         throw e;
       }
@@ -1343,6 +1347,7 @@ var HOSTS13 = ["www3.seriesmetro.net"];
 var SITE4 = "https://www3.seriesmetro.net";
 var ORIGIN4 = SITE4;
 var MAX_OPTIONS = 8;
+var AT_ONCE = 3;
 var yearOnPage = (html) => {
   const m = /<span class="year[^"]*fa-calendar[^"]*">(\d{4})<\/span>/.exec(html);
   return m ? Number(m[1]) : null;
@@ -1369,7 +1374,7 @@ var splitLabel = (label2) => {
 async function embedRows(page, req) {
   const opts = options2(page).slice(0, MAX_OPTIONS);
   const failures = [];
-  const rows2 = await Promise.all(opts.map(async (o) => {
+  const one = async (o) => {
     try {
       const r = await req(o.url, { headers: { Referer: SITE4 + "/" } });
       if (!r.ok) return null;
@@ -1380,7 +1385,9 @@ async function embedRows(page, req) {
       failures.push(e);
       return null;
     }
-  }));
+  };
+  const rows2 = [];
+  for (let i = 0; i < opts.length; i += AT_ONCE) rows2.push(...await Promise.all(opts.slice(i, i + AT_ONCE).map(one)));
   const ok = rows2.filter(Boolean);
   if (!ok.length && opts.length && failures.length === opts.length) throw failures[0];
   return ok;
@@ -1510,7 +1517,8 @@ var HOSTS15 = ["embed69.org"];
 var SITE6 = "https://embed69.org";
 var ORIGIN6 = SITE6;
 var HEADERS = { Referer: "https://sololatino.net/" };
-function solvePow(kino, challenge, difficulty, cap = 2e5) {
+var POW_CAP = 1e5;
+function solvePow(kino, challenge, difficulty, cap = POW_CAP) {
   const zeros = "0".repeat(difficulty);
   for (let n = 0; n <= cap; n++) if (kino.crypto.hash("sha256", challenge + n).startsWith(zeros)) return n;
   return null;

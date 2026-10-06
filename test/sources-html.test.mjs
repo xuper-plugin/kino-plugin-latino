@@ -249,3 +249,45 @@ test("seriesmetro: an episode page from 2018 is not Charmed (1998-2006); a 2010 
   const after = yearRouted(route("breaking-bad"), 2016);
   assert.deepEqual(await seriesmetro.list(RUN_2008, ctx(after.kino)), []);
 });
+
+// ---------- fan-out and per-option failures (I4, M4) ----------
+
+test("seriesmetro: option pages are asked at most 3 at a time, every option still read", async () => {
+  const n = 8;
+  const head = Array.from({ length: n }, (_, i) => `<li><a href="#options-${i}"><span class="server">Fastream -Latino</span></a></li>`).join("");
+  const bodies = Array.from({ length: n }, (_, i) => `<div id="options-${i}"><iframe data-src="https://www3.seriesmetro.net/?trembed=${i}&trid=1&trtype=1"></iframe></div>`).join("");
+  const page = `<span class="year fa-calendar">1972</span>${head}${bodies}`;
+  let inFlight = 0, peak = 0;
+  const f = fakeKino({ fetch: async (u) => {
+    if (/\/pelicula\/el-padrino\/$/.test(u)) return { status: 200, body: page };
+    const m = /trembed=(\d+)/.exec(u);
+    if (!m) return { status: 404, body: "" };
+    inFlight++; peak = Math.max(peak, inFlight);
+    await new Promise((r) => setTimeout(r, 5));
+    inFlight--;
+    return { status: 200, body: `<iframe src="https://fastream.to/e/${m[1]}"></iframe>` };
+  } });
+  const e = await seriesmetro.list(PADRINO, ctx(f.kino));
+  assert.equal(peak, 3);
+  assert.equal(e.length, n);
+});
+
+test("cinecalidad: an intermediate link on a host Kino would refuse skips that option, not the source", async () => {
+  const undeclared = btoa("https://www.cinecalidad.ec/go/x"); // not in hosts: refused locally
+  const refused = btoa("https://cinecalidad.vg/go/y"); // declared, but Kino refuses it
+  const good = btoa("https://www.cinecalidad.vg/go/abc");
+  const direct = btoa("https://hlswish.com/e/zzz");
+  const page = `<h1>Algo (1999)</h1><a data-src="${undeclared}">uno</a><a data-src="${good}">dos</a><a data-src="${refused}">tres</a><a data-src="${direct}">cuatro</a>`;
+  const f = fakeKino({ fetch: async (u) => {
+    if (/\/pelicula\/algo\/$/.test(u)) return { status: 200, body: page };
+    if (/go\/y/.test(u)) throw Object.assign(new Error("blocked"), { code: "host_not_allowed" });
+    if (/go\/abc/.test(u)) return { status: 200, body: `<a id="btn_enlace" href="https://voe.sx/e/zzz111"></a>` };
+    return { status: 404, body: "" };
+  } });
+  const titled = { ...FIGHT, titles: { esMX: "Algo", esES: "Algo", en: "Algo", original: "Algo" } };
+  const seen = [];
+  const req = makeRequester(f.kino, { budget: 12, deadline: Date.now() + 60_000 });
+  const e = await cinecalidad.list(titled, { kino: f.kino, req: (u, o) => { seen.push(u); return req(u, o); } });
+  assert.deepEqual(e.map((x) => x.embedUrl).sort(), ["https://hlswish.com/e/zzz", "https://voe.sx/e/zzz111"]);
+  assert.ok(seen.some((u) => /go\/y/.test(u)), "the locally refused link did not use up a follow");
+});

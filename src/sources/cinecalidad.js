@@ -78,6 +78,11 @@ export async function list(title, { req }) {
       try {
         url = await resolveIntermediate(url, req);
       } catch (e) {
+        // A host Kino would not let us reach (refused here or by Kino) costs this option only.
+        if (e && e.code === "host_not_allowed") {
+          if (e.local) followed--; // refused before any request: it does not use up a follow
+          continue;
+        }
         if (e && e.local) break; // budget or deadline spent: keep what was collected
         throw e;
       }

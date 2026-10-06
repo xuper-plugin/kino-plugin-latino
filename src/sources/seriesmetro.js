@@ -11,6 +11,7 @@ const SITE = "https://www3.seriesmetro.net";
 /** The site origin, for a "direct" embed's Referer. */
 export const ORIGIN = SITE;
 const MAX_OPTIONS = 8;
+const AT_ONCE = 3; // Kino runs at most 6 fetches at once per plugin, and the other sources share them
 
 const yearOnPage = (html) => {
   const m = /<span class="year[^"]*fa-calendar[^"]*">(\d{4})<\/span>/.exec(html);
@@ -45,7 +46,7 @@ const splitLabel = (label) => {
 async function embedRows(page, req) {
   const opts = options(page).slice(0, MAX_OPTIONS);
   const failures = [];
-  const rows = await Promise.all(opts.map(async (o) => {
+  const one = async (o) => {
     try {
       const r = await req(o.url, { headers: { Referer: SITE + "/" } });
       if (!r.ok) return null;
@@ -56,7 +57,10 @@ async function embedRows(page, req) {
       failures.push(e);
       return null;
     }
-  }));
+  };
+  // In batches of AT_ONCE, one batch after the other.
+  const rows = [];
+  for (let i = 0; i < opts.length; i += AT_ONCE) rows.push(...(await Promise.all(opts.slice(i, i + AT_ONCE).map(one))));
   const ok = rows.filter(Boolean);
   if (!ok.length && opts.length && failures.length === opts.length) throw failures[0]; // every option failed on the network
   return ok;
