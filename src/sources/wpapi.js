@@ -14,6 +14,20 @@ export async function getJson(req, url) {
   try { return JSON.parse(r.text()); } catch (_) { return null; }
 }
 
+/** A site failure (5xx, rate limit, a body that is not JSON), told apart from "the site has no such post". */
+export const siteError = (message) => Object.assign(new Error(message), { code: "unavailable", siteFailure: true });
+
+/**
+ * A JSON body, null when the site answered that there is nothing there (a 4xx other than 429), and a thrown
+ * siteError when the site failed. Network errors from [req] propagate as they are.
+ */
+export async function getJsonStrict(req, url) {
+  const r = await req(url);
+  if (r.status === 429 || r.status >= 500) throw siteError("site answered " + r.status);
+  if (!r.ok) return null;
+  try { return JSON.parse(r.text()); } catch (_) { throw siteError("site answered no JSON"); }
+}
+
 /** Page years differ by one between sites and TMDB now and then; that much is tolerated. */
 export function yearMatches(found, wanted) {
   if (!wanted || !found) return true;

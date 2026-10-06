@@ -483,6 +483,17 @@ async function getJson(req, url) {
     return null;
   }
 }
+var siteError = (message) => Object.assign(new Error(message), { code: "unavailable", siteFailure: true });
+async function getJsonStrict(req, url) {
+  const r = await req(url);
+  if (r.status === 429 || r.status >= 500) throw siteError("site answered " + r.status);
+  if (!r.ok) return null;
+  try {
+    return JSON.parse(r.text());
+  } catch (_) {
+    throw siteError("site answered no JSON");
+  }
+}
 function yearMatches(found, wanted) {
   if (!wanted || !found) return true;
   return Math.abs(Number(found) - Number(wanted)) <= 1;
@@ -724,12 +735,13 @@ async function listing(kind, page, extraFilter, { req }) {
   const type = postTypeOf(kind);
   const filter = encodeURIComponent(JSON.stringify(extraFilter));
   const url = `${API}/listing/${type}?filter=${filter}&page=${page || 1}&orderBy=latest&order=desc&postType=${type}&postsPerPage=24`;
-  const j = await getJson(req, url);
-  return (j && j.data && j.data.posts || []).map(item);
+  const j = await getJsonStrict(req, url);
+  if (!j || !j.data) throw siteError("listing missing");
+  return (j.data.posts || []).map(item);
 }
 async function post({ postId, kind, slug }, { req }) {
   if (kind !== "movie" || !slug) return null;
-  const j = await getJson(req, `${API}/single/movies?slug=${encodeURIComponent(slug)}`);
+  const j = await getJsonStrict(req, `${API}/single/movies?slug=${encodeURIComponent(slug)}`);
   const d = j && !j.error && j.data;
   return d && String(d._id) === String(postId) ? item(d) : null;
 }
@@ -810,12 +822,13 @@ async function list2(title, { req }) {
 async function listing2(kind, page, genre, { req }) {
   let url = `${API2}/listing?post_type=${postTypeOf(kind)}&page=${page || 1}&order=latest`;
   if (genre != null) url += `&genres=${genre}`;
-  const j = await getJson(req, url);
-  return (j && j.data && j.data.posts || []).map(item2);
+  const j = await getJsonStrict(req, url);
+  if (!j || !j.data) throw siteError("listing missing");
+  return (j.data.posts || []).map(item2);
 }
 async function post2({ postId, kind, slug }, { req }) {
   if (!slug) return null;
-  const j = await getJson(req, `${API2}/single?post_name=${encodeURIComponent(slug)}&post_type=${kind === "tv" ? "tvshows" : "movies"}`);
+  const j = await getJsonStrict(req, `${API2}/single?post_name=${encodeURIComponent(slug)}&post_type=${kind === "tv" ? "tvshows" : "movies"}`);
   const d = j && !j.error && j.data;
   return d && String(d._id) === String(postId) ? item2(d) : null;
 }
@@ -1327,9 +1340,6 @@ var WORDS = {
     tabMovies: "Pel\xEDculas",
     tabSeries: "Series",
     seriesGenre: "Series de {g}",
-    badge_lat: "Latino",
-    badge_esp: "Castellano",
-    badge_sub: "Sub",
     badge_2160p: "4K",
     g_accion: "Acci\xF3n",
     g_comedia: "Comedia",
@@ -1350,7 +1360,7 @@ var WORDS = {
     g_historia: "Historia",
     g_musica: "M\xFAsica",
     g_belica: "B\xE9lica",
-    g_western: "W\xE9stern",
+    g_western: "Del Oeste",
     g_kids: "Infantil",
     "g_war-politics": "Guerra y pol\xEDtica",
     g_reality: "Reality"
@@ -1372,9 +1382,6 @@ var WORDS = {
     tabMovies: "Movies",
     tabSeries: "Series",
     seriesGenre: "{g} series",
-    badge_lat: "Latino",
-    badge_esp: "Castilian",
-    badge_sub: "Sub",
     badge_2160p: "4K",
     g_accion: "Action",
     g_comedia: "Comedy",
@@ -1724,12 +1731,12 @@ var SITES = { lamovie: lamovie_exports, hackstore: hackstore_exports };
 var LIST_TTL_MS = 10 * 60 * 1e3;
 var MAX_PAGE = 500;
 var memo = /* @__PURE__ */ new Map();
-async function listing3(kino, { site, kind, genre = null, page = 1 }) {
+async function listing3(kino, { site, kind, genre = null, page = 1, deadlineMs = 1e4 }) {
   const key = `${site}:${kind}:${genre || ""}:${page}`;
   const hit = memo.get(key);
   if (hit && Date.now() - hit.at < LIST_TTL_MS) return hit.items;
   const source = SITES[site];
-  const req = makeRequester(kino, { budget: 3, deadline: Date.now() + 1e4 });
+  const req = makeRequester(kino, { budget: 3, deadline: Date.now() + deadlineMs });
   const items = genre ? await source.byGenre(genre, kind, page, { req }) : await source.latest(kind, page, { req });
   if (memo.size > 80) memo.clear();
   if (items.length) memo.set(key, { at: Date.now(), items });
@@ -1742,9 +1749,18 @@ function seriesTitle(kino, slug) {
 }
 function dress(kino, raw) {
   const { genreSlugs = [], langs = [], ...item3 } = raw;
+  const m = /^(lm|hs)-(\d+)$/.exec(item3.id || "");
+  if (m && !(item3.ids && item3.ids.tmdb)) {
+    let hit = null;
+    try {
+      hit = kino.storage.get(`tmdb:${m[1]}:${m[2]}`);
+    } catch (_) {
+    }
+    if (hit && /^\d+$/.test(hit)) item3.ids = { ...item3.ids || {}, tmdb: Number(hit) };
+  }
   const genres = genreSlugs.map((g) => genreName(kino, g)).filter(Boolean).slice(0, 5);
   if (genres.length) item3.genres = genres;
-  const badges = langs.slice(0, item3.quality ? 2 : 3).map((l) => t("badge_" + l, kino));
+  const badges = langs.slice(0, item3.quality ? 2 : 3).map((l) => t(l, kino));
   if (item3.quality) badges.push(has("badge_" + item3.quality) ? t("badge_" + item3.quality, kino) : item3.quality);
   if (badges.length) item3.badges = badges;
   if (langs.includes("lat")) item3.lang = "es-419";
@@ -1778,11 +1794,19 @@ async function browsePage(kino, settings, ref, cursor) {
   const site = siteFor(settings, b);
   if (!site) return { items: [] };
   const page = pageOf(cursor);
-  const items = dedup((await listing3(kino, { ...b, site, page })).map((i) => dress(kino, i)));
+  let raw;
+  try {
+    raw = await listing3(kino, { ...b, site, page });
+  } catch (e) {
+    kino.log("[latino]", "browse", site, e && e.code || "error");
+    throw kino.error("unavailable", `listing failed: ${site} page ${page}`, { userMessage: t("sourcesDown", kino) });
+  }
+  const items = dedup(raw.map((i) => dress(kino, i)));
   return items.length && page < MAX_PAGE ? { items, next: String(page + 1) } : { items };
 }
 var fold = (s) => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 var PAGES_PER_CALL = 4;
+var SCOPED_DEADLINE_MS = 5e3;
 async function searchWithin(kino, settings, within2, q, cursor) {
   const b = parseBrowseRef(within2);
   if (!b) return null;
@@ -1792,7 +1816,9 @@ async function searchWithin(kino, settings, within2, q, cursor) {
   const start = pageOf(cursor);
   const pages = [];
   for (let p = start; p < start + PAGES_PER_CALL && p <= MAX_PAGE; p++) pages.push(p);
-  const lists = await Promise.all(pages.map((page) => listing3(kino, { ...b, site, page }).catch(() => [])));
+  const got = await Promise.all(pages.map((page) => listing3(kino, { ...b, site, page, deadlineMs: SCOPED_DEADLINE_MS }).catch(() => null)));
+  if (got.every((l) => l === null)) return null;
+  const lists = got.map((l) => l || []);
   const hits = lists.flat().filter((i) => {
     const text = fold(i.title + " " + (i.originalTitle || ""));
     return words.every((w) => text.includes(w));
@@ -1905,17 +1931,18 @@ function guessFromRef(site) {
   }
   return { title: slug.replace(/-/g, " ").trim(), year: year2 || null };
 }
-async function sitePost(kino, site) {
+async function sitePostResult(kino, site) {
   const source = siteOf(site);
-  if (!source || typeof source.post !== "function") return null;
+  if (!source || typeof source.post !== "function") return { post: null, failed: false };
   try {
     const req = makeRequester(kino, { budget: 2, deadline: Date.now() + 8e3 });
-    return await source.post(site, { req });
+    return { post: await source.post(site, { req }), failed: false };
   } catch (e) {
     kino.log("[latino]", "post", site.prefix, e && e.code || "error");
-    return null;
+    return { post: null, failed: true };
   }
 }
+var sitePost = async (kino, site) => (await sitePostResult(kino, site)).post;
 function pick2(results, names, year2) {
   const wanted = new Set(names.map(slugify).filter(Boolean));
   const near = (r) => {
@@ -1924,9 +1951,14 @@ function pick2(results, names, year2) {
   };
   const namesOf = (r) => [r.title, r.name, r.original_title, r.original_name].map(slugify).filter(Boolean);
   const list9 = (results || []).filter((r) => r && Number.isInteger(r.id) && near(r));
-  const exact = list9.find((r) => namesOf(r).some((n) => wanted.has(n)));
-  if (exact) return exact.id;
-  const prefix = list9.find((r) => namesOf(r).some((n) => [...wanted].some((w) => w.length >= 4 && (n.startsWith(w) || w.startsWith(n)))));
+  const exact = [...new Set(list9.filter((r) => namesOf(r).some((n) => wanted.has(n))).map((r) => r.id))];
+  if (exact.length > 1 && !year2) return null;
+  if (exact.length) return exact[0];
+  const close = (n, w) => {
+    const [short, long] = n.length <= w.length ? [n, w] : [w, n];
+    return short.length >= 4 && short.length >= 0.6 * long.length && long.startsWith(short);
+  };
+  const prefix = list9.find((r) => namesOf(r).some((n) => [...wanted].some((w) => close(n, w))));
   return prefix && year2 ? prefix.id : null;
 }
 async function searchTmdb(kino, kind, names, year2) {
@@ -1942,7 +1974,7 @@ async function searchTmdb(kino, kind, names, year2) {
   return null;
 }
 var mapKey = (site) => `tmdb:${site.prefix}:${site.postId}`;
-async function tmdbIdFor(kino, site, { post: post4 } = {}) {
+async function tmdbIdFor(kino, site, { post: post4, postFailed = false } = {}) {
   const key = mapKey(site);
   let cached = null;
   try {
@@ -1960,11 +1992,13 @@ async function tmdbIdFor(kino, site, { post: post4 } = {}) {
   try {
     const guess = guessFromRef(site);
     let id9 = guess.title ? await searchTmdb(kino, site.kind, [guess.title], guess.year) : null;
+    let failed = false;
     if (!id9) {
-      const p = post4 !== void 0 ? post4 : await sitePost(kino, site);
-      if (p) id9 = await searchTmdb(kino, site.kind, [p.title, p.originalTitle].filter(Boolean), Number(p.year) || guess.year);
+      const r = post4 !== void 0 ? { post: post4, failed: postFailed } : await sitePostResult(kino, site);
+      failed = r.failed;
+      if (r.post) id9 = await searchTmdb(kino, site.kind, [r.post.title, r.post.originalTitle].filter(Boolean), Number(r.post.year) || guess.year);
     }
-    remember(id9 || "none", id9 ? HIT_TTL_MS : MISS_TTL_MS);
+    if (id9 || !failed) remember(id9 || "none", id9 ? HIT_TTL_MS : MISS_TTL_MS);
     return id9;
   } catch (e) {
     kino.log("[latino]", "tmdb match", e && e.code || "error");
@@ -2039,13 +2073,13 @@ async function details(ref) {
   const kino = getKino();
   const site = parseSiteRef(ref);
   if (!site) return null;
-  const post4 = await sitePost(kino, site);
+  const { post: post4, failed } = await sitePostResult(kino, site);
   const info = {};
   if (post4) {
     const item3 = dress(kino, post4);
     for (const k of DETAIL_FIELDS) if (item3[k] !== void 0 && item3[k] !== "") info[k] = item3[k];
   }
-  const tmdb2 = await tmdbIdFor(kino, site, { post: post4 });
+  const tmdb2 = await tmdbIdFor(kino, site, { post: post4, postFailed: failed });
   if (tmdb2) info.ids = { tmdb: tmdb2 };
   return Object.keys(info).length ? info : null;
 }

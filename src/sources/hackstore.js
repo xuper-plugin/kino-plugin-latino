@@ -1,5 +1,5 @@
 // HackStore: /api/rest single (post id), player (embeds) and listing.
-import { orEmpty, firstHit, getJson, postTypeOf, titleSlugs, toEmbeds, toItem, yearMatches, genreId, bySlug } from "./wpapi.js";
+import { orEmpty, firstHit, getJson, postTypeOf, titleSlugs, toEmbeds, toItem, yearMatches, genreId, bySlug, getJsonStrict, siteError } from "./wpapi.js";
 
 export const id = "hackstore";
 export const name = "HackStore";
@@ -52,14 +52,15 @@ export async function list(title, { req }) {
 async function listing(kind, page, genre, { req }) {
   let url = `${API}/listing?post_type=${postTypeOf(kind)}&page=${page || 1}&order=latest`;
   if (genre != null) url += `&genres=${genre}`;
-  const j = await getJson(req, url);
-  return ((j && j.data && j.data.posts) || []).map(item);
+  const j = await getJsonStrict(req, url);
+  if (!j || !j.data) throw siteError("listing missing"); // a listing that is not there is the site failing, not an empty genre
+  return (j.data.posts || []).map(item);
 }
 
 /** One post again from its ref's slug, as an item; null for an unknown slug or a different post behind it. */
 export async function post({ postId, kind, slug }, { req }) {
   if (!slug) return null;
-  const j = await getJson(req, `${API}/single?post_name=${encodeURIComponent(slug)}&post_type=${kind === "tv" ? "tvshows" : "movies"}`);
+  const j = await getJsonStrict(req, `${API}/single?post_name=${encodeURIComponent(slug)}&post_type=${kind === "tv" ? "tvshows" : "movies"}`);
   const d = j && !j.error && j.data;
   return d && String(d._id) === String(postId) ? item(d) : null;
 }

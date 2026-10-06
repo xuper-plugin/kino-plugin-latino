@@ -31,18 +31,24 @@ export function guessFromRef(site) {
   return { title: slug.replace(/-/g, " ").trim(), year: year || null };
 }
 
-/** The site's own post for a ref, as an item; null when the site has no single answer for it. Never throws. */
-export async function sitePost(kino, site) {
+/**
+ * The site's own post for a ref: `{ post, failed }`. `post` is the item or null; `failed` is true when the site
+ * failed (network, 5xx, rate limit, budget) rather than saying it has no such post. Never throws.
+ */
+export async function sitePostResult(kino, site) {
   const source = siteOf(site);
-  if (!source || typeof source.post !== "function") return null;
+  if (!source || typeof source.post !== "function") return { post: null, failed: false };
   try {
     const req = makeRequester(kino, { budget: 2, deadline: Date.now() + 8000 });
-    return await source.post(site, { req });
+    return { post: await source.post(site, { req }), failed: false };
   } catch (e) {
     kino.log("[latino]", "post", site.prefix, (e && e.code) || "error");
-    return null;
+    return { post: null, failed: true };
   }
 }
+
+/** The site's own post for a ref, as an item; null when there is none or the site failed. Never throws. */
+export const sitePost = async (kino, site) => (await sitePostResult(kino, site)).post;
 
 /** The TMDB result that is this title: same name (any of its names) and year within one; else null. */
 function pick(results, names, year) {
@@ -53,10 +59,17 @@ function pick(results, names, year) {
   };
   const namesOf = (r) => [r.title, r.name, r.original_title, r.original_name].map(slugify).filter(Boolean);
   const list = (results || []).filter((r) => r && Number.isInteger(r.id) && near(r));
-  const exact = list.find((r) => namesOf(r).some((n) => wanted.has(n)));
-  if (exact) return exact.id;
-  // "Spider-Man: Un nuevo día" vs "Spider-Man: Un nuevo dia (Brand New Day)": one name starts the other.
-  const prefix = list.find((r) => namesOf(r).some((n) => [...wanted].some((w) => w.length >= 4 && (n.startsWith(w) || w.startsWith(n)))));
+  const exact = [...new Set(list.filter((r) => namesOf(r).some((n) => wanted.has(n))).map((r) => r.id))];
+  // Two titles with this exact name and no year to tell them apart (Suspiria 1977 / 2018): neither is sure.
+  if (exact.length > 1 && !year) return null;
+  if (exact.length) return exact[0];
+  // "Spider-Man: Un nuevo día" vs "Spider-Man: Un nuevo dia (Brand New Day)": one name starts the other -- when the
+  // shorter one is long enough to mean something (never "It" for "It Follows").
+  const close = (n, w) => {
+    const [short, long] = n.length <= w.length ? [n, w] : [w, n];
+    return short.length >= 4 && short.length >= 0.6 * long.length && long.startsWith(short);
+  };
+  const prefix = list.find((r) => namesOf(r).some((n) => [...wanted].some((w) => close(n, w))));
   return prefix && year ? prefix.id : null;
 }
 
@@ -78,9 +91,9 @@ const mapKey = (site) => `tmdb:${site.prefix}:${site.postId}`;
 /**
  * The TMDB id of a site title, or null when TMDB has no title that is clearly this one. The ref's own words are
  * tried first; the site's post (its exact and original title) only when they miss. Hits are remembered 30 days,
- * misses one day; a TMDB failure is remembered not at all and answers null.
+ * misses one day; a TMDB or site failure is remembered not at all and answers null.
  */
-export async function tmdbIdFor(kino, site, { post } = {}) {
+export async function tmdbIdFor(kino, site, { post, postFailed = false } = {}) {
   const key = mapKey(site);
   let cached = null;
   try { cached = kino.storage.get(key); } catch (_) { /* no storage: ask again */ }
@@ -91,11 +104,14 @@ export async function tmdbIdFor(kino, site, { post } = {}) {
   try {
     const guess = guessFromRef(site);
     let id = guess.title ? await searchTmdb(kino, site.kind, [guess.title], guess.year) : null;
+    let failed = false;
     if (!id) {
-      const p = post !== undefined ? post : await sitePost(kino, site);
-      if (p) id = await searchTmdb(kino, site.kind, [p.title, p.originalTitle].filter(Boolean), Number(p.year) || guess.year);
+      const r = post !== undefined ? { post, failed: postFailed } : await sitePostResult(kino, site);
+      failed = r.failed;
+      if (r.post) id = await searchTmdb(kino, site.kind, [r.post.title, r.post.originalTitle].filter(Boolean), Number(r.post.year) || guess.year);
     }
-    remember(id || "none", id ? HIT_TTL_MS : MISS_TTL_MS);
+    // A miss while the site was failing is not a real miss: ask again next time.
+    if (id || !failed) remember(id || "none", id ? HIT_TTL_MS : MISS_TTL_MS);
     return id;
   } catch (e) {
     kino.log("[latino]", "tmdb match", (e && e.code) || "error");

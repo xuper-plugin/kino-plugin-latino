@@ -13,7 +13,7 @@ import { titleContext, searchTitles, episodeList } from "./tmdb.js";
 import { resolveTitle, resolveLazy } from "./resolver.js";
 import { readSettings } from "./settings.js";
 import { HOME_ROWS, buildRows, browsePage, searchWithin, sectionPage, categoryTiles, dress } from "./catalog.js";
-import { parseSiteRef, tmdbIdFor, sitePost, siteContext } from "./match.js";
+import { parseSiteRef, tmdbIdFor, sitePost, sitePostResult, siteContext } from "./match.js";
 import { t } from "./i18n.js";
 
 const getKino = () => globalThis.kino;
@@ -86,14 +86,14 @@ export async function details(ref) {
   const kino = getKino();
   const site = parseSiteRef(ref);
   if (!site) return null; // a TMDB title: Kino's TMDB page already has all of it
-  const post = await sitePost(kino, site);
+  const { post, failed } = await sitePostResult(kino, site);
   const info = {};
   if (post) {
     const item = dress(kino, post);
     for (const k of DETAIL_FIELDS) if (item[k] !== undefined && item[k] !== "") info[k] = item[k];
   }
   // The TMDB id pins the title on Kino's page when the listing item had none.
-  const tmdb = await tmdbIdFor(kino, site, { post });
+  const tmdb = await tmdbIdFor(kino, site, { post, postFailed: failed });
   if (tmdb) info.ids = { tmdb };
   return Object.keys(info).length ? info : null;
 }

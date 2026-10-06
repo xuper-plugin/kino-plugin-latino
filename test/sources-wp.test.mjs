@@ -155,10 +155,15 @@ test("hackstore listing: refs and genre", async () => {
   assert.match(seen[1], /api\/rest\/listing\?.*post_type=movies.*genres=114/);
 });
 
-test("a failing listing is empty, not a throw", async () => {
+// Fix round 1 of Task 11 turned this around: a failing listing throws (so "Ver más" can say the sources are down),
+// an empty one is [] (a genre with nothing in it).
+test("a failing listing throws a site failure; an empty listing is []", async () => {
   const kino = routed([]);
-  assert.deepEqual(await lamovie.latest("movie", 1, ctx(kino)), []);
-  assert.deepEqual(await hackstore.latest("tv", 1, ctx(kino)), []);
+  await assert.rejects(lamovie.latest("movie", 1, ctx(kino)), (e) => e.code === "unavailable" && e.siteFailure === true);
+  await assert.rejects(hackstore.latest("tv", 1, ctx(kino)), (e) => e.code === "unavailable");
+  const empty = fakeKino({ fetch: async () => ({ status: 200, body: JSON.stringify({ data: { posts: [] } }) }) }).kino;
+  assert.deepEqual(await lamovie.latest("movie", 1, ctx(empty)), []);
+  assert.deepEqual(await hackstore.latest("tv", 1, ctx(empty)), []);
 });
 
 test("module shape and registry", () => {

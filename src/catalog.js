@@ -12,13 +12,16 @@ const LIST_TTL_MS = 10 * 60 * 1000;
 const MAX_PAGE = 500;
 const memo = new Map(); // listings for this sandbox's life: the same page is asked by home, section and "Ver más"
 
-/** One listing page, raw items; cached 10 minutes in memory. A site that does not answer gives an empty page. */
-export async function listing(kino, { site, kind, genre = null, page = 1 }) {
+/**
+ * One listing page, raw items; cached 10 minutes in memory. A site that fails throws (an empty page is a real end).
+ * [deadlineMs]: how long the page may take (scoped search must answer inside Kino's 6 s).
+ */
+export async function listing(kino, { site, kind, genre = null, page = 1, deadlineMs = 10000 }) {
   const key = `${site}:${kind}:${genre || ""}:${page}`;
   const hit = memo.get(key);
   if (hit && Date.now() - hit.at < LIST_TTL_MS) return hit.items;
   const source = SITES[site];
-  const req = makeRequester(kino, { budget: 3, deadline: Date.now() + 10000 });
+  const req = makeRequester(kino, { budget: 3, deadline: Date.now() + deadlineMs });
   const items = genre ? await source.byGenre(genre, kind, page, { req }) : await source.latest(kind, page, { req });
   if (memo.size > 80) memo.clear();
   if (items.length) memo.set(key, { at: Date.now(), items });
@@ -43,9 +46,16 @@ export function seriesTitle(kino, slug) {
  */
 export function dress(kino, raw) {
   const { genreSlugs = [], langs = [], ...item } = raw;
+  // A title already matched to TMDB (by resolve, episodes or details) says so: Kino completes its page from TMDB.
+  const m = /^(lm|hs)-(\d+)$/.exec(item.id || "");
+  if (m && !(item.ids && item.ids.tmdb)) {
+    let hit = null;
+    try { hit = kino.storage.get(`tmdb:${m[1]}:${m[2]}`); } catch (_) { /* no storage */ }
+    if (hit && /^\d+$/.test(hit)) item.ids = { ...(item.ids || {}), tmdb: Number(hit) };
+  }
   const genres = genreSlugs.map((g) => genreName(kino, g)).filter(Boolean).slice(0, 5);
   if (genres.length) item.genres = genres;
-  const badges = langs.slice(0, item.quality ? 2 : 3).map((l) => t("badge_" + l, kino));
+  const badges = langs.slice(0, item.quality ? 2 : 3).map((l) => t(l, kino)); // the same words as the copy labels
   if (item.quality) badges.push(has("badge_" + item.quality) ? t("badge_" + item.quality, kino) : item.quality);
   if (badges.length) item.badges = badges;
   if (langs.includes("lat")) item.lang = "es-419";
@@ -89,14 +99,23 @@ export async function browsePage(kino, settings, ref, cursor) {
   const site = siteFor(settings, b);
   if (!site) return { items: [] };
   const page = pageOf(cursor);
-  const items = dedup((await listing(kino, { ...b, site, page })).map((i) => dress(kino, i)));
+  let raw;
+  try {
+    raw = await listing(kino, { ...b, site, page });
+  } catch (e) {
+    // The site failed: say so, never pass it off as an empty genre.
+    kino.log("[latino]", "browse", site, (e && e.code) || "error");
+    throw kino.error("unavailable", `listing failed: ${site} page ${page}`, { userMessage: t("sourcesDown", kino) });
+  }
+  const items = dedup(raw.map((i) => dress(kino, i)));
   return items.length && page < MAX_PAGE ? { items, next: String(page + 1) } : { items };
 }
 
 // ---------- scoped search ----------
 
 const fold = (s) => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
-const PAGES_PER_CALL = 4; // fetched together, inside Kino's 6 s
+const PAGES_PER_CALL = 4; // fetched together
+const SCOPED_DEADLINE_MS = 5000; // Kino waits 6 s for a scoped search, then filters by itself
 
 /**
  * Search inside a "Ver más" page: its listing, a few pages at a time, filtered by every word of [q] in the title or
@@ -111,7 +130,9 @@ export async function searchWithin(kino, settings, within, q, cursor) {
   const start = pageOf(cursor);
   const pages = [];
   for (let p = start; p < start + PAGES_PER_CALL && p <= MAX_PAGE; p++) pages.push(p);
-  const lists = await Promise.all(pages.map((page) => listing(kino, { ...b, site, page }).catch(() => [])));
+  const got = await Promise.all(pages.map((page) => listing(kino, { ...b, site, page, deadlineMs: SCOPED_DEADLINE_MS }).catch(() => null)));
+  if (got.every((l) => l === null)) return null; // the site failed: Kino filters the page's own titles instead
+  const lists = got.map((l) => l || []);
   const hits = lists.flat().filter((i) => {
     const text = fold(i.title + " " + (i.originalTitle || ""));
     return words.every((w) => text.includes(w));

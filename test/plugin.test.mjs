@@ -78,6 +78,7 @@ test("home: three rows from the listings, each with ref (Ver más), genre and dr
   assert.equal(una.id, "lm-90152");
   assert.equal(una.ref, "lm:90152:movie:unabomber-2026:2026");
   assert.deepEqual(una.badges, ["Latino", "1080p"]);
+  assert.equal(una.ids, undefined); // not matched to TMDB yet
   assert.equal(una.quality, "1080p");
   assert.equal(una.lang, "es-419");
   assert.equal(una.rating, 6.6);
@@ -112,7 +113,9 @@ test("home rows in English when Kino speaks English", async () => {
   install({ routes: LISTINGS, lang: "en-US" });
   const rows = await plugin.home(null);
   assert.equal(rows[0].title, "New in Latin Spanish");
-  assert.deepEqual(rows[0].items.find((i) => i.title === "UNABOMBER").genres, ["Drama", "Thriller", "Crime"]);
+  const una = rows[0].items.find((i) => i.title === "UNABOMBER");
+  assert.deepEqual(una.genres, ["Drama", "Thriller", "Crime"]);
+  assert.deepEqual(una.badges, ["Latin Spanish", "1080p"]); // the same words as the copy labels
 });
 
 // ---------- browse, section, categories ----------
@@ -264,4 +267,76 @@ test("settings: defaults, and the person's choices read from kino.config", () =>
 test("t('notFound') is English when Kino speaks English", () => {
   assert.equal(t("notFound", fakeKino({ lang: "en-US" }).kino), "I couldn't find this title in Spanish.");
   assert.equal(t("notFound", fakeKino().kino), "No encontré este título en español.");
+});
+
+// ---------- fix round 1 ----------
+
+import { tmdbIdFor } from "../src/match.js";
+
+const searchKey = (kind, q) => `/search/${kind}?language=es-MX&query=${encodeURIComponent(q)}`;
+
+test("match: a too-short TMDB name never matches as a prefix ('It' is not 'It Follows')", async () => {
+  const { kino } = install({ tmdb: { [searchKey("movie", "it follows")]: { results: [{ id: 346364, title: "It", release_date: "2014-09-05" }] } } });
+  assert.equal(await tmdbIdFor(kino, { prefix: "lm", postId: "1", kind: "movie", slug: "it-follows-2014", year: 2014 }, { post: null }), null);
+});
+
+test("match: a long-enough prefix still matches with a known year", async () => {
+  const { kino } = install({ tmdb: { [searchKey("movie", "spider man un nuevo dia")]: { results: [{ id: 969681, title: "Spider-Man: Un nuevo día brand new", release_date: "2026-07-31" }] } } });
+  assert.equal(await tmdbIdFor(kino, { prefix: "lm", postId: "2", kind: "movie", slug: "spider-man-un-nuevo-dia-2026", year: 2026 }, { post: null }), 969681);
+});
+
+test("match: two TMDB titles with the exact name and no year is no match (siteContext path)", async () => {
+  const two = { results: [{ id: 11906, title: "Suspiria", release_date: "1977-02-01" }, { id: 361292, title: "Suspiria", release_date: "2018-10-26" }] };
+  const { kino } = install({ tmdb: { [searchKey("movie", "suspiria")]: two } });
+  assert.equal(await tmdbIdFor(kino, { prefix: "hs", postId: "3", kind: "movie", slug: "suspiria", year: null }, { post: null }), null);
+  const withYear = install({ tmdb: { [searchKey("movie", "suspiria")]: two } }).kino;
+  assert.equal(await tmdbIdFor(withYear, { prefix: "hs", postId: "3", kind: "movie", slug: "suspiria", year: 2018 }, { post: null }), 361292);
+});
+
+test("match: a site failure is not remembered as a miss; a real 'no such post' is", async () => {
+  const tmdb = { [searchKey("movie", "zzz qqq")]: { results: [] } };
+  const site = { prefix: "hs", postId: "4", kind: "movie", slug: "zzz-qqq", year: 2020 };
+  const failing = install({ tmdb, routes: [[/hackstore2\.com/, () => ({ status: 503, body: "" })]] }).kino;
+  assert.equal(await tmdbIdFor(failing, site), null);
+  assert.equal(failing.storage.get("tmdb:hs:4"), null);
+  const absent = install({ tmdb, routes: [[/hackstore2\.com/, () => ({ status: 200, body: JSON.stringify({ error: true, message: "404" }) })]] }).kino;
+  assert.equal(await tmdbIdFor(absent, site), null);
+  assert.equal(absent.storage.get("tmdb:hs:4"), "none");
+});
+
+test("scoped search asks each page with a deadline inside Kino's 6 s; a failing site gives null", async () => {
+  const timeouts = [];
+  install({ routes: [[/lamovie\.org\/wp-api\/v1\/listing/, (u) => ({ status: 200, body: fixture("lamovie/listing.json") })]] });
+  const k = globalThis.kino;
+  globalThis.kino = Object.freeze({ ...k, fetch: async (u, o) => { timeouts.push(o.timeoutMs); return k.fetch(u, o); } });
+  await plugin.search({ q: "unabomber", within: "latest:lamovie:movie" });
+  assert.equal(timeouts.length, 4);
+  assert.ok(timeouts.every((ms) => ms > 4000 && ms <= 5000), String(timeouts));
+  install({ routes: [[/lamovie/, () => ({ status: 502, body: "" })]] });
+  assert.equal(await plugin.search({ q: "unabomber", within: "latest:lamovie:movie" }), null);
+});
+
+test("dress: a title already matched to TMDB carries ids.tmdb, from storage only", async () => {
+  const { kino, seen } = install({ routes: LISTINGS });
+  kino.storage.set("tmdb:lm:90152", "1492640");
+  kino.storage.set("tmdb:lm:90161", "none");
+  const page = await plugin.browse("latest:lamovie:movie", null);
+  assert.deepEqual(page.items.find((i) => i.id === "lm-90152").ids, { tmdb: 1492640 });
+  assert.equal(page.items.find((i) => i.id === "lm-90161").ids, undefined);
+  assert.ok(seen.every((u) => !/themoviedb/.test(u)));
+});
+
+test("browse: a failing site is unavailable with the person's sentence; an empty genre is just empty", async () => {
+  install({ routes: [[/lamovie/, () => ({ status: 500, body: "" })]] });
+  await assert.rejects(plugin.browse("genre:western:movie", null), (e) => e.code === "unavailable" && e.userMessage === "Las fuentes en español no responden ahora.");
+  install({ routes: [[/lamovie/, down]] });
+  await assert.rejects(plugin.browse("latest:lamovie:tv", null), (e) => e.code === "unavailable" && !!e.userMessage);
+  install({ routes: [[/lamovie/, () => ({ status: 200, body: JSON.stringify({ data: { posts: [] } }) })]] });
+  assert.deepEqual(await plugin.browse("genre:western:movie", null), { items: [] });
+});
+
+test("words: Del Oeste in Spanish; English language words match the copy labels", async () => {
+  install({});
+  assert.ok((await plugin.categories(null)).some((c) => c.title === "Del Oeste"));
+  assert.equal(t("lat", fakeKino({ lang: "en-US" }).kino), "Latin Spanish");
 });
