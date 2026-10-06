@@ -10,6 +10,8 @@ export const kinds = ["movie", "tv"];
 export const HOSTS = ["player.pelisserieshoy.com"];
 
 const SITE = "https://player.pelisserieshoy.com";
+/** The site origin, for a "direct" embed's Referer. */
+export const ORIGIN = SITE;
 const MAX_SERVERS = 8; // 1 page + 2 session posts + 8 servers = 11 requests of the 12-request budget
 
 async function post(req, page, form) {

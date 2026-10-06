@@ -31,3 +31,56 @@ export async function pageText(req, url, headers) {
   const r = await req(url, { headers });
   return r.ok ? r.text() : null;
 }
+
+// Caption-track labels as JW Player pages write them, to the ISO 639-1 code Kino needs.
+const LANG_CODES = [
+  [/^(español|espanol|spanish|castellano|latino|spa|esp?)\b/i, "es"],
+  [/^(english|inglés|ingles|eng?)\b/i, "en"],
+  [/^(portugu[eê]s|portuguese|por|pt)\b/i, "pt"],
+  [/^(fran[cç]ais|french|franc[eé]s|fre|fra|fr)\b/i, "fr"],
+  [/^(italiano|italian|ita|it)\b/i, "it"],
+  [/^(deutsch|german|alem[aá]n|ger|deu|de)\b/i, "de"],
+];
+
+/** The ISO code for a caption label ("Spanish" -> "es"), or null when it cannot be told. */
+export function langCode(label) {
+  const s = String(label || "").trim();
+  for (const [re, code] of LANG_CODES) if (re.test(s)) return code;
+  return null;
+}
+
+/** Caption tracks of a JW `tracks: [...]` list; thumbnails and unlabelled or unmappable tracks are left out. */
+export function captionTracks(text, base) {
+  const m = /\btracks\s*:\s*\[([\s\S]*?)\]/.exec(text || "");
+  if (!m) return [];
+  const out = [];
+  for (const [obj] of m[1].matchAll(/\{[^{}]*\}/g)) {
+    const field = (k) => (new RegExp(`["']?${k}["']?\\s*:\\s*["']([^"']*)["']`).exec(obj) || [])[1] || "";
+    const kind = field("kind").toLowerCase();
+    if (kind && kind !== "captions" && kind !== "subtitles") continue;
+    const file = field("file");
+    const format = (/\.(vtt|srt)(?:[?#]|$)/i.exec(file) || [])[1];
+    const label = field("label");
+    const lang = langCode(label);
+    const url = format && lang ? absolute(file, base) : null;
+    if (!url || out.some((t) => t.url === url)) continue;
+    out.push({ lang, url, label, format: format.toLowerCase() });
+  }
+  return out;
+}
+
+/** JW `duration: "3849.88"` (seconds) in ms, or null. */
+export function durationMsOf(text) {
+  const m = /\bduration\s*:\s*["']?(\d+(?:\.\d+)?)["']?/.exec(text || "");
+  const ms = m ? Math.round(Number(m[1]) * 1000) : 0;
+  return ms > 0 ? ms : null;
+}
+
+/** `{ subtitles?, durationMs? }` the player page reveals, from the page or its unpacked script; only keys it found. */
+export function pageExtras(html, base) {
+  const unpacked = unpack(html) || "";
+  const subs = captionTracks(html, base);
+  const subtitles = subs.length ? subs : captionTracks(unpacked, base);
+  const durationMs = durationMsOf(html) || durationMsOf(unpacked);
+  return { ...(subtitles.length ? { subtitles } : {}), ...(durationMs ? { durationMs } : {}) };
+}

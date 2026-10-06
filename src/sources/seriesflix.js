@@ -7,6 +7,8 @@ export const kinds = ["tv"];
 export const HOSTS = ["seriesflixhd.casa"];
 
 const SITE = "https://seriesflixhd.casa";
+/** The site origin, for a "direct" embed's Referer. */
+export const ORIGIN = SITE;
 
 const decode = (b64) => { try { return atob(b64); } catch (_) { return ""; } };
 

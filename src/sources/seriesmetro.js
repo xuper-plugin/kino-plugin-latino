@@ -8,6 +8,8 @@ export const kinds = ["movie", "tv"];
 export const HOSTS = ["www3.seriesmetro.net"];
 
 const SITE = "https://www3.seriesmetro.net";
+/** The site origin, for a "direct" embed's Referer. */
+export const ORIGIN = SITE;
 const MAX_OPTIONS = 8;
 
 const yearOnPage = (html) => {

@@ -1,4 +1,4 @@
-import { fileM3u8, findIn, pageText, HLS_MIME } from "./shared.js";
+import { fileM3u8, findIn, pageText, pageExtras, HLS_MIME } from "./shared.js";
 
 export const HOSTS = ["vimeos.net", "vimeos.zip"];
 
@@ -7,5 +7,5 @@ export async function extract(embedUrl, req) {
   if (html == null) return null;
   const url = findIn(html, (t) => fileM3u8(t, embedUrl));
   if (!url) return null;
-  return { url, mime: HLS_MIME, headers: { Referer: "https://vimeos.net/" } };
+  return { url, mime: HLS_MIME, headers: { Referer: "https://vimeos.net/" }, ...pageExtras(html, embedUrl) };
 }

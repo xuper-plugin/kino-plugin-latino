@@ -7,6 +7,8 @@ export const kinds = ["movie"];
 export const HOSTS = ["www.cinecalidad.vg"];
 
 const SITE = "https://www.cinecalidad.vg";
+/** The site origin, for a "direct" embed's Referer. */
+export const ORIGIN = SITE;
 const MAX_INTERMEDIATE = 2;
 
 // A link into the site itself is an intermediate page; anything else is a player host.

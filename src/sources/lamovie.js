@@ -7,6 +7,8 @@ export const kinds = ["movie", "tv"];
 export const HOSTS = ["lamovie.org"];
 
 const SITE = "https://lamovie.org";
+/** The site origin, for a "direct" embed's Referer. */
+export const ORIGIN = SITE;
 const API = SITE + "/wp-api/v1";
 const IMAGES = SITE + "/wp-content/uploads";
 // Genre term ids as the site's own page config (window.siteConfig.datas.genres) lists them.

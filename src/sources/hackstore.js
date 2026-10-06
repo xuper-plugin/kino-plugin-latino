@@ -7,6 +7,8 @@ export const kinds = ["movie", "tv"];
 export const HOSTS = ["hackstore2.com"];
 
 const SITE = "https://hackstore2.com";
+/** The site origin, for a "direct" embed's Referer. */
+export const ORIGIN = SITE;
 const API = SITE + "/api/rest";
 const IMAGES = SITE + "/wp-content/uploads";
 // Genre term ids as the site's own page config lists them.

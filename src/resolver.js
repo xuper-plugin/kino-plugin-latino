@@ -1,0 +1,334 @@
+// The resolver: asks every source in parallel for its embeds (phase 1, cached 30 min), picks one
+// language, ranks the copies, extracts at most two (phase 2) and hands Kino one Stream whose other
+// copies of the same language are lazy alternatives, resolved only when Kino needs them.
+//
+// QuickJS has no setTimeout: every wait is kino.sleep, in short steps that stop as soon as the work
+// they guard is done.
+
+import { SOURCES } from "./sources/index.js";
+import { extractorFor } from "./extractors/index.js";
+import { HLS_MIME } from "./extractors/shared.js";
+import { makeRequester } from "./util/http.js";
+import { t } from "./i18n.js";
+
+export const LANGS = ["lat", "esp", "sub"];
+const QUALITIES = ["auto", "2160p", "1080p", "720p", "480p"];
+const SERVER_TIER = { goodstream: 0, streamwish: 0, vimeos: 0, vidhide: 0, fastream: 0, nupload: 0, direct: 0, okru: 1, voe: 2 };
+const QUALITY_ORDER = { "1080p": 0, "720p": 1, "480p": 2, "360p": 3, "2160p": 5 };
+const HEIGHT = (q) => { const m = /^(\d{3,4})p$/.exec(q || ""); return m ? Number(m[1]) : null; };
+const NETWORK_CODES = new Set(["network", "timeout", "unavailable", "rate_limited"]);
+
+const PHASE_MS = 9000;
+const SOURCE = { budget: 12, deadlineMs: 8000 };
+const EXTRACT = { budget: 6, deadlineMs: 6000, tries: 2 };
+const CALL_MS = 19000; // Kino gives resolve 20 s; keep a margin for assembling the answer
+const MAX_COPIES = 8;
+const CACHE_TTL_MS = 1800000;
+const OFF_BY_DEFAULT = { peliserieshoy: false }; // R14
+
+/** Settings with every default filled in: `{ preferred, maxQuality, includeSub, enabled }`. */
+export function normalizeSettings(s = {}) {
+  const v = s && typeof s === "object" ? s : {};
+  return {
+    preferred: LANGS.includes(v.preferred) ? v.preferred : "lat",
+    maxQuality: QUALITIES.includes(v.maxQuality) ? v.maxQuality : "auto",
+    includeSub: v.includeSub !== false,
+    enabled: { ...OFF_BY_DEFAULT, ...(v.enabled && typeof v.enabled === "object" ? v.enabled : {}) },
+  };
+}
+
+const isOn = (enabled, id) => ({ ...OFF_BY_DEFAULT, ...(enabled || {}) })[id] !== false;
+
+/** Waits up to `ms` with kino.sleep in short steps; returns early once `done()` says so. */
+async function waitFor(kino, ms, done = () => false) {
+  const end = Date.now() + ms;
+  while (!done()) {
+    const left = end - Date.now();
+    if (left <= 0) return;
+    await kino.sleep(Math.min(250, left));
+  }
+}
+
+/** `promise`'s value, or `fallback` when it has not settled within `ms`; never throws. */
+async function within(kino, promise, ms, fallback) {
+  let settled = false;
+  const guarded = Promise.resolve(promise).then((v) => { settled = true; return { v }; }, (e) => { settled = true; return { e }; });
+  const r = await Promise.race([guarded, waitFor(kino, ms, () => settled).then(() => null)]);
+  return r || { v: fallback, late: true };
+}
+
+// ---------- phase 1: embeds ----------
+
+const cacheKey = (title) => `emb:${title.kind}:${title.tmdbId}:${title.season ?? ""}:${title.episode ?? ""}`;
+
+const validEmbed = (e) => e && typeof e === "object" && typeof e.source === "string" && LANGS.includes(e.lang)
+  && typeof e.server === "string" && typeof e.embedUrl === "string" && /^https?:\/\//i.test(e.embedUrl)
+  && (e.quality == null || typeof e.quality === "string");
+
+function readCache(kino, key) {
+  try {
+    const c = JSON.parse(kino.storage.get(key) || "null");
+    if (!c || c.v !== 1 || !Array.isArray(c.done) || !Array.isArray(c.embeds) || !c.embeds.every(validEmbed)) return null;
+    return c;
+  } catch (_) {
+    return null;
+  }
+}
+
+function writeCache(kino, key, done, embeds) {
+  try { kino.storage.set(key, JSON.stringify({ v: 1, done, embeds }), { ttlMs: CACHE_TTL_MS }); } catch (_) { /* full storage: no cache */ }
+}
+
+/** One source's list, never throwing: `{ embeds, failed: null | code }`. */
+async function askSource(kino, source, title, start) {
+  try {
+    const req = makeRequester(kino, { budget: SOURCE.budget, deadline: start + SOURCE.deadlineMs });
+    const out = await source.list(title, { kino, req });
+    return { embeds: (Array.isArray(out) ? out : []).filter(validEmbed), failed: null };
+  } catch (e) {
+    const code = (e && e.code) || (e && e.name) || "error";
+    kino.log("[latino]", source.id, code);
+    return { embeds: [], failed: code };
+  }
+}
+
+/**
+ * Phase 1 with what the resolver needs to word a failure: `{ embeds, down }`, `down` when every source
+ * asked failed on the network or did not answer in time. The cache keeps which sources answered, so
+ * a source turned on later is asked on its own and merged in.
+ */
+async function collect(kino, title, { enabled, sources = SOURCES, phaseMs = PHASE_MS } = {}) {
+  const start = Date.now();
+  const active = sources.filter((s) => isOn(enabled, s.id) && (!s.kinds || s.kinds.includes(title.kind)));
+  const key = cacheKey(title);
+  const cached = readCache(kino, key);
+  const done = new Set(cached ? cached.done : []);
+  const bySource = new Map();
+  for (const e of cached ? cached.embeds : []) {
+    if (!bySource.has(e.source)) bySource.set(e.source, []);
+    bySource.get(e.source).push(e);
+  }
+
+  const toAsk = active.filter((s) => !done.has(s.id));
+  let down = toAsk.length > 0 && active.every((s) => toAsk.includes(s));
+  if (toAsk.length) {
+    const answers = new Map();
+    const all = Promise.all(toAsk.map((s) => askSource(kino, s, title, start).then((r) => { answers.set(s.id, r); })));
+    await within(kino, all, Math.max(0, start + phaseMs - Date.now()), null); // late answers are ignored
+    for (const s of toAsk) {
+      const r = answers.get(s.id);
+      if (!r) { kino.log("[latino]", s.id, "late"); continue; }
+      if (!r.failed || !NETWORK_CODES.has(r.failed)) down = false;
+      if (r.failed) continue;
+      done.add(s.id);
+      bySource.set(s.id, r.embeds.map((e) => ({ ...e, source: s.id })));
+    }
+  }
+
+  // Priority order is the order of `sources`; the first copy of an embed URL wins.
+  const order = sources.map((s) => s.id);
+  const rank = (id) => { const i = order.indexOf(id); return i < 0 ? order.length : i; };
+  const everything = [...bySource.keys()].sort((a, b) => rank(a) - rank(b)).flatMap((id) => bySource.get(id));
+  const seen = new Set();
+  const unique = everything.filter((e) => (seen.has(e.embedUrl) ? false : (seen.add(e.embedUrl), true)));
+  if (toAsk.length && unique.length) writeCache(kino, key, [...done], unique);
+
+  const on = new Set(active.map((s) => s.id));
+  const embeds = unique.filter((e) => on.has(e.source));
+  return { embeds, down: down && embeds.length === 0 };
+}
+
+/** Phase 1: every enabled source's embeds for the title, deduplicated by URL in source priority order. */
+export async function listEmbeds(kino, title, options = {}) {
+  return (await collect(kino, title, options)).embeds;
+}
+
+// ---------- choosing ----------
+
+/** The language to play: the preferred one when present, else Latino > Castellano > Subtitulado. */
+export function pickLanguage(embeds, preferred, { includeSub = true } = {}) {
+  const have = new Set((embeds || []).map((e) => e.lang));
+  const wanted = preferred === "sub" && !includeSub ? null : preferred;
+  for (const l of [wanted, ...LANGS]) if (l && have.has(l)) return l;
+  return null;
+}
+
+/** The server an embed really is: its extractor when its host is known, else what the source called it. */
+const serverOf = (e) => (e.server === "direct" ? "direct" : (extractorFor(e.embedUrl) || {}).name || e.server);
+
+/** Best first: copies above `maxQuality` last, then by server tier, then by quality (1080p first, 4K last). */
+export function rank(embeds, { maxQuality = "auto" } = {}) {
+  const cap = HEIGHT(maxQuality);
+  const key = (e) => {
+    const h = HEIGHT(e.quality);
+    return [cap && h && h > cap ? 1 : 0, SERVER_TIER[serverOf(e)] ?? 3, QUALITY_ORDER[e.quality] ?? 4];
+  };
+  return (embeds || [])
+    .map((e, i) => ({ e, i, k: key(e) }))
+    .sort((a, b) => a.k[0] - b.k[0] || a.k[1] - b.k[1] || a.k[2] - b.k[2] || a.i - b.i)
+    .map((x) => x.e);
+}
+
+function label(kino, e, sourceName) {
+  const server = serverOf(e) === "direct" ? t("direct", kino) : serverOf(e);
+  const q = e.quality ? " " + e.quality : "";
+  const full = `${t(e.lang, kino)} · ${sourceName} · ${server}${q}`;
+  return full.length <= 48 ? full : `${t(e.lang, kino)} · ${server}${q}`.slice(0, 48);
+}
+
+// ---------- extraction ----------
+
+function mimeOf(url) {
+  let path;
+  try { path = new URL(url).pathname.toLowerCase(); } catch (_) { return undefined; }
+  if (path.endsWith(".m3u8")) return HLS_MIME;
+  const ext = (/\.(mp4|mkv|avi|webm)$/.exec(path) || [])[1];
+  return ext ? { mp4: "video/mp4", mkv: "video/x-matroska", avi: "video/x-msvideo", webm: "video/webm" }[ext] : undefined;
+}
+
+/** A "direct" embed is the stream itself, fetched with its source site as Referer. */
+function directStream(e, source) {
+  const origin = source && source.ORIGIN;
+  if (!origin) return null;
+  const mime = mimeOf(e.embedUrl);
+  return { url: e.embedUrl, ...(mime ? { mime } : {}), headers: { Referer: origin.replace(/\/+$/, "") + "/" } };
+}
+
+/** The real extraction: direct copies as they are, others through their host's extractor. */
+export async function defaultExtract(e, req, kino, source) {
+  if (e.server === "direct") return directStream(e, source);
+  const ex = extractorFor(e.embedUrl);
+  return ex ? ex.extract(e.embedUrl, req, kino) : null;
+}
+/** Which embeds the default extraction can play: direct ones and known hosts; the rest are never offered. */
+defaultExtract.accepts = (e) => e.server === "direct" || !!extractorFor(e.embedUrl);
+
+/** One extraction attempt, bounded by its own requester and `untilMs`; null on any failure. */
+async function attempt(kino, extract, e, source, untilMs) {
+  const deadline = Math.min(Date.now() + EXTRACT.deadlineMs, untilMs);
+  const req = makeRequester(kino, { budget: EXTRACT.budget, deadline });
+  const r = await within(kino, Promise.resolve().then(() => extract(e, req, kino, source)), Math.max(0, deadline - Date.now()) + 500, null);
+  if (r.e) kino.log("[latino]", e.source, serverOf(e), (r.e && r.e.code) || "extract_failed");
+  const s = r.v;
+  return s && typeof s.url === "string" && s.url ? s : null;
+}
+
+/** A Stream from an extractor's answer, labelled like its copies; only fields that carry something. */
+function toStream(kino, s, e, sourceName) {
+  const out = { url: s.url };
+  if (s.mime) out.mime = s.mime;
+  out.headers = s.headers && typeof s.headers === "object" ? s.headers : {};
+  out.label = label(kino, e, sourceName);
+  const subs = Array.isArray(s.subtitles) ? s.subtitles.filter((x) => x && x.lang && x.url) : [];
+  if (subs.length) out.subtitles = subs;
+  if (Number.isFinite(s.durationMs) && s.durationMs > 0) out.durationMs = Math.round(s.durationMs);
+  return out;
+}
+
+const hasSubs = (s) => Array.isArray(s.subtitles) && s.subtitles.length > 0;
+
+// ---------- lazy copies ----------
+
+function b64url(text) {
+  const bytes = new TextEncoder().encode(text);
+  let bin = "";
+  for (const b of bytes) bin += String.fromCharCode(b);
+  return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+function unb64url(s) {
+  if (!/^[A-Za-z0-9_-]+$/.test(s)) return null;
+  try {
+    const bin = atob(s.replace(/-/g, "+").replace(/_/g, "/") + "===".slice((s.length + 3) % 4));
+    return new TextDecoder().decode(Uint8Array.from(bin, (c) => c.charCodeAt(0)));
+  } catch (_) {
+    return null;
+  }
+}
+
+/** The ref a copy is resolved from later: "x|<source>|<base64url embedUrl>|<lang>|<server>". */
+export function lazyRef(e) {
+  return ["x", e.source, b64url(e.embedUrl), e.lang, e.server].join("|");
+}
+
+/** An embed back from its ref, or null when anything in it is off. */
+function readRef(ref) {
+  if (typeof ref !== "string" || ref.length > 512) return null;
+  const parts = ref.split("|");
+  if (parts.length !== 5 || parts[0] !== "x") return null;
+  const [, source, enc, lang, server] = parts;
+  const embedUrl = unb64url(enc);
+  if (!/^[a-z0-9]+$/.test(source) || !LANGS.includes(lang) || !/^[\w .-]{1,40}$/.test(server)) return null;
+  if (!embedUrl || !/^https?:\/\//i.test(embedUrl)) return null;
+  try { new URL(embedUrl); } catch (_) { return null; }
+  return { source, lang, server, embedUrl, quality: null };
+}
+
+/** Resolves one lazy copy; `not_found` with a sentence for the person when the ref is bad or the copy does not open. */
+export async function resolveLazy(kino, ref, { sources = SOURCES, extract = defaultExtract, untilMs } = {}) {
+  const fail = (detail) => kino.error("not_found", detail, { userMessage: t("copyFailed", kino) });
+  const e = readRef(ref);
+  if (!e) throw fail("bad copy ref");
+  const source = sources.find((s) => s.id === e.source);
+  const accepts = extract.accepts || (() => true);
+  if (!accepts(e) || (e.server === "direct" && !source)) throw fail("copy not playable: " + e.source + "/" + e.server);
+  // The quality only lives in the label the copy was offered with; the ref keeps it short.
+  const s = await attempt(kino, extract, e, source, untilMs ?? Date.now() + EXTRACT.deadlineMs);
+  if (!s) throw fail("copy did not open: " + e.source + "/" + serverOf(e));
+  return toStream(kino, s, e, source ? source.name : e.source);
+}
+
+// ---------- phase 2 ----------
+
+/**
+ * The Stream for a title: one extracted copy in the chosen language, its other copies of that language
+ * as lazy alternatives (at most 8, best first).
+ */
+export async function resolveTitle(kino, title, settings, { sources = SOURCES, extract = defaultExtract, phaseMs = PHASE_MS, callMs = CALL_MS } = {}) {
+  const until = Date.now() + callMs;
+  const set = normalizeSettings(settings);
+  const { embeds, down } = await collect(kino, title, { enabled: set.enabled, sources, phaseMs });
+  const accepts = extract.accepts || (() => true);
+  const playable = embeds.filter(accepts);
+  const lang = pickLanguage(playable, set.preferred, { includeSub: set.includeSub });
+  if (!lang) {
+    if (down) throw kino.error("unavailable", "every source failed", { userMessage: t("sourcesDown", kino) });
+    throw kino.error("not_found", `no playable embed (${embeds.length} listed)`, { userMessage: t("notFound", kino) });
+  }
+
+  const pool = rank(playable.filter((e) => e.lang === lang), { maxQuality: set.maxQuality });
+  const sourceOf = (e) => sources.find((s) => s.id === e.source);
+  const nameOf = (e) => (sourceOf(e) || {}).name || e.source;
+  const failed = new Set();
+  let main = null; // { e, s }
+  let tries = 0;
+  for (const e of pool) {
+    if (tries >= EXTRACT.tries || until - Date.now() < 1500) break;
+    tries++;
+    const s = await attempt(kino, extract, e, sourceOf(e), until);
+    if (!s) { failed.add(e); continue; }
+    if (!main || (lang === "sub" && !hasSubs(main.s) && hasSubs(s))) main = { e, s };
+    // A Subtitulado copy without subtitles from its host is kept only if no better one turns up.
+    if (lang !== "sub" || hasSubs(s)) break;
+  }
+
+  const rest = pool.filter((e) => !failed.has(e) && (!main || e !== main.e));
+  if (!main) {
+    const first = rest.shift();
+    if (!first || until - Date.now() < 1500) {
+      throw kino.error("not_found", `no copy opened (${tries} tried)`, { userMessage: t("noPlayable", kino) });
+    }
+    try {
+      const s = await resolveLazy(kino, lazyRef(first), { sources, extract, untilMs: until });
+      return withCopies(kino, s, rest, nameOf);
+    } catch (err) {
+      throw kino.error("not_found", "no copy opened: " + (err && err.message), { userMessage: t("noPlayable", kino) });
+    }
+  }
+  return withCopies(kino, toStream(kino, main.s, main.e, nameOf(main.e)), rest, nameOf);
+}
+
+function withCopies(kino, stream, rest, nameOf) {
+  const alternatives = rest.slice(0, MAX_COPIES).map((e) => ({ label: label(kino, e, nameOf(e)), ref: lazyRef(e) }));
+  return alternatives.length ? { ...stream, alternatives } : stream;
+}

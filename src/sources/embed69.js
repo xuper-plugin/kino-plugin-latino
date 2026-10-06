@@ -8,6 +8,8 @@ export const kinds = ["movie", "tv"];
 export const HOSTS = ["embed69.org"];
 
 const SITE = "https://embed69.org";
+/** The site origin, for a "direct" embed's Referer. */
+export const ORIGIN = SITE;
 const HEADERS = { Referer: "https://sololatino.net/" }; // the site only answers requests that come from its partner
 
 /**
