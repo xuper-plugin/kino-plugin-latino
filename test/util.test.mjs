@@ -17,12 +17,14 @@ test("quality from labels and urls", () => {
   assert.equal(qualityOf("4K UHD"), "2160p");
   assert.equal(qualityOf("FullHD"), "1080p");
   assert.equal(qualityOf("servidor"), null);
+  assert.equal(qualityOf("x11080p"), null);
 });
 
 test("slug candidates cover Spanish, original and year variants", () => {
   assert.equal(slugify("¿Qué pasó ayer? (2009)"), "que-paso-ayer-2009");
   const c = slugCandidates({ esMX: "El Padrino", esES: "El padrino", original: "The Godfather", en: "The Godfather" }, 1972);
   assert.deepEqual(c, ["el-padrino", "el-padrino-1972", "the-godfather", "the-godfather-1972"]);
+  assert.deepEqual(slugCandidates(null, 2000), []);
 });
 
 test("language normalisation", () => {
@@ -30,4 +32,9 @@ test("language normalisation", () => {
   assert.equal(normLang("Castellano"), "esp");
   assert.equal(normLang("VOSE"), "sub");
   assert.equal(normLang("??"), null);
+  assert.equal(normLang("España"), "esp");
+  assert.equal(normLang("Sub Español"), "sub");
+  assert.equal(normLang("Subtitulado Español"), "sub");
+  assert.equal(normLang("Castellano Subtitulado"), "sub");
+  assert.equal(normLang("Latino Subtitulado"), "sub");
 });

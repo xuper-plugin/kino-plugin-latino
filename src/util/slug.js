@@ -4,6 +4,7 @@ export function slugify(title) {
 }
 
 export function slugCandidates(titles, year) {
+  titles = titles || {};
   const out = [];
   for (const t of [titles.esMX, titles.esES, titles.original, titles.en]) {
     const s = slugify(t);
