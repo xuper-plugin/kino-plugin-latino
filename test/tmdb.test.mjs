@@ -38,7 +38,8 @@ test("search keeps movies and series only", async () => {
   assert.ok(items.length > 0);
   assert.ok(items.every((i) => i.kind === "movie" || i.kind === "series"));
   assert.match(items[0].ref, /^[ms]:\d+$/);
-  assert.equal(items[0].id, items[0].ref);
+  assert.equal(items[0].id, items[0].ref.replace(":", "-"));
+  assert.ok(items.every((i) => /^[A-Za-z0-9._~-]{1,128}$/.test(i.id)));
   assert.ok(items.every((i) => i.title));
   assert.equal(items[0].ids.tmdb, Number(items[0].ref.slice(2)));
 });

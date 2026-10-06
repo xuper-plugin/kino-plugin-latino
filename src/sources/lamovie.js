@@ -1,5 +1,5 @@
 // LaMovie: page for the post id, /wp-api/v1 for episodes, embeds and listings.
-import { orEmpty, firstHit, getJson, postTypeOf, titleSlugs, toEmbeds, toItem, yearIn, yearMatches, genreId } from "./wpapi.js";
+import { orEmpty, firstHit, getJson, postTypeOf, titleSlugs, toEmbeds, toItem, yearIn, yearMatches, genreId, bySlug } from "./wpapi.js";
 
 export const id = "lamovie";
 export const name = "LaMovie";
@@ -18,6 +18,17 @@ const GENRES = {
   "action-adventure": 705, documental: 164, historia: 165, musica: 8, belica: 3056, western: 674, kids: 703,
   "war-politics": 786, reality: 12485,
 };
+// The site's language and quality terms (window.siteConfig.datas.langs / .qualities); other languages are the original
+// audio and say nothing about Spanish.
+const LANG_TERMS = { 58651: "lat", 58653: "esp", 58655: "sub" };
+const QUALITY_TERMS = {
+  495: "Full HD", 496: "Dual 1080p", 88953: "HD 720p", 58679: "BDRip", 58681: "HDTV", 59268: "Dual 720p", 649: "HD",
+  58683: "WEB-DL 720p", 53691: "DVDRip", 58680: "BDRip 1080p IMAX", 12703: "HD1080p", 58678: "WEB-DL 1080p",
+  88954: "4K Ultra HD", 49673: "1080P", 88459: "dual_1080p", 91529: "480p", 69831: "WEB-DL 4k", 82756: "4K HDR",
+  80922: "WEB-DL 4k HDR", 80332: "REMUX 1080p", 87134: "HD 1080P", 88875: "hdcam", 58682: "BRRip 1080p IMAX",
+};
+const TABLES = { genres: bySlug(GENRES), langs: LANG_TERMS, qualities: QUALITY_TERMS };
+const item = (p) => toItem(p, { prefix: "lm", base: IMAGES, tables: TABLES });
 
 const pageId = (html) => {
   const m = /rel=['"]shortlink['"]\s+href=['"][^'"]*\?p=(\d+)['"]/.exec(html);
@@ -69,7 +80,18 @@ async function listing(kind, page, extraFilter, { req }) {
   const filter = encodeURIComponent(JSON.stringify(extraFilter));
   const url = `${API}/listing/${type}?filter=${filter}&page=${page || 1}&orderBy=latest&order=desc&postType=${type}&postsPerPage=24`;
   const j = await getJson(req, url);
-  return ((j && j.data && j.data.posts) || []).map((p) => toItem(p, { prefix: "lm", site: id, base: IMAGES }));
+  return ((j && j.data && j.data.posts) || []).map(item);
+}
+
+/**
+ * One post again from its ref's slug, as an item (for a title's own page). The site answers single posts of movies
+ * only (series pages have no JSON twin): null for a series, an unknown slug or a different post behind it.
+ */
+export async function post({ postId, kind, slug }, { req }) {
+  if (kind !== "movie" || !slug) return null;
+  const j = await getJson(req, `${API}/single/movies?slug=${encodeURIComponent(slug)}`);
+  const d = j && !j.error && j.data;
+  return d && String(d._id) === String(postId) ? item(d) : null;
 }
 
 /** Newest titles of [kind] ("movie" | "series"/"tv"), [page] from 1. */

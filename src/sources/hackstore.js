@@ -1,5 +1,5 @@
 // HackStore: /api/rest single (post id), player (embeds) and listing.
-import { orEmpty, firstHit, getJson, postTypeOf, titleSlugs, toEmbeds, toItem, yearMatches, genreId } from "./wpapi.js";
+import { orEmpty, firstHit, getJson, postTypeOf, titleSlugs, toEmbeds, toItem, yearMatches, genreId, bySlug } from "./wpapi.js";
 
 export const id = "hackstore";
 export const name = "HackStore";
@@ -18,6 +18,9 @@ const GENRES = {
   musica: 1968, reality: 11652, romance: 26, "sci-fi-fantasy": 4178, suspense: 116, terror: 270, "war-politics": 7925,
   western: 1184,
 };
+// The listing carries no language or quality terms: every title here is offered in Latino first, but that is not
+// printed on the post, so no language badge is claimed.
+const item = (p) => toItem(p, { prefix: "hs", base: IMAGES, tables: { genres: bySlug(GENRES) } });
 
 const yearOf = (date) => (/^\d{4}/.test(date || "") ? Number(date.slice(0, 4)) : null);
 
@@ -50,7 +53,15 @@ async function listing(kind, page, genre, { req }) {
   let url = `${API}/listing?post_type=${postTypeOf(kind)}&page=${page || 1}&order=latest`;
   if (genre != null) url += `&genres=${genre}`;
   const j = await getJson(req, url);
-  return ((j && j.data && j.data.posts) || []).map((p) => toItem(p, { prefix: "hs", site: id, base: IMAGES }));
+  return ((j && j.data && j.data.posts) || []).map(item);
+}
+
+/** One post again from its ref's slug, as an item; null for an unknown slug or a different post behind it. */
+export async function post({ postId, kind, slug }, { req }) {
+  if (!slug) return null;
+  const j = await getJson(req, `${API}/single?post_name=${encodeURIComponent(slug)}&post_type=${kind === "tv" ? "tvshows" : "movies"}`);
+  const d = j && !j.error && j.data;
+  return d && String(d._id) === String(postId) ? item(d) : null;
 }
 
 /** Newest titles of [kind] ("movie" | "series"/"tv"), [page] from 1. */

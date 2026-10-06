@@ -108,14 +108,27 @@ test("lamovie listing: latest movies are items with refs", async () => {
   const seen = [];
   const kino = routed([[/./, "lamovie/listing.json"]], seen);
   const items = await lamovie.latest("movie", 1, ctx(kino));
-  assert.ok(items.length > 0 && items.every((i) => /^lm:\d+:(movie|tv)$/.test(i.ref)));
+  assert.ok(items.length > 0 && items.every((i) => /^lm:\d+:(movie|tv):[a-z0-9-]+(:\d{4})?$/.test(i.ref)));
   const i = items[0];
-  assert.equal(i.id, "lamovie:" + i.ref.split(":")[1]);
+  assert.equal(i.id, "lm-" + i.ref.split(":")[1]); // Kino's item ids allow no ":"
   assert.equal(i.kind, "movie");
   assert.equal(i.title, "Family Guy Happy Hell-o-ween");
   assert.equal(i.year, "2026");
   assert.match(i.poster, /^https:\/\/lamovie\.org\/wp-content\/uploads\/thumbs\/.+\.webp$/);
   assert.match(seen[0], /listing\/movies\?.*page=1/);
+  const u = items.find((x) => x.title === "UNABOMBER");
+  assert.deepEqual([u.langs, u.quality, u.rating, u.runtimeMinutes, u.genreSlugs], [["lat"], "1080p", 6.6, 101, ["drama", "suspense", "crimen"]]);
+});
+
+test("site posts again by slug: a LaMovie movie, a HackStore title; another post behind the slug is null", async () => {
+  const kino = routed([[/lamovie\.org\/wp-api\/v1\/single\/movies\?slug=unabomber-2026$/, "lamovie/single-movie.json"]]);
+  const p = await lamovie.post({ postId: "90152", kind: "movie", slug: "unabomber-2026" }, ctx(kino));
+  assert.equal(p.title, "UNABOMBER");
+  assert.equal(await lamovie.post({ postId: "1", kind: "movie", slug: "unabomber-2026" }, ctx(kino)), null);
+  assert.equal(await lamovie.post({ postId: "90152", kind: "tv", slug: "unabomber-2026" }, ctx(kino)), null);
+  const seen = [];
+  const hs = routed([[/single\?post_name=x&post_type=tvshows/, "lamovie/single-movie.json"]], seen);
+  assert.equal((await hackstore.post({ postId: "90152", kind: "tv", slug: "x" }, ctx(hs))).id, "hs-90152");
 });
 
 test("lamovie listing: series are kind series with a tv ref; genre filter by name", async () => {
@@ -133,8 +146,11 @@ test("hackstore listing: refs and genre", async () => {
   const seen = [];
   const kino = routed([[/./, "hackstore/listing.json"]], seen);
   const items = await hackstore.latest("movie", 1, ctx(kino));
-  assert.ok(items.length > 0 && items.every((i) => /^hs:\d+:(movie|tv)$/.test(i.ref) && i.id.startsWith("hackstore:") && typeof i.year === "string"));
+  assert.ok(items.length > 0 && items.every((i) => /^hs:\d+:(movie|tv):[a-z0-9-]+(:\d{4})?$/.test(i.ref) && /^hs-\d+$/.test(i.id) && typeof i.year === "string"));
   assert.match(items[0].poster, /^https:\/\/hackstore2\.com\/wp-content\/uploads\/thumbs\//);
+  assert.deepEqual(items[0].genreSlugs, ["fantasia", "animacion", "misterio"]);
+  assert.deepEqual(items[0].langs, []); // HackStore prints no language
+  assert.equal(items[0].rating, 8.9);
   await hackstore.byGenre("drama", "movie", 1, ctx(kino));
   assert.match(seen[1], /api\/rest\/listing\?.*post_type=movies.*genres=114/);
 });
