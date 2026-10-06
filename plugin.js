@@ -256,7 +256,8 @@ function makeRequester(kino, { budget = 12, deadline = Date.now() + 8e3 } = {}) 
     if (left <= 0) throw makeLocalError("unavailable", "deadline before " + url);
     used++;
     const headers = { "User-Agent": UA, ...opts.headers || {} };
-    return kino.fetch(url, { ...opts, headers, timeoutMs: Math.min(8e3, left) });
+    const { retry, ...rest } = opts;
+    return kino.fetch(url, { ...rest, headers, timeoutMs: Math.min(8e3, left) });
   }
   async function req(url, opts = {}) {
     try {
@@ -268,7 +269,7 @@ function makeRequester(kino, { budget = 12, deadline = Date.now() + 8e3 } = {}) 
       }
       return r;
     } catch (e) {
-      if (opts.retry === false || e && e.local) throw e;
+      if (opts.retry === false || e && (e.local || e.code === "host_not_allowed")) throw e;
       if (used < budget && deadline - Date.now() > 600) {
         await kino.sleep(600);
         return once(url, opts);
@@ -502,10 +503,10 @@ var yearIn = (text) => {
   const m = /\((\d{4})\)/.exec(String(text || ""));
   return m ? Number(m[1]) : null;
 };
-async function firstHit(candidates, probe, max = MAX_PROBES) {
+async function firstHit(candidates, probe2, max = MAX_PROBES) {
   for (const c of candidates.slice(0, max)) {
     try {
-      const hit = await probe(c);
+      const hit = await probe2(c);
       if (hit) return hit;
     } catch (e) {
       if (e && e.local) return null;
@@ -1124,6 +1125,7 @@ function decryptLink(kino, keyHex, b64) {
   for (let i = 0; i < 16; i++) ivHex += raw.charCodeAt(i).toString(16).padStart(2, "0");
   return kino.crypto.decrypt("aes-256-cbc", { key: keyHex, keyEncoding: "hex", iv: ivHex, ivEncoding: "hex", data: btoa(raw.slice(16)) });
 }
+var MAX_DIFFICULTY = 4;
 var quoted = (html, name9) => {
   const m = new RegExp(name9 + "\\s*=\\s*'([^']*)'").exec(html);
   return m ? m[1] : null;
@@ -1147,6 +1149,7 @@ async function list6(title, { kino, req }) {
     } catch (_) {
       return [];
     }
+    if (difficulty > MAX_DIFFICULTY) return [];
     const n = solvePow(kino, challenge, difficulty);
     if (n == null) return [];
     const keyHex = kino.crypto.hash("sha256", challenge + n + salt);
@@ -1332,6 +1335,16 @@ var WORDS = {
     esp: "Castellano",
     sub: "Subtitulado",
     direct: "Directo",
+    keepOneSource: "Deja al menos una fuente encendida.",
+    healthOk: "ok",
+    healthFail: "falla",
+    healthNone: "sin datos",
+    healthOff: "apagada",
+    probeDone: "Prob\xE9 las fuentes con un t\xEDtulo de prueba: {ok} responden, {fail} fallan.",
+    probeNoTmdb: "No pude consultar TMDB para la prueba. Intenta de nuevo en un rato.",
+    probeNone: "No hay fuentes encendidas para probar.",
+    cacheCleared: "Listo: borr\xE9 {n} datos guardados.",
+    prefsReset: "Restablec\xED tus preferencias.",
     rowMovies: "Estrenos en latino",
     rowSeries: "Series en latino",
     rowHackstore: "Reci\xE9n agregadas",
@@ -1374,6 +1387,16 @@ var WORDS = {
     esp: "Spain Spanish",
     sub: "Subtitled",
     direct: "Direct",
+    keepOneSource: "Keep at least one source on.",
+    healthOk: "ok",
+    healthFail: "fails",
+    healthNone: "no data",
+    healthOff: "off",
+    probeDone: "Tested the sources with a sample title: {ok} answer, {fail} fail.",
+    probeNoTmdb: "I couldn't reach TMDB for the test. Try again in a while.",
+    probeNone: "No sources are on to test.",
+    cacheCleared: "Done: cleared {n} saved items.",
+    prefsReset: "Your preferences are back to the defaults.",
     rowMovies: "New in Latin Spanish",
     rowSeries: "Series in Latin Spanish",
     rowHackstore: "Just added",
@@ -1417,6 +1440,70 @@ function t(key, kino = globalThis.kino) {
 }
 var has = (key) => Object.prototype.hasOwnProperty.call(WORDS.es, key);
 var KEYS = { es: Object.keys(WORDS.es), en: Object.keys(WORDS.en) };
+
+// src/settings.js
+function bool(v, fallback) {
+  if (v === true || v === "true") return true;
+  if (v === false || v === "false") return false;
+  return fallback;
+}
+function readSettings(kino) {
+  const get = (key) => {
+    try {
+      return kino && kino.config ? kino.config.get(key) : void 0;
+    } catch (_) {
+      return void 0;
+    }
+  };
+  const enabled = {};
+  for (const s of SOURCES) {
+    const v = bool(get("src_" + s.id), void 0);
+    if (v !== void 0) enabled[s.id] = v;
+  }
+  const base = normalizeSettings({ preferred: get("preferred"), maxQuality: get("maxQuality"), includeSub: bool(get("includeSub"), true), enabled });
+  return { ...base, homeRows: bool(get("homeRows"), true) };
+}
+var sourceOn = (settings, id9) => settings.enabled[id9] !== false;
+
+// src/health.js
+var KEY = "health";
+var DOWN_AFTER = 3;
+var MAX_LINE = 200;
+function readHealth(kino) {
+  try {
+    const h = JSON.parse(kino.storage.get(KEY) || "{}");
+    return h && typeof h === "object" && !Array.isArray(h) ? h : {};
+  } catch (_) {
+    return {};
+  }
+}
+function recordRun(kino, results) {
+  try {
+    const h = readHealth(kino);
+    const at = Date.now();
+    for (const { id: id9, ok } of results) {
+      const fails = ok ? 0 : (h[id9] && Number.isFinite(h[id9].fails) ? h[id9].fails : 0) + 1;
+      h[id9] = { ok: !!ok, fails, at };
+      if (fails === DOWN_AFTER) {
+        try {
+          kino.log.report("latino:source_down", id9);
+        } catch (_) {
+        }
+      }
+    }
+    kino.storage.set(KEY, JSON.stringify(h));
+  } catch (_) {
+  }
+}
+function healthLine(kino, health = readHealth(kino)) {
+  const settings = readSettings(kino);
+  const parts2 = SOURCES.map((s) => {
+    const h = health[s.id];
+    const state = !sourceOn(settings, s.id) ? "healthOff" : !h ? "healthNone" : h.ok ? "healthOk" : "healthFail";
+    return `${s.name} ${t(state, kino)}`;
+  });
+  return parts2.join(" \xB7 ").slice(0, MAX_LINE);
+}
 
 // src/resolver.js
 var LANGS = ["lat", "esp", "sub"];
@@ -1501,11 +1588,11 @@ async function askSource(kino, source, title, start) {
     return { embeds: [], failed: code };
   }
 }
-async function collect(kino, title, { enabled, sources = SOURCES, phaseMs = PHASE_MS } = {}) {
+async function collect(kino, title, { enabled, sources = SOURCES, phaseMs = PHASE_MS, fresh = false } = {}) {
   const start = Date.now();
   const active = sources.filter((s) => isOn(enabled, s.id) && (!s.kinds || s.kinds.includes(title.kind)));
   const key = cacheKey(title);
-  const cached = readCache(kino, key);
+  const cached = fresh ? null : readCache(kino, key);
   const done = new Set(cached ? cached.done : []);
   const bySource = /* @__PURE__ */ new Map();
   for (const e of cached ? cached.embeds : []) {
@@ -1520,6 +1607,7 @@ async function collect(kino, title, { enabled, sources = SOURCES, phaseMs = PHAS
       answers.set(s.id, r);
     })));
     await within(kino, all, Math.max(0, start + phaseMs - Date.now()), null);
+    recordRun(kino, toAsk.map((s) => ({ id: s.id, ok: !!answers.get(s.id) && !answers.get(s.id).failed })));
     for (const s of toAsk) {
       const r = answers.get(s.id);
       if (!r) {
@@ -1544,6 +1632,9 @@ async function collect(kino, title, { enabled, sources = SOURCES, phaseMs = PHAS
   const on = new Set(active.map((s) => s.id));
   const embeds = unique.filter((e) => on.has(e.source));
   return { embeds, down: down && embeds.length === 0, cached: !!cached, key };
+}
+async function listEmbeds(kino, title, options3 = {}) {
+  return (await collect(kino, title, options3)).embeds;
 }
 function pickLanguage(embeds, preferred, { includeSub = true } = {}) {
   const have = new Set((embeds || []).map((e) => e.lang));
@@ -1701,30 +1792,6 @@ function withCopies(kino, stream, rest, nameOf) {
   const alternatives = rest.map((e) => ({ label: label(kino, e, nameOf(e)), ref: lazyRef(e) })).filter((a) => a.ref.length <= MAX_REF).slice(0, MAX_COPIES);
   return alternatives.length ? { ...stream, alternatives } : stream;
 }
-
-// src/settings.js
-function bool(v, fallback) {
-  if (v === true || v === "true") return true;
-  if (v === false || v === "false") return false;
-  return fallback;
-}
-function readSettings(kino) {
-  const get = (key) => {
-    try {
-      return kino && kino.config ? kino.config.get(key) : void 0;
-    } catch (_) {
-      return void 0;
-    }
-  };
-  const enabled = {};
-  for (const s of SOURCES) {
-    const v = bool(get("src_" + s.id), void 0);
-    if (v !== void 0) enabled[s.id] = v;
-  }
-  const base = normalizeSettings({ preferred: get("preferred"), maxQuality: get("maxQuality"), includeSub: bool(get("includeSub"), true), enabled });
-  return { ...base, homeRows: bool(get("homeRows"), true) };
-}
-var sourceOn = (settings, id9) => settings.enabled[id9] !== false;
 
 // src/catalog.js
 var SITES = { lamovie: lamovie_exports, hackstore: hackstore_exports };
@@ -2108,7 +2175,58 @@ async function resolve(ref) {
   if (!title) throw notFound(kino, "not a playable ref");
   return resolveTitle(kino, title, readSettings(kino));
 }
+var PREFERENCE_KEYS = ["preferred", "maxQuality", "includeSub", "homeRows", ...SOURCES.map((s) => "src_" + s.id)];
+var PROBE_TMDB_ID = 550;
+var fill = (text, vars) => text.replace(/\{(\w+)\}/g, (_, k) => String(vars[k]));
+async function settingsStatus() {
+  const kino = getKino();
+  return { health: healthLine(kino, readHealth(kino)) };
+}
+async function probe(kino) {
+  const settings = readSettings(kino);
+  const asked = SOURCES.filter((s) => sourceOn(settings, s.id) && (!s.kinds || s.kinds.includes("movie")));
+  if (!asked.length) return { message: t("probeNone", kino) };
+  let title;
+  try {
+    title = await titleContext(kino, { kind: "movie", tmdbId: PROBE_TMDB_ID });
+  } catch (e) {
+    kino.log("[latino]", "probe tmdb", e && e.code || "error");
+    return { message: t("probeNoTmdb", kino) };
+  }
+  await listEmbeds(kino, title, { enabled: normalizeSettings({ enabled: settings.enabled }).enabled, fresh: true });
+  const health = readHealth(kino);
+  const fail = asked.filter((s) => health[s.id] && !health[s.id].ok).length;
+  return { message: fill(t("probeDone", kino), { ok: asked.length - fail, fail }) };
+}
+function clearCache(kino) {
+  let n = 0;
+  for (const key of kino.storage.keys()) {
+    if (key.startsWith("emb:") || key.startsWith("tmdb:")) {
+      kino.storage.remove(key);
+      n++;
+    }
+  }
+  return { message: fill(t("cacheCleared", kino), { n }) };
+}
+async function action(key) {
+  const kino = getKino();
+  if (key === "probe") return probe(kino);
+  if (key === "clearCache") return clearCache(kino);
+  if (key === "resetPrefs") return { message: t("prefsReset", kino), clearSettings: PREFERENCE_KEYS };
+  return null;
+}
+async function validateSettings(values) {
+  const kino = getKino();
+  const enabled = {};
+  for (const s of SOURCES) {
+    const v = values && values["src_" + s.id];
+    if (typeof v === "boolean") enabled[s.id] = v;
+  }
+  const on = normalizeSettings({ enabled }).enabled;
+  return SOURCES.some((s) => on[s.id] !== false) ? null : t("keepOneSource", kino);
+}
 export {
+  action,
   browse,
   categories,
   details,
@@ -2116,5 +2234,7 @@ export {
   home,
   resolve,
   search,
-  section
+  section,
+  settingsStatus,
+  validateSettings
 };

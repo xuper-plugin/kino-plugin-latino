@@ -1,19 +1,22 @@
 {
   "id": "latino",
   "name": "Latino",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "apiVersion": 8,
   "entry": "plugin.js",
+  "icon": "icon.png",
   "description": "Películas y series en español latino, castellano o subtituladas desde varias fuentes",
   "author": "xuper-plugin",
   "homepage": "https://github.com/xuper-plugin/kino-plugin-latino",
   "hosts": [
-    "api.themoviedb.org",
     "lamovie.org",
     "hackstore2.com",
     "www.cinecalidad.vg",
+    "cinecalidad.vg",
     "www3.seriesmetro.net",
+    "seriesmetro.net",
     "seriesflixhd.casa",
+    "seriesflixhd.best",
     "embed69.org",
     "player.pelisserieshoy.com",
     "proyectox.yoyatengoabuela.com",
@@ -57,6 +60,8 @@
     "*.voe.sx",
     "ok.ru",
     "*.ok.ru",
+    "archive.org",
+    "*.archive.org",
     "nupload.me",
     "*.nupload.me",
     "nupload.my",
@@ -68,7 +73,8 @@
     "browse",
     "episodes",
     "resolve",
-    "scopedSearch"
+    "scopedSearch",
+    "download"
   ],
   "streamHosts": "any",
   "categories": [
@@ -85,5 +91,159 @@
     "background": "#120D0A",
     "surface": "#221A14",
     "highlight": "#F7D08A"
-  }
+  },
+  "browser": true,
+  "telemetry": true,
+  "settings": [
+    {
+      "key": "langSection",
+      "type": "section",
+      "label": "Idioma y calidad",
+      "hint": "Qué copia se abre primero cuando un título tiene varias."
+    },
+    {
+      "key": "preferred",
+      "type": "select",
+      "label": "Idioma preferido",
+      "default": "lat",
+      "options": [
+        {
+          "value": "lat",
+          "label": "Latino"
+        },
+        {
+          "value": "esp",
+          "label": "Castellano"
+        },
+        {
+          "value": "sub",
+          "label": "Subtitulado"
+        }
+      ]
+    },
+    {
+      "key": "maxQuality",
+      "type": "select",
+      "label": "Calidad máxima",
+      "default": "auto",
+      "options": [
+        {
+          "value": "auto",
+          "label": "Automática"
+        },
+        {
+          "value": "1080p",
+          "label": "Hasta 1080p"
+        },
+        {
+          "value": "720p",
+          "label": "Hasta 720p"
+        },
+        {
+          "value": "480p",
+          "label": "Hasta 480p (ahorra datos)"
+        }
+      ]
+    },
+    {
+      "key": "includeSub",
+      "type": "toggle",
+      "label": "Incluir subtituladas",
+      "default": true,
+      "hint": "Si lo apagas, solo salen subtituladas cuando no hay otra opción."
+    },
+    {
+      "key": "srcSection",
+      "type": "section",
+      "label": "Fuentes",
+      "hint": "Apaga una fuente si te da problemas. PelisSeriesHoy viene apagada: solo ofrece series y películas en pocos casos."
+    },
+    {
+      "key": "src_lamovie",
+      "type": "toggle",
+      "label": "LaMovie",
+      "default": true
+    },
+    {
+      "key": "src_hackstore",
+      "type": "toggle",
+      "label": "HackStore",
+      "default": true
+    },
+    {
+      "key": "src_cinecalidad",
+      "type": "toggle",
+      "label": "CineCalidad",
+      "default": true
+    },
+    {
+      "key": "src_seriesmetro",
+      "type": "toggle",
+      "label": "SeriesMetro",
+      "default": true
+    },
+    {
+      "key": "src_seriesflix",
+      "type": "toggle",
+      "label": "Seriesflix",
+      "default": true
+    },
+    {
+      "key": "src_embed69",
+      "type": "toggle",
+      "label": "Embed69",
+      "default": true
+    },
+    {
+      "key": "src_peliserieshoy",
+      "type": "toggle",
+      "label": "PelisSeriesHoy",
+      "default": false
+    },
+    {
+      "key": "src_zoowomaniacos",
+      "type": "toggle",
+      "label": "Zoowomaniacos",
+      "default": true
+    },
+    {
+      "key": "homeSection",
+      "type": "section",
+      "label": "Inicio"
+    },
+    {
+      "key": "homeRows",
+      "type": "toggle",
+      "label": "Filas en Inicio",
+      "default": true,
+      "hint": "Muestra los estrenos de Latino en el Inicio de Kino."
+    },
+    {
+      "key": "toolsSection",
+      "type": "section",
+      "label": "Estado",
+      "hint": "Cada fuente dice si respondió en su última consulta."
+    },
+    {
+      "key": "health",
+      "type": "status",
+      "label": "Fuentes"
+    },
+    {
+      "key": "probe",
+      "type": "action",
+      "label": "Probar fuentes ahora"
+    },
+    {
+      "key": "clearCache",
+      "type": "action",
+      "label": "Borrar caché"
+    },
+    {
+      "key": "resetPrefs",
+      "type": "action",
+      "label": "Restablecer preferencias",
+      "confirm": "¿Volver a los valores de fábrica de Latino?"
+    }
+  ]
 }

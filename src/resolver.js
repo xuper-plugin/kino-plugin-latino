@@ -10,6 +10,7 @@ import { extractorFor } from "./extractors/index.js";
 import { HLS_MIME } from "./extractors/shared.js";
 import { makeRequester } from "./util/http.js";
 import { t } from "./i18n.js";
+import { recordRun } from "./health.js";
 
 export const LANGS = ["lat", "esp", "sub"];
 const QUALITIES = ["auto", "2160p", "1080p", "720p", "480p"];
@@ -111,11 +112,11 @@ async function askSource(kino, source, title, start) {
  * asked failed on the network or did not answer in time. The cache keeps which sources answered, so
  * a source turned on later is asked on its own and merged in.
  */
-async function collect(kino, title, { enabled, sources = SOURCES, phaseMs = PHASE_MS } = {}) {
+async function collect(kino, title, { enabled, sources = SOURCES, phaseMs = PHASE_MS, fresh = false } = {}) {
   const start = Date.now();
   const active = sources.filter((s) => isOn(enabled, s.id) && (!s.kinds || s.kinds.includes(title.kind)));
   const key = cacheKey(title);
-  const cached = readCache(kino, key);
+  const cached = fresh ? null : readCache(kino, key);
   const done = new Set(cached ? cached.done : []);
   const bySource = new Map();
   for (const e of cached ? cached.embeds : []) {
@@ -129,6 +130,7 @@ async function collect(kino, title, { enabled, sources = SOURCES, phaseMs = PHAS
     const answers = new Map();
     const all = Promise.all(toAsk.map((s) => askSource(kino, s, title, start).then((r) => { answers.set(s.id, r); })));
     await within(kino, all, Math.max(0, start + phaseMs - Date.now()), null); // late answers are ignored
+    recordRun(kino, toAsk.map((s) => ({ id: s.id, ok: !!answers.get(s.id) && !answers.get(s.id).failed }))); // late counts as failed
     for (const s of toAsk) {
       const r = answers.get(s.id);
       if (!r) { kino.log("[latino]", s.id, "late"); continue; }

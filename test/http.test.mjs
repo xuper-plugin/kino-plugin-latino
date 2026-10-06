@@ -77,3 +77,19 @@ test("timeoutMs passed to fetch is <= deadline - now", async () => {
   await req("https://a.example/");
   assert.ok(calls[0].opts.timeoutMs <= 300, `expected timeoutMs <= 300, got ${calls[0].opts.timeoutMs}`);
 });
+
+test("host_not_allowed is permanent: no retry, thrown as is", async () => {
+  const { kino, calls } = fakeKino({ fetch: async () => { throw Object.assign(new Error("blocked"), { code: "host_not_allowed" }); } });
+  const req = makeRequester(kino, { budget: 5, deadline: far() });
+  await assert.rejects(req("https://nope.example/"), (e) => e.code === "host_not_allowed");
+  assert.equal(calls.length, 1);
+  assert.equal(req.used(), 1);
+});
+
+test("the internal retry option never reaches kino.fetch", async () => {
+  const { kino, calls } = fakeKino({ fetch: async () => ({ status: 200, body: "" }) });
+  const req = makeRequester(kino, { budget: 5, deadline: far() });
+  await req("https://a.example/", { retry: false, method: "POST" });
+  assert.equal("retry" in calls[0].opts, false);
+  assert.equal(calls[0].opts.method, "POST");
+});

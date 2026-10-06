@@ -30,6 +30,7 @@ export function decryptLink(kino, keyHex, b64) {
   return kino.crypto.decrypt("aes-256-cbc", { key: keyHex, keyEncoding: "hex", iv: ivHex, ivEncoding: "hex", data: btoa(raw.slice(16)) });
 }
 
+const MAX_DIFFICULTY = 4;
 const quoted = (html, name) => { const m = new RegExp(name + "\\s*=\\s*'([^']*)'").exec(html); return m ? m[1] : null; };
 
 export async function list(title, { kino, req }) {
@@ -47,6 +48,7 @@ export async function list(title, { kino, req }) {
     if (!data || !challenge || salt == null || !Number.isInteger(difficulty)) return [];
     let langs;
     try { langs = JSON.parse(data[1]); } catch (_) { return []; }
+    if (difficulty > MAX_DIFFICULTY) return []; // a TV must never spin hundreds of thousands of synchronous hashes
     const n = solvePow(kino, challenge, difficulty);
     if (n == null) return [];
     const keyHex = kino.crypto.hash("sha256", challenge + n + salt);

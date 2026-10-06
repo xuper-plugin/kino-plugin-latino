@@ -170,3 +170,13 @@ test("zoowomaniacos: overlap is shared tokens over the longer title; network err
   assert.equal(overlap("Él club de la pelea", "el club de la pelea"), 1);
   await assert.rejects(zoowomaniacos.list(NOTLD, ctx(down())));
 });
+
+test("embed69: a proof-of-work difficulty above 4 gives [] without hashing", async () => {
+  const hard = fixture("embed69/movie.html").replace(/POW_DIFFICULTY\s*=\s*\d+/, "POW_DIFFICULTY = 5");
+  const f = fakeKino({ fetch: async () => ({ status: 200, body: hard }) });
+  let hashes = 0;
+  const crypto = { ...f.kino.crypto, hash: (...a) => { hashes++; return f.kino.crypto.hash(...a); } };
+  const out = await embed69.list(FIGHT, ctx(Object.freeze({ ...f.kino, crypto })));
+  assert.deepEqual(out, []);
+  assert.equal(hashes, 0);
+});

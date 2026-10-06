@@ -1,6 +1,7 @@
 // Latino: films and series in Latin American Spanish, Spain Spanish or subtitled, from several Spanish-language sites.
 //
-// Exports Kino calls: search (with scopedSearch), home, browse, section, categories, episodes, details and resolve.
+// Exports Kino calls: search (with scopedSearch), home, browse, section, categories, episodes, details and resolve,
+// plus the settings form's settingsStatus, action and validateSettings.
 // Refs:
 //   m:<tmdb>  s:<tmdb>  e:<tmdb>:<season>:<episode>        TMDB titles (search) and episodes
 //   lm:<post>:<movie|tv>:<slug>[:<year>]  hs:...            LaMovie / HackStore listings, matched to TMDB on demand
@@ -10,8 +11,10 @@
 // `kino` is the global Kino installs; it is read at call time through getKino() so tests can put their own in place.
 
 import { titleContext, searchTitles, episodeList } from "./tmdb.js";
-import { resolveTitle, resolveLazy } from "./resolver.js";
-import { readSettings } from "./settings.js";
+import { resolveTitle, resolveLazy, listEmbeds, normalizeSettings } from "./resolver.js";
+import { readSettings, sourceOn } from "./settings.js";
+import { SOURCES } from "./sources/index.js";
+import { healthLine, readHealth } from "./health.js";
 import { HOME_ROWS, buildRows, browsePage, searchWithin, sectionPage, categoryTiles, dress } from "./catalog.js";
 import { parseSiteRef, tmdbIdFor, sitePost, sitePostResult, siteContext } from "./match.js";
 import { t } from "./i18n.js";
@@ -126,4 +129,65 @@ export async function resolve(ref) {
   const title = await contextFor(kino, r);
   if (!title) throw notFound(kino, "not a playable ref");
   return resolveTitle(kino, title, readSettings(kino));
+}
+
+// ---------- settings form ----------
+
+/** The person's preferences: every value setting of the form (none is required, so clearSettings may name them all). */
+const PREFERENCE_KEYS = ["preferred", "maxQuality", "includeSub", "homeRows", ...SOURCES.map((s) => "src_" + s.id)];
+const PROBE_TMDB_ID = 550; // Fight Club: on every source
+const fill = (text, vars) => text.replace(/\{(\w+)\}/g, (_, k) => String(vars[k]));
+
+/** `settingsStatus()`: the "health" line, one entry per source. */
+export async function settingsStatus() {
+  const kino = getKino();
+  return { health: healthLine(kino, readHealth(kino)) };
+}
+
+/** Phase 1 for a fixed title, past the cache, on the sources that are on; the results land in the health line. */
+async function probe(kino) {
+  const settings = readSettings(kino);
+  const asked = SOURCES.filter((s) => sourceOn(settings, s.id) && (!s.kinds || s.kinds.includes("movie")));
+  if (!asked.length) return { message: t("probeNone", kino) };
+  let title;
+  try {
+    title = await titleContext(kino, { kind: "movie", tmdbId: PROBE_TMDB_ID });
+  } catch (e) {
+    kino.log("[latino]", "probe tmdb", (e && e.code) || "error");
+    return { message: t("probeNoTmdb", kino) };
+  }
+  await listEmbeds(kino, title, { enabled: normalizeSettings({ enabled: settings.enabled }).enabled, fresh: true });
+  const health = readHealth(kino);
+  const fail = asked.filter((s) => health[s.id] && !health[s.id].ok).length;
+  return { message: fill(t("probeDone", kino), { ok: asked.length - fail, fail }) };
+}
+
+/** Removes only what can be fetched again: the embed lists (emb:*) and the site-to-TMDB matches (tmdb:*). */
+function clearCache(kino) {
+  let n = 0;
+  for (const key of kino.storage.keys()) {
+    if (key.startsWith("emb:") || key.startsWith("tmdb:")) { kino.storage.remove(key); n++; }
+  }
+  return { message: fill(t("cacheCleared", kino), { n }) };
+}
+
+/** `action(key)`: the form's buttons -- probe, clearCache, resetPrefs. */
+export async function action(key) {
+  const kino = getKino();
+  if (key === "probe") return probe(kino);
+  if (key === "clearCache") return clearCache(kino);
+  if (key === "resetPrefs") return { message: t("prefsReset", kino), clearSettings: PREFERENCE_KEYS };
+  return null;
+}
+
+/** `validateSettings(values)`: at least one source must stay on (sources not sent keep their defaults). */
+export async function validateSettings(values) {
+  const kino = getKino();
+  const enabled = {};
+  for (const s of SOURCES) {
+    const v = values && values["src_" + s.id];
+    if (typeof v === "boolean") enabled[s.id] = v;
+  }
+  const on = normalizeSettings({ enabled }).enabled;
+  return SOURCES.some((s) => on[s.id] !== false) ? null : t("keepOneSource", kino);
 }
