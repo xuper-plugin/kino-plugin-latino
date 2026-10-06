@@ -172,7 +172,7 @@ export async function resolve(ref) {
 // ---------- settings form ----------
 
 /** The person's preferences: every value setting of the form (none is required, so clearSettings may name them all). */
-const PREFERENCE_KEYS = ["preferred", "maxQuality", "includeSub", "homeRows", ...SOURCES.map((s) => "src_" + s.id)];
+const PREFERENCE_KEYS = ["preferred", "maxQuality", "homeRows", ...SOURCES.map((s) => "src_" + s.id)];
 const PROBE_TMDB_ID = 550; // Fight Club: on every source
 const fill = (text, vars) => text.replace(/\{(\w+)\}/g, (_, k) => String(vars[k]));
 

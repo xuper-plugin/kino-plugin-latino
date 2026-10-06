@@ -450,13 +450,6 @@ var kino_plugin_default = {
       ]
     },
     {
-      key: "includeSub",
-      type: "toggle",
-      label: "Incluir subtituladas",
-      default: true,
-      hint: "Si lo apagas, solo salen subtituladas cuando no hay otra opci\xF3n."
-    },
-    {
       key: "srcSection",
       type: "section",
       label: "Fuentes",
@@ -1904,7 +1897,7 @@ function readSettings(kino) {
     const v = bool(get("src_" + s.id), void 0);
     if (v !== void 0) enabled[s.id] = v;
   }
-  const base = normalizeSettings({ preferred: get("preferred"), maxQuality: get("maxQuality"), includeSub: bool(get("includeSub"), true), enabled });
+  const base = normalizeSettings({ preferred: get("preferred"), maxQuality: get("maxQuality"), enabled });
   return { ...base, homeRows: bool(get("homeRows"), true) };
 }
 var sourceOn = (settings, id9) => settings.enabled[id9] !== false;
@@ -1982,7 +1975,6 @@ function normalizeSettings(s = {}) {
   return {
     preferred: LANGS.includes(v.preferred) ? v.preferred : "lat",
     maxQuality: QUALITIES.includes(v.maxQuality) ? v.maxQuality : "auto",
-    includeSub: v.includeSub !== false,
     enabled: { ...OFF_BY_DEFAULT, ...v.enabled && typeof v.enabled === "object" ? v.enabled : {} }
   };
 }
@@ -2063,10 +2055,9 @@ async function collect(kino, title, { enabled, sources = SOURCES, phaseMs = PHAS
 async function listEmbeds(kino, title, options3 = {}) {
   return (await collect(kino, title, options3)).embeds;
 }
-function pickLanguage(embeds, preferred, { includeSub = true } = {}) {
+function pickLanguage(embeds, preferred) {
   const have = new Set((embeds || []).map((e) => e.lang));
-  const wanted = preferred === "sub" && !includeSub ? null : preferred;
-  for (const l of [wanted, ...LANGS]) if (l && have.has(l)) return l;
+  for (const l of [preferred, ...LANGS]) if (l && have.has(l)) return l;
   return null;
 }
 var serverOf = (e) => e.server === "direct" ? "direct" : (extractorFor(e.embedUrl) || {}).name || e.server;
@@ -2185,7 +2176,7 @@ async function resolveTitle(kino, title, settings, { sources = SOURCES, extract:
   const { embeds, down, cached, key } = await collect(kino, title, { enabled: set.enabled, sources, phaseMs: phase });
   const accepts = extract9.accepts || (() => true);
   const playable = embeds.filter(accepts);
-  const lang = pickLanguage(playable, set.preferred, { includeSub: set.includeSub });
+  const lang = pickLanguage(playable, set.preferred);
   if (!lang) {
     if (down) throw kino.error("unavailable", "every source failed", { userMessage: t("sourcesDown", kino) });
     throw kino.error("not_found", `no playable embed (${embeds.length} listed)`, { userMessage: t("notFound", kino) });
@@ -2642,7 +2633,7 @@ async function resolve(ref) {
   if (!title) throw notFound(kino, "not a playable ref");
   return resolveTitle(kino, title, readSettings(kino), { callMs: dl.left() });
 }
-var PREFERENCE_KEYS = ["preferred", "maxQuality", "includeSub", "homeRows", ...SOURCES.map((s) => "src_" + s.id)];
+var PREFERENCE_KEYS = ["preferred", "maxQuality", "homeRows", ...SOURCES.map((s) => "src_" + s.id)];
 var PROBE_TMDB_ID = 550;
 var fill = (text, vars) => text.replace(/\{(\w+)\}/g, (_, k) => String(vars[k]));
 async function settingsStatus() {

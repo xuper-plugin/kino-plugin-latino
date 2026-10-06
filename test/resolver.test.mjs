@@ -199,10 +199,11 @@ test("maxQuality: copies above it rank last but stay when they are the only ones
   assert.deepEqual(rank([E("a", "lat", "vimeos", 1, "1080p")], { maxQuality: "480p" }).length, 1);
 });
 
-test("includeSub off: Subtitulado only when nothing else exists", () => {
+test("Subtitulado only when it is preferred or nothing else exists (why there is no includeSub toggle)", () => {
   const both = [E("a", "sub", "x", 1), E("a", "esp", "x", 2)];
-  assert.equal(pickLanguage(both, "sub", { includeSub: false }), "esp");
-  assert.equal(pickLanguage([E("a", "sub", "x", 1)], "lat", { includeSub: false }), "sub");
+  assert.equal(pickLanguage(both, "sub"), "sub", "preferred");
+  assert.equal(pickLanguage(both, "lat"), "esp", "Latino missing: Castellano before Subtitulado");
+  assert.equal(pickLanguage([E("a", "sub", "x", 1)], "lat"), "sub", "nothing else exists");
   assert.equal(pickLanguage([], "lat"), null);
 });
 

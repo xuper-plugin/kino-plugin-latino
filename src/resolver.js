@@ -47,13 +47,12 @@ const MAX_COPIES = 8;
 const CACHE_TTL_MS = 1800000;
 const OFF_BY_DEFAULT = { peliserieshoy: false }; // R14
 
-/** Settings with every default filled in: `{ preferred, maxQuality, includeSub, enabled }`. */
+/** Settings with every default filled in: `{ preferred, maxQuality, enabled }`. */
 export function normalizeSettings(s = {}) {
   const v = s && typeof s === "object" ? s : {};
   return {
     preferred: LANGS.includes(v.preferred) ? v.preferred : "lat",
     maxQuality: QUALITIES.includes(v.maxQuality) ? v.maxQuality : "auto",
-    includeSub: v.includeSub !== false,
     enabled: { ...OFF_BY_DEFAULT, ...(v.enabled && typeof v.enabled === "object" ? v.enabled : {}) },
   };
 }
@@ -149,11 +148,13 @@ export async function listEmbeds(kino, title, options = {}) {
 
 // ---------- choosing ----------
 
-/** The language to play: the preferred one when present, else Latino > Castellano > Subtitulado. */
-export function pickLanguage(embeds, preferred, { includeSub = true } = {}) {
+/**
+ * The language to play: the preferred one when present, else Latino > Castellano > Subtitulado -- so a subtitled
+ * copy is only ever played when it is preferred or nothing else exists.
+ */
+export function pickLanguage(embeds, preferred) {
   const have = new Set((embeds || []).map((e) => e.lang));
-  const wanted = preferred === "sub" && !includeSub ? null : preferred;
-  for (const l of [wanted, ...LANGS]) if (l && have.has(l)) return l;
+  for (const l of [preferred, ...LANGS]) if (l && have.has(l)) return l;
   return null;
 }
 
@@ -311,7 +312,7 @@ export async function resolveTitle(kino, title, settings, { sources = SOURCES, e
   const { embeds, down, cached, key } = await collect(kino, title, { enabled: set.enabled, sources, phaseMs: phase });
   const accepts = extract.accepts || (() => true);
   const playable = embeds.filter(accepts);
-  const lang = pickLanguage(playable, set.preferred, { includeSub: set.includeSub });
+  const lang = pickLanguage(playable, set.preferred);
   if (!lang) {
     if (down) throw kino.error("unavailable", "every source failed", { userMessage: t("sourcesDown", kino) });
     throw kino.error("not_found", `no playable embed (${embeds.length} listed)`, { userMessage: t("notFound", kino) });

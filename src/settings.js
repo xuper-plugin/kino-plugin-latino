@@ -12,8 +12,8 @@ function bool(v, fallback) {
 }
 
 /**
- * `{ preferred, maxQuality, includeSub, enabled: { <sourceId>: bool }, homeRows }` -- the resolver's settings plus
- * `homeRows`. Keys: preferred, maxQuality, includeSub, src_<sourceId>, homeRows.
+ * `{ preferred, maxQuality, enabled: { <sourceId>: bool }, homeRows }` -- the resolver's settings plus
+ * `homeRows`. Keys: preferred, maxQuality, src_<sourceId>, homeRows.
  */
 export function readSettings(kino) {
   const get = (key) => {
@@ -24,7 +24,7 @@ export function readSettings(kino) {
     const v = bool(get("src_" + s.id), undefined);
     if (v !== undefined) enabled[s.id] = v;
   }
-  const base = normalizeSettings({ preferred: get("preferred"), maxQuality: get("maxQuality"), includeSub: bool(get("includeSub"), true), enabled });
+  const base = normalizeSettings({ preferred: get("preferred"), maxQuality: get("maxQuality"), enabled });
   return { ...base, homeRows: bool(get("homeRows"), true) };
 }
 

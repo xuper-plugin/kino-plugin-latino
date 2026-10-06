@@ -100,7 +100,7 @@ test("settings form: limits, explicit toggle defaults that match readSettings, k
   const defaults = readSettings({ config: { get: () => undefined } });
   for (const x of s.filter((y) => y.type === "toggle")) {
     assert.equal(typeof x.default, "boolean", x.key);
-    const expected = x.key === "includeSub" ? defaults.includeSub : x.key === "homeRows" ? defaults.homeRows : defaults.enabled[x.key.slice(4)] !== false;
+    const expected = x.key === "homeRows" ? defaults.homeRows : defaults.enabled[x.key.slice(4)] !== false;
     assert.equal(x.default, expected, x.key);
   }
   for (const src of SOURCES) assert.ok(s.some((x) => x.key === "src_" + src.id && x.type === "toggle"), src.id);

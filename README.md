@@ -20,10 +20,10 @@ recibe una copia en tu idioma y las demás como alternativas en el menú Servido
 
 ## Ajustes
 
-- **Idioma preferido**: Latino, Castellano o Subtitulado; si no hay, se abre el mejor idioma disponible.
+- **Idioma preferido**: Latino, Castellano o Subtitulado; si no hay, se abre Latino, luego Castellano, y las
+  subtituladas solo cuando no existe otra opción.
 - **Calidad máxima**: Automática, hasta 1080p, 720p o 480p (ahorra datos). Las copias más grandes pasan al
   final de la lista, no se descartan.
-- **Incluir subtituladas**: apagado, solo salen cuando no existe otra opción.
 - **Fuentes**: un interruptor por fuente. Siempre debe quedar una encendida.
 - **Filas en Inicio**: muestra o esconde los estrenos de Latino en el Inicio de Kino.
 - **Estado**: cada fuente dice si respondió en su última consulta. "Probar fuentes ahora" las consulta con

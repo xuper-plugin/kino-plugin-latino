@@ -147,13 +147,6 @@
       ]
     },
     {
-      "key": "includeSub",
-      "type": "toggle",
-      "label": "Incluir subtituladas",
-      "default": true,
-      "hint": "Si lo apagas, solo salen subtituladas cuando no hay otra opción."
-    },
-    {
       "key": "srcSection",
       "type": "section",
       "label": "Fuentes",
