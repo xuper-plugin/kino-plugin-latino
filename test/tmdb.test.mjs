@@ -43,14 +43,62 @@ test("search keeps movies and series only", async () => {
   assert.equal(items[0].ids.tmdb, Number(items[0].ref.slice(2)));
 });
 
-test("episode list has seasons, refs, rating and runtime", async () => {
+test("episode list is flat with season on each episode, rating and runtime", async () => {
   const { kino } = fakeKino({ tmdb: bb });
   const r = await episodeList(kino, 1396);
   assert.ok(r.series.rating > 8);
   assert.equal(r.series.runtimeMinutes, 56);
-  assert.deepEqual(r.seasons.map((s) => s.number), [1, 2, 3, 4, 5]);
-  const e = r.seasons[0].episodes[0];
+  assert.ok(!("seasons" in r));
+  assert.deepEqual([...new Set(r.episodes.map((e) => e.season))], [1, 2, 3, 4, 5]);
+  const e = r.episodes[0];
   assert.equal(e.ref, "e:1396:1:1");
+  assert.equal(e.season, 1);
   assert.equal(e.number, 1);
   assert.ok(e.title);
+  assert.match(e.airDate, /^\d{4}-\d\d-\d\d$/);
+  assert.ok(r.episodes.every((x) => x.number >= 1 && x.season >= 1));
+});
+
+const longShow = (n) => ({
+  "/tv/9?language=es-MX": { vote_average: 7, episode_run_time: [40], seasons: Array.from({ length: n + 1 }, (_, i) => ({ season_number: i })) },
+});
+const seasonObj = (n) => ({ episodes: [{ episode_number: 1, name: "S" + n }, { episode_number: 0, name: "special" }] });
+const chunkKey = (a, b) => "/tv/9?append_to_response=" + encodeURIComponent(Array.from({ length: b - a + 1 }, (_, i) => "season/" + (a + i)).join(",")) + "&language=es-MX";
+
+test("25 seasons take exactly two season requests", async () => {
+  const tmdb = longShow(25);
+  tmdb[chunkKey(1, 20)] = Object.fromEntries(Array.from({ length: 20 }, (_, i) => ["season/" + (i + 1), seasonObj(i + 1)]));
+  tmdb[chunkKey(21, 25)] = Object.fromEntries(Array.from({ length: 5 }, (_, i) => ["season/" + (i + 21), seasonObj(i + 21)]));
+  const { kino } = fakeKino({ tmdb });
+  const seen = [];
+  const counting = { ...kino, tmdb: (p, q) => { seen.push(q); return kino.tmdb(p, q); } };
+  const r = await episodeList(counting, 9);
+  assert.equal(seen.filter((q) => q.append_to_response).length, 2);
+  assert.equal(r.episodes.length, 25);
+  assert.equal(r.episodes[24].season, 25);
+});
+
+test("a failing second chunk keeps the first chunk's episodes", async () => {
+  const tmdb = longShow(25);
+  tmdb[chunkKey(1, 20)] = Object.fromEntries(Array.from({ length: 20 }, (_, i) => ["season/" + (i + 1), seasonObj(i + 1)]));
+  const { kino } = fakeKino({ tmdb });
+  const r = await episodeList(kino, 9);
+  assert.equal(r.episodes.length, 20);
+});
+
+test("every chunk failing rethrows", async () => {
+  const { kino } = fakeKino({ tmdb: longShow(3) });
+  await assert.rejects(episodeList(kino, 9));
+});
+
+test("search year is a string", async () => {
+  const { kino } = fakeKino({ tmdb: fc });
+  const items = await searchTitles(kino, "fight club");
+  assert.equal(items.find((i) => i.kind === "movie").year, "1999");
+  assert.ok(items.every((i) => typeof i.year === "string"));
+});
+
+test("empty query returns [] without calling TMDB", async () => {
+  const { kino } = fakeKino({ tmdb: {} });
+  assert.deepEqual(await searchTitles(kino, "   "), []);
 });

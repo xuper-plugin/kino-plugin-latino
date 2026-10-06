@@ -33,6 +33,7 @@ export async function titleContext(kino, { kind, tmdbId, season = null, episode 
 
 /** Movies and series matching [query]; people and untitled results are dropped. */
 export async function searchTitles(kino, query) {
+  if (typeof query !== "string" || !query.trim()) return [];
   const r = await kino.tmdb("/search/multi", { query, language: "es-MX" });
   const items = [];
   for (const x of (r && r.results) || []) {
@@ -43,7 +44,7 @@ export async function searchTitles(kino, query) {
     const ref = (movie ? "m:" : "s:") + x.id;
     items.push({
       id: ref, ref, title, kind: movie ? "movie" : "series",
-      year: year(x.release_date || x.first_air_date),
+      year: String(year(x.release_date || x.first_air_date) ?? ""),
       poster: img("w342", x.poster_path),
       originalTitle: x.original_title || x.original_name || title,
       ids: { tmdb: x.id },
@@ -52,21 +53,39 @@ export async function searchTitles(kino, query) {
   return items;
 }
 
-/** A series' seasons and episodes (specials, season 0, left out), plus its rating and typical runtime. */
+const CHUNK = 20; // Kino's key allows 20 kino.tmdb calls per 10 s per plugin
+
+/**
+ * A series' episodes, flat (specials, season 0, left out), plus its rating and typical runtime. Seasons ride along on
+ * append_to_response, 20 per request, so a long show costs a few calls; a failed chunk keeps what earlier chunks gave.
+ */
 export async function episodeList(kino, tmdbId) {
   const s = await kino.tmdb(`/tv/${tmdbId}`, { language: "es-MX" });
   const runtime = (s.episode_run_time && s.episode_run_time[0]) || (s.last_episode_to_air && s.last_episode_to_air.runtime) || null;
-  const numbers = ((s.seasons || []).map((x) => x.season_number)).filter((n) => n > 0);
-  const seasons = [];
-  for (const n of numbers) {
-    const sd = await kino.tmdb(`/tv/${tmdbId}/season/${n}`, { language: "es-MX" });
-    seasons.push({
-      number: n,
-      episodes: ((sd && sd.episodes) || []).map((e) => {
-        const ref = `e:${tmdbId}:${n}:${e.episode_number}`;
-        return { id: ref, ref, number: e.episode_number, title: e.name || "", still: img("w300", e.still_path), overview: e.overview || "" };
-      }),
-    });
+  const numbers = (s.seasons || []).map((x) => x.season_number).filter((n) => n > 0);
+  const episodes = [];
+  let failure = null;
+  let okChunks = 0;
+  for (let i = 0; i < numbers.length; i += CHUNK) {
+    const chunk = numbers.slice(i, i + CHUNK);
+    let r;
+    try {
+      r = await kino.tmdb(`/tv/${tmdbId}`, { language: "es-MX", append_to_response: chunk.map((n) => "season/" + n).join(",") });
+    } catch (e) {
+      failure = e;
+      continue;
+    }
+    okChunks++;
+    for (const n of chunk) {
+      for (const e of (r["season/" + n] && r["season/" + n].episodes) || []) {
+        if (!(e.episode_number >= 1)) continue;
+        const item = { season: n, number: e.episode_number, ref: `e:${tmdbId}:${n}:${e.episode_number}`, title: e.name || "", still: img("w300", e.still_path), overview: e.overview || "" };
+        if (e.air_date) item.airDate = e.air_date;
+        if (e.runtime) item.runtimeMinutes = e.runtime;
+        episodes.push(item);
+      }
+    }
   }
-  return { series: { rating: typeof s.vote_average === "number" ? s.vote_average : null, runtimeMinutes: runtime }, seasons };
+  if (failure && !okChunks) throw failure;
+  return { series: { rating: typeof s.vote_average === "number" ? s.vote_average : null, runtimeMinutes: runtime }, episodes };
 }
