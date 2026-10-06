@@ -36,3 +36,44 @@ test("past the deadline throws unavailable without fetching", async () => {
   await assert.rejects(req("https://a.example/"), (e) => e.code === "unavailable");
   assert.equal(calls.length, 0);
 });
+
+test("a thrown fetch is retried once", async () => {
+  let n = 0;
+  const { kino, calls } = fakeKino({
+    fetch: async () => {
+      if (++n === 1) throw new Error("connection failed");
+      return { status: 200, body: "ok" };
+    }
+  });
+  const req = makeRequester(kino, { budget: 3, deadline: far() });
+  const r = await req("https://a.example/");
+  assert.equal(r.status, 200);
+  assert.equal(req.used(), 2);
+  assert.equal(calls.length, 2);
+});
+
+test("retry: false makes exactly one request", async () => {
+  const { kino, calls } = fakeKino({ fetch: async () => ({ status: 503, body: "" }) });
+  const req = makeRequester(kino, { budget: 5, deadline: far() });
+  const r = await req("https://a.example/", { retry: false });
+  assert.equal(r.status, 503);
+  assert.equal(req.used(), 1);
+  assert.equal(calls.length, 1);
+});
+
+test("budget: 1 with first 503 returns that response, not thrown", async () => {
+  let n = 0;
+  const { kino } = fakeKino({ fetch: async () => (++n === 1 ? { status: 503, body: "x" } : { status: 200, body: "ok" }) });
+  const req = makeRequester(kino, { budget: 1, deadline: far() });
+  const r = await req("https://a.example/");
+  assert.equal(r.status, 503);
+  assert.equal(req.used(), 1);
+});
+
+test("timeoutMs passed to fetch is <= deadline - now", async () => {
+  const { kino, calls } = fakeKino({ fetch: async () => ({ status: 200, body: "" }) });
+  const deadline = Date.now() + 300;
+  const req = makeRequester(kino, { budget: 1, deadline });
+  await req("https://a.example/");
+  assert.ok(calls[0].opts.timeoutMs <= 300, `expected timeoutMs <= 300, got ${calls[0].opts.timeoutMs}`);
+});

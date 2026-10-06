@@ -3,25 +3,45 @@ const RETRY_STATUS = new Set([408, 425, 429, 500, 502, 503, 504, 520, 521, 522, 
 
 export function makeRequester(kino, { budget = 12, deadline = Date.now() + 8000 } = {}) {
   let used = 0;
+
+  function makeLocalError(code, message) {
+    const e = kino.error("unavailable", message);
+    e.local = true;
+    return e;
+  }
+
   async function once(url, opts) {
-    if (used >= budget) throw kino.error("unavailable", "budget spent at " + url);
+    if (used >= budget) throw makeLocalError("unavailable", "budget spent at " + url);
     const left = deadline - Date.now();
-    if (left <= 0) throw kino.error("unavailable", "deadline before " + url);
+    if (left <= 0) throw makeLocalError("unavailable", "deadline before " + url);
     used++;
     const headers = { "User-Agent": UA, ...(opts.headers || {}) };
-    const { retry, ...rest } = opts;
-    return kino.fetch(url, { ...rest, headers, timeoutMs: Math.max(1000, Math.min(8000, left)) });
+    return kino.fetch(url, { ...opts, headers, timeoutMs: Math.min(8000, left) });
   }
+
   async function req(url, opts = {}) {
     try {
       const r = await once(url, opts);
       if (opts.retry === false || !RETRY_STATUS.has(r.status)) return r;
+      // Retryable status; check if there is room for retry
+      if (used < budget && deadline - Date.now() > 600) {
+        await kino.sleep(600);
+        return once(url, opts);
+      }
+      // No room for retry; return the retryable response as is
+      return r;
     } catch (e) {
-      if (opts.retry === false || (e && e.code === "unavailable" && /budget|deadline/.test(e.message || ""))) throw e;
+      if (opts.retry === false || (e && e.local)) throw e;
+      // Thrown fetch; check if there is room for retry
+      if (used < budget && deadline - Date.now() > 600) {
+        await kino.sleep(600);
+        return once(url, opts);
+      }
+      // No room for retry; rethrow the original fetch error
+      throw e;
     }
-    await kino.sleep(600);
-    return once(url, opts);
   }
+
   req.used = () => used;
   return req;
 }
