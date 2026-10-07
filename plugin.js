@@ -15,14 +15,14 @@ async function waitFor(kino, ms, done = () => false) {
 }
 async function within(kino, promise, ms, fallback) {
   let settled = false;
-  const guarded = Promise.resolve(promise).then((v) => {
+  const guarded2 = Promise.resolve(promise).then((v) => {
     settled = true;
     return { v };
   }, (e) => {
     settled = true;
     return { e };
   });
-  const r = await Promise.race([guarded, waitFor(kino, ms, () => settled).then(() => null, () => null)]);
+  const r = await Promise.race([guarded2, waitFor(kino, ms, () => settled).then(() => null, () => null)]);
   return r || { v: fallback, late: true };
 }
 async function bounded(kino, run, ms, what) {
@@ -163,7 +163,8 @@ __export(lamovie_exports, {
   latest: () => latest,
   list: () => list,
   name: () => name,
-  post: () => post
+  post: () => post,
+  seasonList: () => seasonList
 });
 
 // src/extractors/goodstream.js
@@ -304,7 +305,7 @@ __export(streamwish_exports, {
 var kino_plugin_default = {
   id: "latino",
   name: "Latino",
-  version: "1.0.1",
+  version: "1.0.2",
   apiVersion: 8,
   entry: "plugin.js",
   icon: "icon.png",
@@ -611,6 +612,7 @@ function makeRequester(kino, { budget = 12, deadline = Date.now() + 8e3 } = {}) 
     }
   }
   req.used = () => used;
+  req.exhausted = () => used >= budget || deadline - Date.now() <= 0;
   req.left = () => Math.max(0, deadline - Date.now());
   return req;
 }
@@ -948,6 +950,10 @@ function titleSlugs(titles, year2, { withYear = true, plain = true } = {}) {
   }
   return [...withYear && year2 ? base.map((s) => `${s}-${year2}`) : [], ...plain ? base : []];
 }
+function episodeMissing(seasonFound = null) {
+  return Object.defineProperty([], "missing", { value: { seasonFound: seasonFound === true ? true : seasonFound === false ? false : null } });
+}
+var missingOf = (out) => Array.isArray(out) && out.missing && typeof out.missing === "object" ? out.missing : null;
 async function orEmpty(fn) {
   try {
     return await fn();
@@ -1138,10 +1144,16 @@ async function findPostId(title, req) {
     return pageId(html);
   }, tv ? 8 : 6);
 }
-async function episodePostId(seriesId, season, episode, req) {
+var seasonNumbers = (list9) => Array.isArray(list9) ? [...new Set(list9.map(Number).filter((n) => Number.isInteger(n) && n >= 1))] : null;
+async function episodeLookup(seriesId, season, episode, req) {
   const j = await getJson(req, `${API}/single/episodes/list?_id=${seriesId}&season=${season}&page=1&postsPerPage=100`);
-  const hit = (j && j.data && j.data.posts || []).find((p) => Number(p.season_number) === Number(season) && Number(p.episode_number) === Number(episode));
-  return hit ? hit._id : null;
+  if (!j || !j.data) return null;
+  const posts = j.data.posts || [];
+  const hit = posts.find((p) => Number(p.season_number) === Number(season) && Number(p.episode_number) === Number(episode));
+  if (hit) return { id: hit._id, seasonFound: true };
+  const seasons = seasonNumbers(j.data.seasons);
+  const listed = posts.some((p) => Number(p.season_number) === Number(season));
+  return { id: null, seasonFound: listed || (seasons && seasons.length ? seasons.includes(Number(season)) : null) };
 }
 async function list(title, { req }) {
   const postId = await findPostId(title, req);
@@ -1150,12 +1162,21 @@ async function list(title, { req }) {
     let target = postId;
     if (title.kind === "tv") {
       if (title.season == null || title.episode == null) return [];
-      target = await episodePostId(postId, title.season, title.episode, req);
-      if (!target) return [];
+      const found = await episodeLookup(postId, title.season, title.episode, req);
+      if (!found) return [];
+      if (!found.id) return episodeMissing(found.seasonFound);
+      target = found.id;
     }
     const j = await getJson(req, `${API}/player?postId=${target}`);
     return toEmbeds(id, j && j.data && j.data.embeds);
   });
+}
+async function seasonList(title, { req }) {
+  const postId = await findPostId(title, req);
+  if (!postId) return req.exhausted && req.exhausted() ? null : { found: false };
+  const j = await getJson(req, `${API}/single/episodes/list?_id=${postId}&season=1&page=1&postsPerPage=1`);
+  const seasons = j && j.data ? seasonNumbers(j.data.seasons) : null;
+  return seasons && seasons.length ? { found: true, seasons } : null;
 }
 async function listing(kind, page, extraFilter, { req }) {
   const type = postTypeOf(kind);
@@ -1429,7 +1450,8 @@ async function movieHit(title, req) {
     return html.includes("trembed=") && accepted(html, title) ? html : null;
   }, 4);
 }
-async function episodeHit(title, req) {
+async function episodeHit(title, req, onMissing = () => {
+}) {
   return firstHit(titleSlugs(title.titles, null), async (slug) => {
     const r = await req(`${SITE4}/serie/${slug}/`);
     if (!r.ok) return null;
@@ -1443,14 +1465,20 @@ async function episodeHit(title, req) {
     if (!list9.ok) return null;
     const wantS = Number(title.season), wantE = Number(title.episode);
     let href = null;
+    let seasonSeen = false;
     for (const m of list9.text().matchAll(/href="([^"]+\/capitulo\/[^"]+)"/g)) {
       const n = /temporada-(\d+)-capitulo-(\d+)/i.exec(m[1]);
-      if (n && Number(n[1]) === wantS && Number(n[2]) === wantE) {
+      if (!n || Number(n[1]) !== wantS) continue;
+      seasonSeen = true;
+      if (Number(n[2]) === wantE) {
         href = m[1];
         break;
       }
     }
-    if (!href) return null;
+    if (!href) {
+      onMissing(seasonSeen);
+      return null;
+    }
     const ep = await req(href, { headers: { Referer: `${SITE4}/serie/${slug}/` } });
     if (!ep.ok) return null;
     const html = ep.text();
@@ -1460,8 +1488,11 @@ async function episodeHit(title, req) {
 async function list4(title, { req }) {
   const tv = title.kind === "tv";
   if (tv && (title.season == null || title.episode == null)) return [];
-  const page = await (tv ? episodeHit(title, req) : movieHit(title, req));
-  if (!page) return [];
+  let missing = null;
+  const page = await (tv ? episodeHit(title, req, (seasonFound) => {
+    if (!missing || seasonFound) missing = { seasonFound };
+  }) : movieHit(title, req));
+  if (!page) return missing ? episodeMissing(missing.seasonFound) : [];
   return orEmpty(async () => toEmbeds(id4, await embedRows(page, req)));
 }
 
@@ -1474,7 +1505,8 @@ __export(seriesflix_exports, {
   kinds: () => kinds5,
   list: () => list5,
   name: () => name5,
-  rows: () => rows
+  rows: () => rows,
+  seasonCheck: () => seasonCheck
 });
 var id5 = "seriesflix";
 var name5 = "Seriesflix";
@@ -1513,18 +1545,41 @@ function rows(html) {
   }
   return out;
 }
+async function episodePage(title, slug, season, episode, req) {
+  const r = await req(`${SITE5}/episodio/${slug}-${season}x${episode}`);
+  if (!r.ok) return null;
+  const page = r.text();
+  const y = /<span class="Date">(\d{4})<\/span>/.exec(page);
+  if (!y && title.year) return null;
+  return !title.year || episodeYearOk(Number(y[1]), title) ? page : null;
+}
 async function list5(title, { req }) {
   if (title.kind !== "tv" || title.season == null || title.episode == null) return [];
-  const html = await firstHit(titleSlugs(title.titles, null), async (slug) => {
-    const r = await req(`${SITE5}/episodio/${slug}-${title.season}x${title.episode}`);
-    if (!r.ok) return null;
-    const page = r.text();
-    const y = /<span class="Date">(\d{4})<\/span>/.exec(page);
-    if (!y && title.year) return null;
-    return !title.year || episodeYearOk(Number(y[1]), title) ? page : null;
-  }, 4);
+  const html = await firstHit(titleSlugs(title.titles, null), (slug) => episodePage(title, slug, title.season, title.episode, req), 4);
   if (!html) return [];
   return orEmpty(async () => toEmbeds(id5, rows(html)));
+}
+var AT_ONCE2 = 3;
+async function seasonCheck(title, seasons, { req }) {
+  if (title.kind !== "tv") return { found: false };
+  const slug = await firstHit(titleSlugs(title.titles, null), async (s) => await episodePage(title, s, 1, 1, req) ? s : null, 4);
+  if (!slug) return req.exhausted && req.exhausted() ? null : { found: false };
+  const has2 = {};
+  const one = async (n) => {
+    if (Number(n) === 1) {
+      has2[n] = true;
+      return;
+    }
+    try {
+      const r = await req(`${SITE5}/episodio/${slug}-${n}x1`, { retry: false });
+      has2[n] = r.ok ? true : r.status === 404 ? false : null;
+    } catch (e) {
+      if (!(e && e.local)) throw e;
+      has2[n] = null;
+    }
+  };
+  for (let i = 0; i < seasons.length; i += AT_ONCE2) await Promise.all(seasons.slice(i, i + AT_ONCE2).map(one));
+  return { found: true, has: has2 };
 }
 
 // src/sources/embed69.js
@@ -1533,6 +1588,7 @@ __export(embed69_exports, {
   HOSTS: () => HOSTS15,
   ORIGIN: () => ORIGIN6,
   decryptLink: () => decryptLink,
+  hasEpisode: () => hasEpisode,
   id: () => id6,
   kinds: () => kinds6,
   list: () => list6,
@@ -1598,6 +1654,21 @@ async function list6(title, { kino, req }) {
     }
     return toEmbeds(id6, rows2);
   });
+}
+async function hasEpisode(title, season, episode, { req }) {
+  if (!title.imdbId) return false;
+  let r;
+  try {
+    r = await req(`${SITE6}/f/${title.imdbId}-${Number(season)}x${String(episode).padStart(2, "0")}`, { headers: HEADERS2, retry: false });
+  } catch (e) {
+    if (e && e.local) return null;
+    throw e;
+  }
+  if (r.status === 404) return false;
+  if (!r.ok) return null;
+  const html = r.text();
+  if (/let\s+dataLink\s*=\s*\[/.test(html)) return true;
+  return /^\s*\{\s*"error"\s*:/.test(html) ? false : null;
 }
 
 // src/sources/peliserieshoy.js
@@ -1761,6 +1832,9 @@ var SOURCES = [lamovie_exports, hackstore_exports, cinecalidad_exports, seriesme
 var WORDS = {
   es: {
     notFound: "No encontr\xE9 este t\xEDtulo en espa\xF1ol.",
+    seasonMissing: "Latino todav\xEDa no tiene la temporada {season} de {title} en espa\xF1ol.",
+    episodeMissing: "Latino todav\xEDa no tiene el cap\xEDtulo {episode} de la temporada {season} de {title} en espa\xF1ol.",
+    notInSpanish: "no disponible en espa\xF1ol",
     sourcesDown: "Las fuentes en espa\xF1ol no responden ahora.",
     tmdbDown: "TMDB no responde ahora. Intenta de nuevo en un rato.",
     noPlayable: "Encontr\xE9 el t\xEDtulo, pero ninguna copia abri\xF3. Intenta de nuevo en un rato.",
@@ -1815,6 +1889,9 @@ var WORDS = {
   },
   en: {
     notFound: "I couldn't find this title in Spanish.",
+    seasonMissing: "Latino doesn't have season {season} of {title} in Spanish yet.",
+    episodeMissing: "Latino doesn't have episode {episode} of season {season} of {title} in Spanish yet.",
+    notInSpanish: "not available in Spanish",
     sourcesDown: "The Spanish sources aren't answering right now.",
     tmdbDown: "TMDB isn't answering right now. Try again in a while.",
     noPlayable: "I found the title, but no copy opened. Try again in a while.",
@@ -1874,6 +1951,9 @@ function langOf(kino = globalThis.kino) {
 function t(key, kino = globalThis.kino) {
   const words = WORDS[langOf(kino)];
   return words[key] ?? WORDS.es[key] ?? key;
+}
+function tf(key, vars, kino = globalThis.kino) {
+  return t(key, kino).replace(/\{(\w+)\}/g, (m, k) => vars && vars[k] != null ? String(vars[k]) : m);
 }
 var has = (key) => Object.prototype.hasOwnProperty.call(WORDS.es, key);
 var KEYS = { es: Object.keys(WORDS.es), en: Object.keys(WORDS.en) };
@@ -2000,11 +2080,12 @@ async function askSource(kino, source, title, start) {
   try {
     const req = makeRequester(kino, { budget: SOURCE.budget, deadline: start + SOURCE.deadlineMs });
     const out = await source.list(title, { kino, req });
-    return { embeds: (Array.isArray(out) ? out : []).filter(validEmbed), failed: null };
+    const embeds = (Array.isArray(out) ? out : []).filter(validEmbed);
+    return { embeds, failed: null, missing: embeds.length ? null : missingOf(out) };
   } catch (e) {
     const code = e && e.code || e && e.name || "error";
     kino.log("[latino]", source.id, code);
-    return { embeds: [], failed: code };
+    return { embeds: [], failed: code, missing: null };
   }
 }
 async function collect(kino, title, { enabled, sources = SOURCES, phaseMs = PHASE_MS, fresh = false } = {}) {
@@ -2020,6 +2101,7 @@ async function collect(kino, title, { enabled, sources = SOURCES, phaseMs = PHAS
   }
   const toAsk = active.filter((s) => !done.has(s.id));
   let down = toAsk.length > 0 && active.every((s) => toAsk.includes(s));
+  let missing = null;
   if (toAsk.length) {
     const answers = /* @__PURE__ */ new Map();
     const all = Promise.all(toAsk.map((s) => askSource(kino, s, title, start).then((r) => {
@@ -2035,6 +2117,7 @@ async function collect(kino, title, { enabled, sources = SOURCES, phaseMs = PHAS
       }
       if (!r.failed || !NETWORK_CODES.has(r.failed)) down = false;
       if (r.failed) continue;
+      if (r.missing) missing = { seasonFound: !!(missing && missing.seasonFound) || r.missing.seasonFound === true };
       done.add(s.id);
       bySource.set(s.id, r.embeds.map((e) => ({ ...e, source: s.id })));
     }
@@ -2050,7 +2133,7 @@ async function collect(kino, title, { enabled, sources = SOURCES, phaseMs = PHAS
   if (toAsk.length && unique.length) writeCache(kino, key, [...done], unique);
   const on = new Set(active.map((s) => s.id));
   const embeds = unique.filter((e) => on.has(e.source));
-  return { embeds, down: down && embeds.length === 0, cached: !!cached, key };
+  return { embeds, down: down && embeds.length === 0, missing: embeds.length ? null : missing, cached: !!cached, key };
 }
 async function listEmbeds(kino, title, options3 = {}) {
   return (await collect(kino, title, options3)).embeds;
@@ -2173,12 +2256,16 @@ async function resolveTitle(kino, title, settings, { sources = SOURCES, extract:
   const until = Date.now() + ms;
   const set = normalizeSettings(settings);
   const phase = Math.min(phaseMs, ms, Math.max(MIN_PHASE_MS, ms - 7e3));
-  const { embeds, down, cached, key } = await collect(kino, title, { enabled: set.enabled, sources, phaseMs: phase });
+  const { embeds, down, missing, cached, key } = await collect(kino, title, { enabled: set.enabled, sources, phaseMs: phase });
   const accepts = extract9.accepts || (() => true);
   const playable = embeds.filter(accepts);
   const lang = pickLanguage(playable, set.preferred);
   if (!lang) {
     if (down) throw kino.error("unavailable", "every source failed", { userMessage: t("sourcesDown", kino) });
+    if (missing && title.kind === "tv" && !embeds.length) {
+      const what = missing.seasonFound ? "episode" : "season";
+      throw kino.error("not_found", `no playable embed (0 listed): series found, ${what} missing`, { userMessage: missingMessage(kino, title, missing) });
+    }
     throw kino.error("not_found", `no playable embed (${embeds.length} listed)`, { userMessage: t("notFound", kino) });
   }
   const pool = rank(playable.filter((e) => e.lang === lang), { maxQuality: set.maxQuality });
@@ -2212,6 +2299,12 @@ async function resolveTitle(kino, title, settings, { sources = SOURCES, extract:
     throw kino.error("not_found", `no copy opened (${tries + (first ? 1 : 0)} tried)`, { userMessage: t("noPlayable", kino) });
   }
   return withCopies(kino, toStream(kino, main.s, main.e, nameOf(main.e)), rest, nameOf);
+}
+function missingMessage(kino, title, missing) {
+  const names = title.titles || {};
+  const name9 = (langOf(kino) === "en" ? names.en || names.original || names.esMX : names.esMX || names.original || names.en) || "";
+  const vars = { season: title.season, episode: title.episode, title: name9 };
+  return tf(missing && missing.seasonFound ? "episodeMissing" : "seasonMissing", vars, kino);
 }
 function withCopies(kino, stream, rest, nameOf) {
   const alternatives = rest.map((e) => ({ label: label(kino, e, nameOf(e)), ref: lazyRef(e) })).filter((a) => a.ref.length <= MAX_REF).slice(0, MAX_COPIES);
@@ -2518,6 +2611,129 @@ function siteContext(site, post4, { season = null, episode = null } = {}) {
   };
 }
 
+// src/availability.js
+var TTL_MS = 12 * 3600 * 1e3;
+var CHECK_MS = 8e3;
+var MIN_MS = 2500;
+var MAX_PROBED = 10;
+var MAX_TITLE = 200;
+var AT_ONCE3 = 3;
+var CHECKED = [lamovie_exports, seriesflix_exports, embed69_exports];
+var isOn2 = (enabled, id9) => (enabled || {})[id9] !== false;
+var cacheKeyOf = (tmdbId, ids) => `avail:${tmdbId}:${ids.join(",")}`;
+function readCache2(kino, key) {
+  try {
+    const c = JSON.parse(kino.storage.get(key) || "null");
+    return c && c.v === 1 && Array.isArray(c.missing) && c.missing.every(Number.isInteger) ? c.missing : null;
+  } catch (_) {
+    return null;
+  }
+}
+function writeCache2(kino, key, missing) {
+  try {
+    kino.storage.set(key, JSON.stringify({ v: 1, missing }), { ttlMs: TTL_MS });
+  } catch (_) {
+  }
+}
+function watched(kino, deadline, budget) {
+  const req = makeRequester(kino, { budget, deadline });
+  const out = async (url, opts) => {
+    const r = await req(url, opts);
+    if (r.status === 429 || r.status >= 500) out.failed = true;
+    return r;
+  };
+  out.failed = false;
+  out.exhausted = req.exhausted;
+  return out;
+}
+async function guarded(kino, id9, fn, req, failedWhen = () => true) {
+  try {
+    const v = await fn();
+    return req.failed && failedWhen(v) ? null : v;
+  } catch (e) {
+    kino.log("[latino]", "availability", id9, e && e.code || "error");
+    return null;
+  }
+}
+async function missingSeasons(kino, title, seasons, { enabled, untilMs }) {
+  const numbers = [...new Set(seasons)].filter((n) => Number.isInteger(n) && n >= 1).sort((a, b) => a - b);
+  const on = CHECKED.filter((s) => isOn2(enabled, s.id) && !(s === embed69_exports && !title.imdbId));
+  if (!numbers.length || !on.length) return [];
+  const key = cacheKeyOf(title.tmdbId, on.map((s) => s.id));
+  const cached = readCache2(kino, key);
+  if (cached) return cached.filter((n) => numbers.includes(n));
+  const deadline = Math.min(Date.now() + CHECK_MS, (untilMs ?? Infinity) - 300);
+  if (deadline - Date.now() < MIN_MS) return [];
+  const r = await within(kino, check(kino, title, numbers, on, deadline), Math.max(0, deadline + 200 - Date.now()), null);
+  const v = r.v;
+  if (!v || r.e) return [];
+  if (v.complete) writeCache2(kino, key, v.missing);
+  return v.missing;
+}
+async function check(kino, title, numbers, on, deadline) {
+  const has2 = /* @__PURE__ */ new Set();
+  let found = false;
+  let complete = true;
+  if (on.includes(lamovie_exports)) {
+    const req = watched(kino, deadline, 10);
+    const r = await guarded(kino, "lamovie", () => seasonList(title, { req }), req);
+    if (!r) return null;
+    if (r.found) {
+      found = true;
+      for (const n of r.seasons) has2.add(n);
+    }
+  }
+  const rest = numbers.filter((n) => !has2.has(n));
+  const probed = rest.slice(0, MAX_PROBED);
+  if (rest.length > probed.length) complete = false;
+  const answers = [];
+  const jobs = [];
+  if (probed.length && on.includes(seriesflix_exports)) {
+    const req = watched(kino, deadline, 4 + probed.length);
+    jobs.push(guarded(kino, "seriesflix", () => seasonCheck(title, probed, { req }), req, (r) => !r || !r.found).then((r) => {
+      if (r && r.found) found = true;
+      answers.push(!r ? null : r.found ? r.has : Object.fromEntries(probed.map((n) => [n, false])));
+    }));
+  }
+  if (probed.length && on.includes(embed69_exports)) {
+    const req = watched(kino, deadline, probed.length);
+    jobs.push(guarded(kino, "embed69", async () => {
+      const out = {};
+      for (let i = 0; i < probed.length; i += AT_ONCE3) {
+        await Promise.all(probed.slice(i, i + AT_ONCE3).map(async (n) => {
+          out[n] = await hasEpisode(title, n, 1, { req });
+        }));
+      }
+      return out;
+    }, req, () => false).then((r) => {
+      if (r && Object.values(r).some((x) => x === true)) found = true;
+      answers.push(r);
+    }));
+  }
+  await Promise.all(jobs);
+  if (!found) return null;
+  const missing = [];
+  for (const n of probed) {
+    const said = answers.map((a) => a ? a[n] : null);
+    if (said.some((x) => x === true)) continue;
+    if (said.every((x) => x === false)) missing.push(n);
+    else complete = false;
+  }
+  return { missing, complete };
+}
+function markTitle(title, kino) {
+  const words = t("notInSpanish", kino);
+  const base = String(title || "").trim();
+  if (!base) return words.charAt(0).toUpperCase() + words.slice(1);
+  const tail = ` (${words})`;
+  return (base.length + tail.length > MAX_TITLE ? base.slice(0, MAX_TITLE - tail.length - 1).trimEnd() + "\u2026" : base) + tail;
+}
+function markEpisodes(kino, out, missing) {
+  if (!missing.length) return out;
+  const gone = new Set(missing);
+  return { ...out, episodes: out.episodes.map((e) => gone.has(e.season) ? { ...e, title: markTitle(e.title, kino) } : e) };
+}
+
 // src/plugin.js
 var getKino = () => globalThis.kino;
 var notFound = (kino, detail) => kino.error("not_found", detail, { userMessage: t("notFound", kino) });
@@ -2581,7 +2797,20 @@ async function episodes(ref) {
     kino.log("[latino]", "episodes tmdb", e && e.code || "error");
     throw tmdbFailure(kino, e);
   }
+  out = await markUnavailable(kino, id9, out, untilMs);
   return { ...out, series: { ...out.series, ids: { tmdb: id9 } } };
+}
+async function markUnavailable(kino, tmdbId, out, untilMs) {
+  try {
+    const seasons = [...new Set(out.episodes.map((e) => e.season))];
+    if (!seasons.length) return out;
+    const title = await titleContext(kino, { kind: "tv", tmdbId }, { untilMs: untilMs - 3e3 });
+    const { enabled } = readSettings(kino);
+    return markEpisodes(kino, out, await missingSeasons(kino, title, seasons, { enabled, untilMs }));
+  } catch (e) {
+    kino.log("[latino]", "availability", e && e.code || "error");
+    return out;
+  }
 }
 var DETAIL_FIELDS = ["title", "overview", "poster", "backdrop", "year", "genres", "rating", "runtimeMinutes"];
 async function details(ref) {
@@ -2660,7 +2889,7 @@ async function probe(kino) {
 function clearCache(kino) {
   let n = 0;
   for (const key of kino.storage.keys()) {
-    if (key.startsWith("emb:") || key.startsWith("tmdb:")) {
+    if (key.startsWith("emb:") || key.startsWith("tmdb:") || key.startsWith("avail:")) {
       kino.storage.remove(key);
       n++;
     }

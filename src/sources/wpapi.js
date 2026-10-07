@@ -82,6 +82,19 @@ export function titleSlugs(titles, year, { withYear = true, plain = true } = {})
   return [...(withYear && year ? base.map((s) => `${s}-${year}`) : []), ...(plain ? base : [])];
 }
 
+/**
+ * "Not here" from a source that found the series but not the asked episode. Still an empty list, as `list` promises
+ * (equal to [] for any caller), with a non-enumerable `missing = { seasonFound }` the resolver reads to word its answer:
+ * `seasonFound` true when the source has that season (only the episode is missing), false when it has not, null when
+ * it cannot tell.
+ */
+export function episodeMissing(seasonFound = null) {
+  return Object.defineProperty([], "missing", { value: { seasonFound: seasonFound === true ? true : seasonFound === false ? false : null } });
+}
+
+/** The `missing` note of a source's answer (see episodeMissing), or null. */
+export const missingOf = (out) => (Array.isArray(out) && out.missing && typeof out.missing === "object" ? out.missing : null);
+
 /** Runs [fn]; a spent budget or deadline (a local error) is "nothing", any other error propagates. */
 export async function orEmpty(fn) {
   try { return await fn(); } catch (e) { if (e && e.local) return []; throw e; }

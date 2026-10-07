@@ -18,6 +18,7 @@ import { healthLine, readHealth } from "./health.js";
 import { HOME_ROWS, buildRows, browsePage, searchWithin, sectionPage, categoryTiles, dress } from "./catalog.js";
 import { parseSiteRef, tmdbIdFor, sitePost, sitePostResult, siteContext } from "./match.js";
 import { t } from "./i18n.js";
+import { missingSeasons, markEpisodes } from "./availability.js";
 import { callDeadline } from "./util/time.js";
 
 const getKino = () => globalThis.kino;
@@ -89,7 +90,11 @@ const tmdbRef = (ref, prefix) => {
   return m ? Number(m[1]) : null;
 };
 
-/** `episodes(ref)`: a series' episodes, flat, from TMDB; a site series is matched to TMDB first. */
+/**
+ * `episodes(ref)`: a series' episodes, flat, from TMDB; a site series is matched to TMDB first. Episodes of a season
+ * no source has carry "no disponible en español" after their title (availability.js); when that check is unsure or
+ * fails, the list goes out unmarked.
+ */
 export async function episodes(ref) {
   const kino = getKino();
   const untilMs = callDeadline(kino, "episodes").end;
@@ -107,7 +112,22 @@ export async function episodes(ref) {
     kino.log("[latino]", "episodes tmdb", (e && e.code) || "error");
     throw tmdbFailure(kino, e);
   }
+  out = await markUnavailable(kino, id, out, untilMs);
   return { ...out, series: { ...out.series, ids: { tmdb: id } } };
+}
+
+/** The episodes answer with the seasons no source has marked; unchanged when anything about it fails. */
+async function markUnavailable(kino, tmdbId, out, untilMs) {
+  try {
+    const seasons = [...new Set(out.episodes.map((e) => e.season))];
+    if (!seasons.length) return out;
+    const title = await titleContext(kino, { kind: "tv", tmdbId }, { untilMs: untilMs - 3000 });
+    const { enabled } = readSettings(kino);
+    return markEpisodes(kino, out, await missingSeasons(kino, title, seasons, { enabled, untilMs }));
+  } catch (e) {
+    kino.log("[latino]", "availability", (e && e.code) || "error");
+    return out;
+  }
 }
 
 const DETAIL_FIELDS = ["title", "overview", "poster", "backdrop", "year", "genres", "rating", "runtimeMinutes"];
@@ -201,11 +221,11 @@ async function probe(kino) {
   return { message: fill(t("probeDone", kino), { ok: asked.length - fail, fail }) };
 }
 
-/** Removes only what can be fetched again: the embed lists (emb:*) and the site-to-TMDB matches (tmdb:*). */
+/** Removes only what can be fetched again: the embed lists (emb:*), the site-to-TMDB matches (tmdb:*) and season availability (avail:*). */
 function clearCache(kino) {
   let n = 0;
   for (const key of kino.storage.keys()) {
-    if (key.startsWith("emb:") || key.startsWith("tmdb:")) { kino.storage.remove(key); n++; }
+    if (key.startsWith("emb:") || key.startsWith("tmdb:") || key.startsWith("avail:")) { kino.storage.remove(key); n++; }
   }
   return { message: n === 1 ? t("cacheClearedOne", kino) : fill(t("cacheCleared", kino), { n }) };
 }

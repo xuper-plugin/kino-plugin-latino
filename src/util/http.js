@@ -56,6 +56,8 @@ export function makeRequester(kino, { budget = 12, deadline = Date.now() + 8000 
   }
 
   req.used = () => used;
+  /** Whether this requester can send nothing more (budget spent or deadline passed): a "not found" may be a cut. */
+  req.exhausted = () => used >= budget || deadline - Date.now() <= 0;
   /** Milliseconds left before this requester's deadline (0 when past it). */
   req.left = () => Math.max(0, deadline - Date.now());
   return req;

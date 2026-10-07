@@ -7,6 +7,9 @@
 const WORDS = {
   es: {
     notFound: "No encontré este título en español.",
+    seasonMissing: "Latino todavía no tiene la temporada {season} de {title} en español.",
+    episodeMissing: "Latino todavía no tiene el capítulo {episode} de la temporada {season} de {title} en español.",
+    notInSpanish: "no disponible en español",
     sourcesDown: "Las fuentes en español no responden ahora.",
     tmdbDown: "TMDB no responde ahora. Intenta de nuevo en un rato.",
     noPlayable: "Encontré el título, pero ninguna copia abrió. Intenta de nuevo en un rato.",
@@ -61,6 +64,9 @@ const WORDS = {
   },
   en: {
     notFound: "I couldn't find this title in Spanish.",
+    seasonMissing: "Latino doesn't have season {season} of {title} in Spanish yet.",
+    episodeMissing: "Latino doesn't have episode {episode} of season {season} of {title} in Spanish yet.",
+    notInSpanish: "not available in Spanish",
     sourcesDown: "The Spanish sources aren't answering right now.",
     tmdbDown: "TMDB isn't answering right now. Try again in a while.",
     noPlayable: "I found the title, but no copy opened. Try again in a while.",
@@ -124,6 +130,11 @@ export function langOf(kino = globalThis.kino) {
 export function t(key, kino = globalThis.kino) {
   const words = WORDS[langOf(kino)];
   return words[key] ?? WORDS.es[key] ?? key;
+}
+
+/** `t(key)` with its `{name}` placeholders filled from [vars]. */
+export function tf(key, vars, kino = globalThis.kino) {
+  return t(key, kino).replace(/\{(\w+)\}/g, (m, k) => (vars && vars[k] != null ? String(vars[k]) : m));
 }
 
 /** Whether `key` has words (a genre slug without a name has none). */

@@ -9,7 +9,8 @@ import { SOURCES } from "./sources/index.js";
 import { extractorFor } from "./extractors/index.js";
 import { HLS_MIME } from "./extractors/shared.js";
 import { makeRequester, UA } from "./util/http.js";
-import { t } from "./i18n.js";
+import { t, tf, langOf } from "./i18n.js";
+import { missingOf } from "./sources/wpapi.js";
 import { recordRun } from "./health.js";
 import { within, BROWSER_RESOLVE_MS } from "./util/time.js";
 import { canCapture } from "./extractors/voe.js";
@@ -81,22 +82,27 @@ function writeCache(kino, key, done, embeds) {
   try { kino.storage.set(key, JSON.stringify({ v: 1, done, embeds }), { ttlMs: CACHE_TTL_MS }); } catch (_) { /* full storage: no cache */ }
 }
 
-/** One source's list, never throwing: `{ embeds, failed: null | code }`. */
+/**
+ * One source's list, never throwing: `{ embeds, failed: null | code, missing }`, `missing` the source's note that it
+ * has the series but not the episode (`{ seasonFound }`, see episodeMissing) or null.
+ */
 async function askSource(kino, source, title, start) {
   try {
     const req = makeRequester(kino, { budget: SOURCE.budget, deadline: start + SOURCE.deadlineMs });
     const out = await source.list(title, { kino, req });
-    return { embeds: (Array.isArray(out) ? out : []).filter(validEmbed), failed: null };
+    const embeds = (Array.isArray(out) ? out : []).filter(validEmbed);
+    return { embeds, failed: null, missing: embeds.length ? null : missingOf(out) };
   } catch (e) {
     const code = (e && e.code) || (e && e.name) || "error";
     kino.log("[latino]", source.id, code);
-    return { embeds: [], failed: code };
+    return { embeds: [], failed: code, missing: null };
   }
 }
 
 /**
- * Phase 1 with what the resolver needs to word a failure: `{ embeds, down }`, `down` when every source
- * asked failed on the network or did not answer in time. The cache keeps which sources answered, so
+ * Phase 1 with what the resolver needs to word a failure: `{ embeds, down, missing }`, `down` when every source
+ * asked failed on the network or did not answer in time, `missing` (`{ seasonFound }`) when at least one source
+ * has the series but none had the episode -- `seasonFound` true when one of them has that season. The cache keeps which sources answered, so
  * a source turned on later is asked on its own and merged in.
  */
 async function collect(kino, title, { enabled, sources = SOURCES, phaseMs = PHASE_MS, fresh = false } = {}) {
@@ -113,6 +119,7 @@ async function collect(kino, title, { enabled, sources = SOURCES, phaseMs = PHAS
 
   const toAsk = active.filter((s) => !done.has(s.id));
   let down = toAsk.length > 0 && active.every((s) => toAsk.includes(s));
+  let missing = null;
   if (toAsk.length) {
     const answers = new Map();
     const all = Promise.all(toAsk.map((s) => askSource(kino, s, title, start).then((r) => { answers.set(s.id, r); })));
@@ -123,6 +130,7 @@ async function collect(kino, title, { enabled, sources = SOURCES, phaseMs = PHAS
       if (!r) { kino.log("[latino]", s.id, "late"); continue; }
       if (!r.failed || !NETWORK_CODES.has(r.failed)) down = false;
       if (r.failed) continue;
+      if (r.missing) missing = { seasonFound: !!(missing && missing.seasonFound) || r.missing.seasonFound === true };
       done.add(s.id);
       bySource.set(s.id, r.embeds.map((e) => ({ ...e, source: s.id })));
     }
@@ -138,7 +146,7 @@ async function collect(kino, title, { enabled, sources = SOURCES, phaseMs = PHAS
 
   const on = new Set(active.map((s) => s.id));
   const embeds = unique.filter((e) => on.has(e.source));
-  return { embeds, down: down && embeds.length === 0, cached: !!cached, key };
+  return { embeds, down: down && embeds.length === 0, missing: embeds.length ? null : missing, cached: !!cached, key };
 }
 
 /** Phase 1: every enabled source's embeds for the title, deduplicated by URL in source priority order. */
@@ -311,12 +319,16 @@ export async function resolveTitle(kino, title, settings, { sources = SOURCES, e
   const set = normalizeSettings(settings);
   // A call that starts late (a slow TMDB before it) shortens phase 1 so a copy can still be opened.
   const phase = Math.min(phaseMs, ms, Math.max(MIN_PHASE_MS, ms - 7000));
-  const { embeds, down, cached, key } = await collect(kino, title, { enabled: set.enabled, sources, phaseMs: phase });
+  const { embeds, down, missing, cached, key } = await collect(kino, title, { enabled: set.enabled, sources, phaseMs: phase });
   const accepts = extract.accepts || (() => true);
   const playable = embeds.filter(accepts);
   const lang = pickLanguage(playable, set.preferred);
   if (!lang) {
     if (down) throw kino.error("unavailable", "every source failed", { userMessage: t("sourcesDown", kino) });
+    if (missing && title.kind === "tv" && !embeds.length) {
+      const what = missing.seasonFound ? "episode" : "season";
+      throw kino.error("not_found", `no playable embed (0 listed): series found, ${what} missing`, { userMessage: missingMessage(kino, title, missing) });
+    }
     throw kino.error("not_found", `no playable embed (${embeds.length} listed)`, { userMessage: t("notFound", kino) });
   }
 
@@ -347,6 +359,14 @@ export async function resolveTitle(kino, title, settings, { sources = SOURCES, e
     throw kino.error("not_found", `no copy opened (${tries + (first ? 1 : 0)} tried)`, { userMessage: t("noPlayable", kino) });
   }
   return withCopies(kino, toStream(kino, main.s, main.e, nameOf(main.e)), rest, nameOf);
+}
+
+/** "Latino doesn't have season N (episode E) of <title> yet", in the person's language and with the title's name in it. */
+export function missingMessage(kino, title, missing) {
+  const names = title.titles || {};
+  const name = (langOf(kino) === "en" ? names.en || names.original || names.esMX : names.esMX || names.original || names.en) || "";
+  const vars = { season: title.season, episode: title.episode, title: name };
+  return tf(missing && missing.seasonFound ? "episodeMissing" : "seasonMissing", vars, kino);
 }
 
 function withCopies(kino, stream, rest, nameOf) {

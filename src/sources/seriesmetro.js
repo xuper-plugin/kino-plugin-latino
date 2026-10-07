@@ -1,6 +1,6 @@
 // SeriesMetro: movies and series. /pelicula|serie/<slug>/; a series season list is an admin-ajax POST, an episode is its own
 // page; every option is an iframe (?trembed=N) wrapping a player, its language in the option's label ("Fastream -Latino").
-import { orEmpty, firstHit, toEmbeds, titleSlugs, yearMatches, episodeYearOk } from "./wpapi.js";
+import { orEmpty, firstHit, episodeMissing, toEmbeds, titleSlugs, yearMatches, episodeYearOk } from "./wpapi.js";
 
 export const id = "seriesmetro";
 export const name = "SeriesMetro";
@@ -75,8 +75,9 @@ async function movieHit(title, req) {
   }, 4);
 }
 
-// A series page shows no year, so the year is judged on the episode page it leads to.
-async function episodeHit(title, req) {
+// A series page shows no year, so the year is judged on the episode page it leads to. [onMissing] hears of a series
+// page whose season list lacks the episode: `true` when the season has other episodes, `false` when it has none.
+async function episodeHit(title, req, onMissing = () => {}) {
   return firstHit(titleSlugs(title.titles, null), async (slug) => {
     const r = await req(`${SITE}/serie/${slug}/`);
     if (!r.ok) return null;
@@ -89,11 +90,14 @@ async function episodeHit(title, req) {
     if (!list.ok) return null;
     const wantS = Number(title.season), wantE = Number(title.episode);
     let href = null;
+    let seasonSeen = false;
     for (const m of list.text().matchAll(/href="([^"]+\/capitulo\/[^"]+)"/g)) {
       const n = /temporada-(\d+)-capitulo-(\d+)/i.exec(m[1]);
-      if (n && Number(n[1]) === wantS && Number(n[2]) === wantE) { href = m[1]; break; }
+      if (!n || Number(n[1]) !== wantS) continue;
+      seasonSeen = true;
+      if (Number(n[2]) === wantE) { href = m[1]; break; }
     }
-    if (!href) return null;
+    if (!href) { onMissing(seasonSeen); return null; }
     const ep = await req(href, { headers: { Referer: `${SITE}/serie/${slug}/` } });
     if (!ep.ok) return null;
     const html = ep.text();
@@ -104,7 +108,8 @@ async function episodeHit(title, req) {
 export async function list(title, { req }) {
   const tv = title.kind === "tv";
   if (tv && (title.season == null || title.episode == null)) return [];
-  const page = await (tv ? episodeHit(title, req) : movieHit(title, req));
-  if (!page) return [];
+  let missing = null; // { seasonFound } once a series page of this name lacks the episode
+  const page = await (tv ? episodeHit(title, req, (seasonFound) => { if (!missing || seasonFound) missing = { seasonFound }; }) : movieHit(title, req));
+  if (!page) return missing ? episodeMissing(missing.seasonFound) : [];
   return orEmpty(async () => toEmbeds(id, await embedRows(page, req)));
 }

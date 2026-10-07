@@ -65,3 +65,23 @@ export async function list(title, { kino, req }) {
     return toEmbeds(id, rows);
   });
 }
+
+/**
+ * Whether the site lists an episode (for the episodes page; no proof of work): true when its page carries links,
+ * false when the site says it has no such folder (or 404), null when it cannot tell. Network errors propagate.
+ */
+export async function hasEpisode(title, season, episode, { req }) {
+  if (!title.imdbId) return false;
+  let r;
+  try {
+    r = await req(`${SITE}/f/${title.imdbId}-${Number(season)}x${String(episode).padStart(2, "0")}`, { headers: HEADERS, retry: false });
+  } catch (e) {
+    if (e && e.local) return null;
+    throw e;
+  }
+  if (r.status === 404) return false;
+  if (!r.ok) return null;
+  const html = r.text();
+  if (/let\s+dataLink\s*=\s*\[/.test(html)) return true;
+  return /^\s*\{\s*"error"\s*:/.test(html) ? false : null;
+}

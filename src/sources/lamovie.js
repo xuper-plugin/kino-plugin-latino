@@ -1,5 +1,5 @@
 // LaMovie: page for the post id, /wp-api/v1 for episodes, embeds and listings.
-import { orEmpty, firstHit, getJson, postTypeOf, titleSlugs, toEmbeds, toItem, yearIn, yearMatches, genreId, bySlug, getJsonStrict, siteError } from "./wpapi.js";
+import { orEmpty, firstHit, getJson, episodeMissing, postTypeOf, titleSlugs, toEmbeds, toItem, yearIn, yearMatches, genreId, bySlug, getJsonStrict, siteError } from "./wpapi.js";
 
 export const id = "lamovie";
 export const name = "LaMovie";
@@ -54,10 +54,23 @@ async function findPostId(title, req) {
   }, tv ? 8 : 6);
 }
 
-async function episodePostId(seriesId, season, episode, req) {
+/** The site's season numbers ("1", "2"...) as numbers, or null when it gives no list. */
+const seasonNumbers = (list) => (Array.isArray(list) ? [...new Set(list.map(Number).filter((n) => Number.isInteger(n) && n >= 1))] : null);
+
+/**
+ * The episode's post among the series' episodes of that season: `{ id, seasonFound }`, `id` null when the episode is
+ * not listed; `seasonFound` from the site's season list (null when it gives none and lists nothing). Null when the
+ * list did not answer.
+ */
+async function episodeLookup(seriesId, season, episode, req) {
   const j = await getJson(req, `${API}/single/episodes/list?_id=${seriesId}&season=${season}&page=1&postsPerPage=100`);
-  const hit = ((j && j.data && j.data.posts) || []).find((p) => Number(p.season_number) === Number(season) && Number(p.episode_number) === Number(episode));
-  return hit ? hit._id : null;
+  if (!j || !j.data) return null;
+  const posts = j.data.posts || [];
+  const hit = posts.find((p) => Number(p.season_number) === Number(season) && Number(p.episode_number) === Number(episode));
+  if (hit) return { id: hit._id, seasonFound: true };
+  const seasons = seasonNumbers(j.data.seasons);
+  const listed = posts.some((p) => Number(p.season_number) === Number(season));
+  return { id: null, seasonFound: listed || (seasons && seasons.length ? seasons.includes(Number(season)) : null) };
 }
 
 export async function list(title, { req }) {
@@ -67,12 +80,27 @@ export async function list(title, { req }) {
     let target = postId;
     if (title.kind === "tv") {
       if (title.season == null || title.episode == null) return [];
-      target = await episodePostId(postId, title.season, title.episode, req);
-      if (!target) return [];
+      const found = await episodeLookup(postId, title.season, title.episode, req);
+      if (!found) return [];
+      if (!found.id) return episodeMissing(found.seasonFound); // the series is here, that episode is not
+      target = found.id;
     }
     const j = await getJson(req, `${API}/player?postId=${target}`);
     return toEmbeds(id, j && j.data && j.data.embeds);
   });
+}
+
+/**
+ * The seasons the site has of a series (for the episodes page): `{ found: false }` when it does not have the series,
+ * `{ found: true, seasons }` when it does; null when it cannot tell (a cut budget, a list that did not answer).
+ * Network errors propagate.
+ */
+export async function seasonList(title, { req }) {
+  const postId = await findPostId(title, req);
+  if (!postId) return req.exhausted && req.exhausted() ? null : { found: false };
+  const j = await getJson(req, `${API}/single/episodes/list?_id=${postId}&season=1&page=1&postsPerPage=1`);
+  const seasons = j && j.data ? seasonNumbers(j.data.seasons) : null;
+  return seasons && seasons.length ? { found: true, seasons } : null;
 }
 
 async function listing(kind, page, extraFilter, { req }) {
