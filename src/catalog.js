@@ -146,6 +146,28 @@ export async function searchWithin(kino, settings, within, q, cursor, { untilMs 
   return more ? { items, next: String(start + PAGES_PER_CALL) } : { items };
 }
 
+// ---------- search without TMDB ----------
+
+const SITE_SEARCH_MS = 4000;
+
+/**
+ * The titles LaMovie's own search finds for [q], dressed like the rows' items (their refs resolve through the site
+ * path). A fallback for when TMDB does not answer: at most 1 request, 4 s, never past `untilMs`; any failure is [].
+ */
+export async function searchSites(kino, settings, q, { untilMs } = {}) {
+  if (!sourceOn(settings, "lamovie") || typeof q !== "string" || !q.trim()) return [];
+  const ms = upTo(SITE_SEARCH_MS, untilMs);
+  if (!(ms > 0)) return [];
+  try {
+    const req = makeRequester(kino, { budget: 3, deadline: Date.now() + ms });
+    const raw = await lamovie.search(q.trim(), { req });
+    return dedup(raw.map((i) => dress(kino, i)));
+  } catch (e) {
+    kino.log("[latino]", "search sites", (e && e.code) || "error");
+    return [];
+  }
+}
+
 // ---------- rows ----------
 
 const latestRow = (id, site, kind, titleKey) => ({ id, site, kind, titleKey, ref: `latest:${site}:${kind}`, genre: kind === "tv" ? "series" : "peliculas" });

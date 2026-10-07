@@ -409,14 +409,80 @@ test("deadline: a hanging kino.tmdb never holds episodes, details or the probe a
   assert.equal(probe.v.message, t("probeNoTmdb", globalThis.kino));
 });
 
-test("deadline: each kino.tmdb gets at most 6 s, and a slow first answer leaves the rest of the call its time", async () => {
+test("deadline: search gives kino.tmdb up to 9 s, tries once more with what is left, and ends inside the call's limit", async () => {
   let calls = 0;
   const r = await onVirtualClock(async (sleep) => {
     install({ extra: { sleep, tmdb: () => { calls++; return hangingTmdb(); } } });
     return plugin.search({ q: "x" });
   });
+  assert.equal(calls, 2);
+  assert.ok(r.took >= 13000 && r.took <= 15000, `took ${r.took}`);
+  assert.equal(r.e && r.e.code, "unavailable");
+});
+
+test("deadline: the other exports still give kino.tmdb 6 s", async () => {
+  let calls = 0;
+  const r = await onVirtualClock(async (sleep) => {
+    install({ extra: { sleep, tmdb: () => { calls++; return hangingTmdb(); } } });
+    return plugin.episodes("s:1396");
+  });
   assert.equal(calls, 1);
   assert.ok(r.took >= 6000 && r.took < 7000, `took ${r.took}`);
+});
+
+// ---------- search resilience ----------
+
+const SEARCH_ROUTE = [/lamovie\.org\/wp-api\/v1\/search/, "lamovie/search.json"];
+const fightResults = { "/search/multi?language=es-MX&query=bump": { results: [{ id: 5, media_type: "tv", name: "Bump", first_air_date: "2021-01-01" }] } };
+
+test("search: a slow first kino.tmdb answer is retried once and the person sees TMDB's items only (no duplicates)", async () => {
+  let calls = 0;
+  const r = await onVirtualClock(async (sleep) => {
+    install({ routes: [SEARCH_ROUTE], extra: { sleep, tmdb: async () => {
+      calls++;
+      if (calls === 1) return hangingTmdb(); // the first try hangs until its 9 s are up
+      return fightResults["/search/multi?language=es-MX&query=bump"];
+    } } });
+    return plugin.search({ q: "bump" });
+  });
+  assert.equal(calls, 2);
+  assert.deepEqual(r.v.map((i) => i.ref), ["s:5"]);
+  assert.ok(r.took <= 15000, `took ${r.took}`);
+});
+
+test("search: kino.tmdb always timing out returns LaMovie's matches, playable refs, inside the limit", async () => {
+  const r = await onVirtualClock(async (sleep) => {
+    install({ routes: [SEARCH_ROUTE], extra: { sleep, tmdb: hangingTmdb } });
+    return plugin.search({ q: "bump" });
+  });
+  assert.ok(r.v, r.e && r.e.message);
+  assert.ok(r.took <= 15000, `took ${r.took}`);
+  assert.ok(r.v.length >= 1);
+  assert.ok(r.v.every((i) => /^lm:\d+:(movie|tv):/.test(i.ref) && /^[A-Za-z0-9._~-]{1,128}$/.test(i.id)));
+  assert.ok(r.v.some((i) => i.title === "Bump" && i.kind === "series"));
+});
+
+test("search: a fast kino.tmdb network failure also falls back to the sites", async () => {
+  install({ routes: [SEARCH_ROUTE], extra: { tmdb: async () => { throw Object.assign(new Error("n"), { code: "network" }); } } });
+  const items = await plugin.search({ q: "bump" });
+  assert.ok(items.some((i) => i.ref.startsWith("lm:")));
+});
+
+test("search: TMDB down and the sites finding nothing keeps TMDB's sentence", async () => {
+  const r = await onVirtualClock(async (sleep) => {
+    install({ routes: [[SEARCH_ROUTE[0], () => ({ status: 200, body: JSON.stringify({ error: false, data: { posts: [] } }) })]], extra: { sleep, tmdb: hangingTmdb } });
+    return plugin.search({ q: "bump" });
+  });
+  assert.equal(r.e && r.e.code, "unavailable");
+  assert.equal(r.e.userMessage, t("tmdbDown", globalThis.kino));
+  assert.ok(r.took <= 15000);
+});
+
+test("search: when TMDB answers, the sites are not asked", async () => {
+  const { seen } = install({ routes: [SEARCH_ROUTE], tmdb: fightResults });
+  const items = await plugin.search({ q: "bump" });
+  assert.deepEqual(items.map((i) => i.ref), ["s:5"]);
+  assert.ok(!seen.some((u) => /wp-api\/v1\/search/.test(u)));
 });
 
 test("cacheCleared: one saved item is singular, several are plural (Spanish and English)", async () => {

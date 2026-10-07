@@ -131,3 +131,13 @@ export async function byGenre(genre, kind, page, ctx) {
   const gid = genreId(genre, GENRES);
   return gid == null ? [] : listing(kind, page, { genres: [gid] }, ctx);
 }
+
+/**
+ * Titles matching [q] by the site's own search (one request), as items; films and series only. Null body or a site
+ * failure propagates like a listing's.
+ */
+export async function search(q, { req }) {
+  const j = await getJsonStrict(req, `${API}/search?postType=any&q=${encodeURIComponent(q)}&postsPerPage=12`);
+  const posts = (j && j.data && j.data.posts) || [];
+  return posts.filter((p) => p && p._id != null && ["movies", "tvshows", "animes"].includes(p.type)).map(item);
+}

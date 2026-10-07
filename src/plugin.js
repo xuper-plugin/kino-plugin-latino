@@ -15,7 +15,7 @@ import { resolveTitle, resolveLazy, listEmbeds, normalizeSettings } from "./reso
 import { readSettings, sourceOn } from "./settings.js";
 import { SOURCES } from "./sources/index.js";
 import { healthLine, readHealth } from "./health.js";
-import { HOME_ROWS, buildRows, browsePage, searchWithin, sectionPage, categoryTiles, dress } from "./catalog.js";
+import { HOME_ROWS, buildRows, browsePage, searchWithin, searchSites, sectionPage, categoryTiles, dress } from "./catalog.js";
 import { parseSiteRef, tmdbIdFor, sitePost, sitePostResult, siteContext } from "./match.js";
 import { t } from "./i18n.js";
 import { missingSeasons, markEpisodes } from "./availability.js";
@@ -46,12 +46,19 @@ export async function search(query) {
     return searchWithin(kino, readSettings(kino), query.within, q, query.cursor, { untilMs: dl.end });
   }
   const dl = callDeadline(kino, "search");
+  // The sites' own search starts as soon as TMDB's first try has failed and runs beside its retry, so a TMDB that
+  // never answers still leaves LaMovie's matches; it is read only when TMDB ends in failure, so nobody sees both.
+  let fallback = null;
+  const startFallback = () => { fallback = fallback || searchSites(kino, readSettings(kino), q, { untilMs: dl.end - 500 }); };
   let items;
   try {
-    items = await searchTitles(kino, q, { untilMs: dl.end });
+    items = await searchTitles(kino, q, { untilMs: dl.end, onFirstFailure: startFallback });
   } catch (e) {
     kino.log("[latino]", "search tmdb", (e && e.code) || "error");
-    throw tmdbFailure(kino, e);
+    startFallback();
+    const found = await fallback;
+    if (!found.length) throw tmdbFailure(kino, e);
+    items = found;
   }
   const lean = query && (query.type === "movie" || query.type === "series") ? query.type : null;
   // `type` is a hint: every match stays, the kind Kino leans to goes first.

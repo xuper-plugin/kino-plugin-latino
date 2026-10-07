@@ -58,10 +58,10 @@ function callDeadline(kino, call) {
 // src/tmdb.js
 var IMG = "https://image.tmdb.org/t/p/";
 var TMDB_MS = 6e3;
-async function tmdb(kino, path, params, { untilMs } = {}) {
+async function tmdb(kino, path, params, { untilMs, maxMs = TMDB_MS } = {}) {
   await null;
   if (typeof kino.tmdb !== "function") throw kino.error("unavailable", "kino.tmdb missing (Kino older than 0.9.53)");
-  const ms = Math.min(TMDB_MS, untilMs == null ? TMDB_MS : untilMs - Date.now());
+  const ms = Math.min(maxMs, untilMs == null ? TMDB_MS : untilMs - Date.now());
   return bounded(kino, () => kino.tmdb(path, params), ms, "tmdb " + path.split("/").slice(0, 2).join("/"));
 }
 var year = (d) => typeof d === "string" && /^\d{4}/.test(d) ? Number(d.slice(0, 4)) : null;
@@ -92,9 +92,21 @@ async function titleContext(kino, { kind, tmdbId, season = null, episode = null 
     episode: kind === "tv" ? episode ?? null : null
   };
 }
-async function searchTitles(kino, query, { untilMs } = {}) {
+var SEARCH_TMDB_MS = 9e3;
+var SEARCH_RETRY_MIN_MS = 4e3;
+var RETRYABLE = /* @__PURE__ */ new Set(["timeout", "network"]);
+async function searchTitles(kino, query, { untilMs, onFirstFailure } = {}) {
   if (typeof query !== "string" || !query.trim()) return [];
-  const r = await tmdb(kino, "/search/multi", { query, language: "es-MX" }, { untilMs });
+  const ask = (maxMs) => tmdb(kino, "/search/multi", { query, language: "es-MX" }, { untilMs, maxMs });
+  const end = untilMs == null ? Date.now() + 14e3 : untilMs;
+  let r;
+  try {
+    r = await ask(Math.min(SEARCH_TMDB_MS, end - Date.now() - 1e3));
+  } catch (e) {
+    if (onFirstFailure) onFirstFailure(e);
+    if (!(e && RETRYABLE.has(e.code)) || end - Date.now() < SEARCH_RETRY_MIN_MS) throw e;
+    r = await ask(Math.min(SEARCH_TMDB_MS, end - Date.now() - 500));
+  }
   const items = [];
   for (const x of r && r.results || []) {
     if (x.media_type !== "movie" && x.media_type !== "tv") continue;
@@ -164,6 +176,7 @@ __export(lamovie_exports, {
   list: () => list,
   name: () => name,
   post: () => post,
+  search: () => search,
   seasonList: () => seasonList
 });
 
@@ -305,7 +318,7 @@ __export(streamwish_exports, {
 var kino_plugin_default = {
   id: "latino",
   name: "Latino",
-  version: "1.0.2",
+  version: "1.0.3",
   apiVersion: 8,
   entry: "plugin.js",
   icon: "icon.png",
@@ -1196,6 +1209,11 @@ var latest = (kind, page, ctx) => listing(kind, page, {}, ctx);
 async function byGenre(genre, kind, page, ctx) {
   const gid = genreId(genre, GENRES);
   return gid == null ? [] : listing(kind, page, { genres: [gid] }, ctx);
+}
+async function search(q, { req }) {
+  const j = await getJsonStrict(req, `${API}/search?postType=any&q=${encodeURIComponent(q)}&postsPerPage=12`);
+  const posts = j && j.data && j.data.posts || [];
+  return posts.filter((p) => p && p._id != null && ["movies", "tvshows", "animes"].includes(p.type)).map(item);
 }
 
 // src/sources/hackstore.js
@@ -2415,6 +2433,20 @@ async function searchWithin(kino, settings, within2, q, cursor, { untilMs } = {}
   const more = lists[lists.length - 1].length > 0 && start + PAGES_PER_CALL <= MAX_PAGE;
   return more ? { items, next: String(start + PAGES_PER_CALL) } : { items };
 }
+var SITE_SEARCH_MS = 4e3;
+async function searchSites(kino, settings, q, { untilMs } = {}) {
+  if (!sourceOn(settings, "lamovie") || typeof q !== "string" || !q.trim()) return [];
+  const ms = upTo(SITE_SEARCH_MS, untilMs);
+  if (!(ms > 0)) return [];
+  try {
+    const req = makeRequester(kino, { budget: 3, deadline: Date.now() + ms });
+    const raw = await search(q.trim(), { req });
+    return dedup(raw.map((i) => dress(kino, i)));
+  } catch (e) {
+    kino.log("[latino]", "search sites", e && e.code || "error");
+    return [];
+  }
+}
 var latestRow = (id9, site, kind, titleKey) => ({ id: id9, site, kind, titleKey, ref: `latest:${site}:${kind}`, genre: kind === "tv" ? "series" : "peliculas" });
 var genreRow = (slug, kind) => ({
   id: `g-${slug}-${kind}`,
@@ -2740,7 +2772,7 @@ var notFound = (kino, detail) => kino.error("not_found", detail, { userMessage: 
 var TMDB_FAILURES = /* @__PURE__ */ new Set(["timeout", "network", "unavailable", "rate_limited"]);
 var tmdbFailure = (kino, e) => e && TMDB_FAILURES.has(e.code) ? kino.error("unavailable", "tmdb: " + e.code, { userMessage: t("tmdbDown", kino) }) : e;
 var RESOLVE_RESERVE_MS = 1e4;
-async function search(query) {
+async function search2(query) {
   const kino = getKino();
   const q = typeof query === "string" ? query : query && query.q || "";
   if (query && typeof query === "object" && query.within) {
@@ -2748,12 +2780,19 @@ async function search(query) {
     return searchWithin(kino, readSettings(kino), query.within, q, query.cursor, { untilMs: dl2.end });
   }
   const dl = callDeadline(kino, "search");
+  let fallback = null;
+  const startFallback = () => {
+    fallback = fallback || searchSites(kino, readSettings(kino), q, { untilMs: dl.end - 500 });
+  };
   let items;
   try {
-    items = await searchTitles(kino, q, { untilMs: dl.end });
+    items = await searchTitles(kino, q, { untilMs: dl.end, onFirstFailure: startFallback });
   } catch (e) {
     kino.log("[latino]", "search tmdb", e && e.code || "error");
-    throw tmdbFailure(kino, e);
+    startFallback();
+    const found = await fallback;
+    if (!found.length) throw tmdbFailure(kino, e);
+    items = found;
   }
   const lean = query && (query.type === "movie" || query.type === "series") ? query.type : null;
   const sorted = lean ? [...items.filter((i) => i.kind === lean), ...items.filter((i) => i.kind !== lean)] : items;
@@ -2921,7 +2960,7 @@ export {
   episodes,
   home,
   resolve,
-  search,
+  search2 as search,
   section,
   settingsStatus,
   validateSettings

@@ -8,12 +8,12 @@ export const TMDB_MS = 6000;
 
 /**
  * kino.tmdb (Kino 0.9.53+; apiVersion 8 already needs 0.9.54, the check keeps an old Kino's failure readable), given
- * at most 6 s and never past `untilMs`: a `timeout` error then, so the export can still answer in time.
+ * at most `maxMs` (6 s unless the export says more) and never past `untilMs`: a `timeout` error then, so the export can still answer in time.
  */
-export async function tmdb(kino, path, params, { untilMs } = {}) {
+export async function tmdb(kino, path, params, { untilMs, maxMs = TMDB_MS } = {}) {
   await null;
   if (typeof kino.tmdb !== "function") throw kino.error("unavailable", "kino.tmdb missing (Kino older than 0.9.53)");
-  const ms = Math.min(TMDB_MS, untilMs == null ? TMDB_MS : untilMs - Date.now());
+  const ms = Math.min(maxMs, untilMs == null ? TMDB_MS : untilMs - Date.now());
   return bounded(kino, () => kino.tmdb(path, params), ms, "tmdb " + path.split("/").slice(0, 2).join("/"));
 }
 const year = (d) => (typeof d === "string" && /^\d{4}/.test(d) ? Number(d.slice(0, 4)) : null);
@@ -48,10 +48,29 @@ export async function titleContext(kino, { kind, tmdbId, season = null, episode 
   };
 }
 
-/** Movies and series matching [query]; people and untitled results are dropped. */
-export async function searchTitles(kino, query, { untilMs } = {}) {
+/** Search gives kino.tmdb longer than the other exports do: on a slow network it answered in 6-9 s. */
+export const SEARCH_TMDB_MS = 9000;
+/** A second try is only worth it when this much of the call is left. */
+export const SEARCH_RETRY_MIN_MS = 4000;
+const RETRYABLE = new Set(["timeout", "network"]);
+
+/**
+ * Movies and series matching [query]; people and untitled results are dropped. A first try waits up to 9 s (but leaves
+ * the call 1 s beyond `untilMs`'s own margin to answer); a `timeout`/`network` failure is tried once more when 4 s
+ * of the call remain. [onFirstFailure] runs as soon as the first try has failed (the caller starts its fallback then).
+ */
+export async function searchTitles(kino, query, { untilMs, onFirstFailure } = {}) {
   if (typeof query !== "string" || !query.trim()) return [];
-  const r = await tmdb(kino, "/search/multi", { query, language: "es-MX" }, { untilMs });
+  const ask = (maxMs) => tmdb(kino, "/search/multi", { query, language: "es-MX" }, { untilMs, maxMs });
+  const end = untilMs == null ? Date.now() + 14000 : untilMs;
+  let r;
+  try {
+    r = await ask(Math.min(SEARCH_TMDB_MS, end - Date.now() - 1000));
+  } catch (e) {
+    if (onFirstFailure) onFirstFailure(e);
+    if (!(e && RETRYABLE.has(e.code)) || end - Date.now() < SEARCH_RETRY_MIN_MS) throw e;
+    r = await ask(Math.min(SEARCH_TMDB_MS, end - Date.now() - 500));
+  }
   const items = [];
   for (const x of (r && r.results) || []) {
     if (x.media_type !== "movie" && x.media_type !== "tv") continue;
