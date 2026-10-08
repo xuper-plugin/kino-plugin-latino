@@ -72,7 +72,8 @@
     "pelisplushd.la",
     "www.fuegocine.com",
     "fuegocine.com",
-    "drive.usercontent.google.com"
+    "drive.usercontent.google.com",
+    "pelisgo.online"
   ],
   "capabilities": [
     "search",
@@ -229,6 +230,12 @@
       "key": "src_fuegocine",
       "type": "toggle",
       "label": "FuegoCine",
+      "default": true
+    },
+    {
+      "key": "src_pelisgo",
+      "type": "toggle",
+      "label": "PelisGo",
       "default": true
     },
     {
