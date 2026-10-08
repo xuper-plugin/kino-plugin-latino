@@ -105,8 +105,8 @@ test("the tab says values set here win over Ajustes until reset, and so do the s
   const { kino } = fakeKino();
   const r = prefsTab(kino, ctxOf());
   const status = flat(r.elements).filter((e) => e.type === "text").map((e) => e.text).join("|");
-  assert.match(status, /tiene prioridad sobre Ajustes/);
-  assert.match(status, /Volver a tus ajustes/);
+  assert.match(status, /manda sobre Ajustes/);
+  assert.match(status, /Restablecer/);
   const manifest = JSON.parse((await import("node:fs")).readFileSync(new URL("../kino-plugin.json", import.meta.url), "utf8"));
   for (const k of ["preferred", "maxQuality"]) {
     const f = manifest.settings.find((x) => x.key === k);
@@ -126,7 +126,7 @@ test("the tab opens with the effective settings and an always-visible precedence
   assert.ok(first.textEn.startsWith("Now: "));
   const second = flat(r.elements)[1];
   assert.equal(second.type, "text");
-  assert.match(second.text, /tiene prioridad sobre Ajustes/);
+  assert.match(second.text, /manda sobre Ajustes/);
   const plain = prefsTab(fakeKino().kino, ctxOf());
   assert.equal(flat(plain.elements)[0].text, "Ahora: Latino primero · calidad automática");
 });

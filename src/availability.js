@@ -26,7 +26,7 @@ const AT_ONCE = 3;
 const CHECKED = [lamovie, seriesflix, embed69];
 
 const isOn = (enabled, id) => (enabled || {})[id] !== false;
-export const cacheKeyOf = (tmdbId, ids) => `avail:${tmdbId}:${ids.join(",")}`;
+export const cacheKeyOf = (tmdbId, ids, prefix = "avail:") => `${prefix}${tmdbId}:${ids.join(",")}`;
 
 function readCache(kino, key) {
   try {
@@ -72,11 +72,11 @@ async function guarded(kino, id, fn, req, failedWhen = () => true) {
  * The seasons of [title] (a TV TitleContext) among [seasons] that no checked source has, sorted; [] whenever the
  * answer is not certain. Never throws; ends by `untilMs`.
  */
-export async function missingSeasons(kino, title, seasons, { enabled, untilMs }) {
+export async function missingSeasons(kino, title, seasons, { enabled, untilMs, cachePrefix = "avail:" }) {
   const numbers = [...new Set(seasons)].filter((n) => Number.isInteger(n) && n >= 1).sort((a, b) => a - b);
   const on = CHECKED.filter((s) => isOn(enabled, s.id) && !(s === embed69 && !title.imdbId));
   if (!numbers.length || !on.length) return [];
-  const key = cacheKeyOf(title.tmdbId, on.map((s) => s.id));
+  const key = cacheKeyOf(title.tmdbId, on.map((s) => s.id), cachePrefix);
   const cached = readCache(kino, key);
   if (cached) return cached.filter((n) => numbers.includes(n));
   const deadline = Math.min(Date.now() + CHECK_MS, (untilMs ?? Infinity) - 300);

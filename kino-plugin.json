@@ -125,8 +125,8 @@
           "label": "Subtitulado"
         }
       ],
-      "hint": "Lo que cambies en el panel manda hasta Volver a tus ajustes o Restablecer.",
-      "hintEn": "Set in the player panel, it wins until Back to your usual settings or Reset."
+      "hint": "Lo que cambies en el panel manda hasta que pulses Restablecer.",
+      "hintEn": "Set in the player panel, it wins until you press Reset."
     },
     {
       "key": "maxQuality",
@@ -151,8 +151,8 @@
           "label": "Hasta 480p (ahorra datos)"
         }
       ],
-      "hint": "Lo que cambies en el panel manda hasta Volver a tus ajustes o Restablecer.",
-      "hintEn": "Set in the player panel, it wins until Back to your usual settings or Reset."
+      "hint": "Lo que cambies en el panel manda hasta que pulses Restablecer.",
+      "hintEn": "Set in the player panel, it wins until you press Reset."
     },
     {
       "key": "srcSection",

@@ -63,7 +63,7 @@ const isOn = (enabled, id) => ({ ...OFF_BY_DEFAULT, ...(enabled || {}) })[id] !=
 
 // ---------- phase 1: embeds ----------
 
-const cacheKey = (title) => `emb:${title.kind}:${title.tmdbId}:${title.season ?? ""}:${title.episode ?? ""}`;
+const cacheKey = (title, prefix = "emb:") => `${prefix}${title.kind}:${title.tmdbId}:${title.season ?? ""}:${title.episode ?? ""}`;
 
 const validEmbed = (e) => e && typeof e === "object" && typeof e.source === "string" && LANGS.includes(e.lang)
   && typeof e.server === "string" && typeof e.embedUrl === "string" && /^https?:\/\//i.test(e.embedUrl)
@@ -79,8 +79,8 @@ function readCache(kino, key) {
   }
 }
 
-function writeCache(kino, key, done, embeds) {
-  try { kino.storage.set(key, JSON.stringify({ v: 1, done, embeds }), { ttlMs: CACHE_TTL_MS }); } catch (_) { /* full storage: no cache */ }
+function writeCache(kino, key, done, embeds, ttlMs = CACHE_TTL_MS) {
+  try { kino.storage.set(key, JSON.stringify({ v: 1, done, embeds }), { ttlMs }); } catch (_) { /* full storage: no cache */ }
 }
 
 /**
@@ -106,10 +106,10 @@ async function askSource(kino, source, title, start) {
  * has the series but none had the episode -- `seasonFound` true when one of them has that season. The cache keeps which sources answered, so
  * a source turned on later is asked on its own and merged in.
  */
-async function collect(kino, title, { enabled, sources = SOURCES, phaseMs = PHASE_MS, fresh = false, skip = [] } = {}) {
+async function collect(kino, title, { enabled, sources = SOURCES, phaseMs = PHASE_MS, fresh = false, skip = [], cachePrefix = "emb:", ttlMs } = {}) {
   const start = Date.now();
   const active = sources.filter((s) => isOn(enabled, s.id) && (!s.kinds || s.kinds.includes(title.kind)));
-  const key = cacheKey(title);
+  const key = cacheKey(title, cachePrefix);
   const cached = fresh ? null : readCache(kino, key);
   const done = new Set(cached ? cached.done : []);
   const bySource = new Map();
@@ -145,7 +145,7 @@ async function collect(kino, title, { enabled, sources = SOURCES, phaseMs = PHAS
   const everything = [...bySource.keys()].sort((a, b) => rank(a) - rank(b)).flatMap((id) => bySource.get(id));
   const seen = new Set();
   const unique = everything.filter((e) => (seen.has(e.embedUrl) ? false : (seen.add(e.embedUrl), true)));
-  if (toAsk.length && unique.length) writeCache(kino, key, [...done], unique);
+  if (toAsk.length && unique.length) writeCache(kino, key, [...done], unique, ttlMs);
 
   const on = new Set(active.map((s) => s.id));
   const embeds = unique.filter((e) => on.has(e.source));
@@ -158,7 +158,7 @@ export async function listEmbeds(kino, title, options = {}) {
 }
 
 const NEG_TTL_MS = 10 * 60 * 1000;
-const negKey = (title) => "embn:" + cacheKey(title).slice(4);
+const negKey = (title, prefix = "emb:") => prefix.replace(/emb:$/, "embn:") + cacheKey(title, prefix).slice(prefix.length);
 
 function readNeg(kino, key) {
   try {
@@ -175,7 +175,7 @@ function readNeg(kino, key) {
  * minutes (a short negative cache, never mixed with the positive `emb:*` one), so reopening the tab costs no request.
  */
 export async function listEmbedsDetailed(kino, title, options = {}) {
-  const key = negKey(title);
+  const key = negKey(title, options.cachePrefix);
   const neg = options.fresh ? null : readNeg(kino, key);
   const r = await collect(kino, title, neg ? { ...options, skip: neg.skip } : options);
   const failed = [...new Set([...(neg ? neg.failed : []), ...r.failed])];
@@ -184,7 +184,9 @@ export async function listEmbedsDetailed(kino, title, options = {}) {
     const skip = [...new Set([...(neg ? neg.skip : []), ...quiet])];
     try { kino.storage.set(key, JSON.stringify({ v: 1, skip, failed }), { ttlMs: NEG_TTL_MS }); } catch (_) { /* no negative cache */ }
   }
-  return { embeds: r.embeds, failed, answered: r.answered };
+  // A source the negative cache skipped answered with nothing earlier (a failed one is in `failed`).
+  const answered = [...new Set([...r.answered, ...(neg ? neg.skip.filter((id) => !neg.failed.includes(id)) : [])])];
+  return { embeds: r.embeds, failed, answered };
 }
 
 // ---------- choosing ----------

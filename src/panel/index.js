@@ -8,6 +8,7 @@ import { copyTab } from "./copy.js";
 import { summaryTab } from "./summary.js";
 import { availTab } from "./avail.js";
 import { prefsTab, reconcile, prefsAction } from "./prefs.js";
+import { nextStrip } from "./next.js";
 import { failTab, failAction, recordPlayerEvent } from "./fail.js";
 
 const TITLE_MAX = 60;
@@ -30,6 +31,8 @@ export async function panel(ctx) {
   const available = TABS.filter((x) => x.when(kino, ctx));
   const active = available.find((x) => x.id === ctx.tab) || available.find((x) => x.id === DEFAULT_TAB);
 
+  // The "Siguiente" strip runs beside the tab's own work, under its own short budget.
+  const strip = nextStrip(kino, ctx, { untilMs: Math.min(dl.end, Date.now() + 6000) }).catch(() => []);
   let body = null;
   try {
     if (active.load) body = await active.load(kino, ctx, dl);
@@ -47,7 +50,7 @@ export async function panel(ctx) {
     presentation: ctx.device === "tv" ? "panel" : "modal",
     tabs: available.map((x) => ({ id: x.id, label: t(x.label, { lang: "es" }), labelEn: t(x.label, { lang: "en" }) })),
     tab: active.id,
-    elements: body.elements,
+    elements: [...(await strip), ...body.elements],
   };
   if (active.id === "copy" && body.refreshMs) out.refreshMs = body.refreshMs;
   return out;

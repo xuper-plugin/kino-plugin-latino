@@ -24,7 +24,7 @@ function setup({ tmdb, fetch, seed = {} }) {
 }
 
 test("availability: a movie shows one row per source with its languages, from the cache", async () => {
-  const { kino, calls } = setup({ tmdb: fc, seed: { "emb:movie:550::": { v: 1, done: ALL, embeds: [emb("lamovie", "lat", 1), emb("lamovie", "esp", 2), emb("hackstore", "sub", 3)] } } });
+  const { kino, calls } = setup({ tmdb: fc, seed: { "pa2:emb:movie:550::": { v: 1, done: ALL, embeds: [emb("lamovie", "lat", 1), emb("lamovie", "esp", 2), emb("hackstore", "sub", 3)] } } });
   const r = await availTab(kino, movie, untilMs());
   const t = texts(r);
   assert.ok(t.includes("LaMovie: Latino, Castellano"), t.join("|"));
@@ -35,7 +35,7 @@ test("availability: a movie shows one row per source with its languages, from th
 });
 
 test("availability: a source that fails gives the partial status and is never reported as lacking the title", async () => {
-  const { kino } = setup({ tmdb: fc, seed: { "emb:movie:550::": { v: 1, done: ["lamovie"], embeds: [emb("lamovie", "lat", 1)] } } });
+  const { kino } = setup({ tmdb: fc, seed: { "pa2:emb:movie:550::": { v: 1, done: ["lamovie"], embeds: [emb("lamovie", "lat", 1)] } } });
   const r = await availTab(kino, movie, untilMs());
   const t = texts(r);
   assert.ok(t.includes("LaMovie: Latino"));
@@ -48,8 +48,8 @@ test("availability: a series lists the seasons without a Spanish version, and a 
   const { kino, calls } = setup({
     tmdb: bb,
     seed: {
-      "emb:tv:1396:1:1": { v: 1, done: ALL, embeds: [emb("lamovie", "lat", 1)] },
-      [cacheKeyOf(1396, ["lamovie", "seriesflix", "embed69"])]: { v: 1, missing: [3, 5] },
+      "pa2:emb:tv:1396:1:1": { v: 1, done: ALL, embeds: [emb("lamovie", "lat", 1)] },
+      [cacheKeyOf(1396, ["lamovie", "seriesflix", "embed69"], "pa2:avail:")]: { v: 1, missing: [3, 5] },
     },
   });
   const r = await availTab(kino, episode, untilMs());
@@ -97,7 +97,7 @@ test("availability: an all-empty title is not re-probed within 10 minutes and is
   assert.ok(n > 0);
   await availTab(kino, movie, untilMs());
   assert.equal(calls.length, n);
-  assert.equal(kino.storage.get("emb:movie:550::"), null);
+  assert.equal(kino.storage.get("pa2:emb:movie:550::"), null);
   await withClock(TEN_MIN + 1000, () => availTab(kino, movie, { untilMs: Date.now() + 20000 }));
   assert.ok(calls.length > n);
 });
@@ -111,12 +111,26 @@ test("availability: every site answering HTTP 500 is a partial answer, never 'no
 
 test("availability: sites that answered with nothing for this episode say so; failing ones stay silent", async () => {
   const { kino } = setup({ tmdb: bb, seed: {
-    "emb:tv:1396:1:1": { v: 1, done: ["lamovie", "hackstore", "seriesflix"], embeds: [emb("lamovie", "lat", 1)] },
-    [cacheKeyOf(1396, ["lamovie", "seriesflix", "embed69"])]: { v: 1, missing: [1] },
+    "pa2:emb:tv:1396:1:1": { v: 1, done: ["lamovie", "hackstore", "seriesflix"], embeds: [emb("lamovie", "lat", 1)] },
+    [cacheKeyOf(1396, ["lamovie", "seriesflix", "embed69"], "pa2:avail:")]: { v: 1, missing: [1] },
   } });
   const t = texts(await availTab(kino, episode, untilMs()));
   assert.ok(t.includes("LaMovie: Latino"));
   assert.ok(t.some((x) => x.startsWith("Seriesflix") && /sin este capítulo/.test(x)), t.join("|"));
   assert.ok(!t.some((x) => /^CineCalidad/.test(x)), "a site that did not answer is not listed as lacking it");
   assert.ok(t.includes("Esta temporada no tiene versión en español"), t.join("|"));
+});
+
+test("availability: the panel never reads the old (1.0.3) avail:/emb: entries, only its own versioned keys", async () => {
+  const { kino, calls } = setup({
+    tmdb: bb,
+    seed: {
+      "emb:tv:1396:1:1": { v: 1, done: ALL, embeds: [emb("lamovie", "lat", 99)] },
+      [cacheKeyOf(1396, ["lamovie", "seriesflix", "embed69"])]: { v: 1, missing: [3, 5] },
+    },
+  });
+  const t = texts(await availTab(kino, episode, untilMs()));
+  assert.ok(!t.some((x) => /Temporadas sin versión/.test(x)), t.join("|"));
+  assert.ok(!t.includes("LaMovie: Latino"), "the old embed list was not trusted");
+  assert.ok(calls.length > 0, "the new format is computed from scratch");
 });

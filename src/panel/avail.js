@@ -10,6 +10,10 @@ import { titleContext, episodeList } from "../tmdb.js";
 import { missingSeasons } from "../availability.js";
 import { titleTmdbId } from "./ids.js";
 
+// The panel keeps its own versioned caches: it never reads what the 1.0.x code wrote under emb:/avail:.
+export const PANEL_EMB = "pa2:emb:";
+export const PANEL_AVAIL = "pa2:avail:";
+export const PANEL_TTL_MS = 6 * 3600 * 1000;
 const BUDGET_MS = 12000;
 const SETTLE_MS = 1500; // kept for the answer once the checks are done
 
@@ -34,7 +38,7 @@ export async function availTab(kino, ctx, { untilMs } = {}) {
 
   if (isMovie || (ctx.season != null && ctx.episode != null)) {
     const phaseMs = Math.max(1000, end - Date.now() - SETTLE_MS);
-    const { embeds, failed, answered } = await listEmbedsDetailed(kino, title, { enabled, phaseMs });
+    const { embeds, failed, answered } = await listEmbedsDetailed(kino, title, { enabled, phaseMs, cachePrefix: PANEL_EMB, ttlMs: PANEL_TTL_MS });
     if (failed.length) partial = true;
     const bySite = new Map();
     for (const e of embeds) {
@@ -56,7 +60,7 @@ export async function availTab(kino, ctx, { untilMs } = {}) {
     try {
       const { episodes } = await episodeList(kino, tmdbId, { untilMs: end });
       const seasons = [...new Set(episodes.map((e) => e.season))];
-      const gone = await missingSeasons(kino, title, seasons, { enabled, untilMs: end });
+      const gone = await missingSeasons(kino, title, seasons, { enabled, untilMs: end, cachePrefix: PANEL_AVAIL });
       if (gone.length) elements.push(text(both("availSeasons", { v: gone.join(", ") })));
       if (ctx.season != null && gone.includes(ctx.season)) elements.push(text(both("availSeasonGone")));
     } catch (e) {
