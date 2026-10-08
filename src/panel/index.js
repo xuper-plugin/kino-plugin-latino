@@ -5,6 +5,7 @@ import { both, t } from "../i18n.js";
 import { callDeadline } from "../util/time.js";
 import { copyTab } from "./copy.js";
 import { summaryTab } from "./summary.js";
+import { availTab } from "./avail.js";
 
 const TITLE_MAX = 60;
 const DEFAULT_TAB = "copy";
@@ -13,7 +14,7 @@ const DEFAULT_TAB = "copy";
 const TABS = [
   { id: "copy", label: "tabCopy", when: () => true, load: async (kino, ctx) => copyTab(kino, ctx) },
   { id: "summary", label: "tabSummary", when: (kino, ctx) => ctx.kind !== "live" && !!(ctx.ids && ctx.ids.tmdb) && typeof kino.tmdb === "function", load: (kino, ctx, dl) => summaryTab(kino, ctx, { untilMs: dl.end }) },
-  { id: "avail", label: "tabAvail", when: (kino, ctx) => ctx.kind !== "live", load: null },
+  { id: "avail", label: "tabAvail", when: (kino, ctx) => ctx.kind !== "live", load: (kino, ctx, dl) => availTab(kino, ctx, { untilMs: dl.end }) },
   { id: "prefs", label: "tabPrefs", when: () => true, load: null },
   { id: "fail", label: "tabFail", when: () => true, load: null },
 ];

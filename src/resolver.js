@@ -121,6 +121,7 @@ async function collect(kino, title, { enabled, sources = SOURCES, phaseMs = PHAS
   const toAsk = active.filter((s) => !done.has(s.id));
   let down = toAsk.length > 0 && active.every((s) => toAsk.includes(s));
   let missing = null;
+  const failed = []; // sources asked just now that failed or were late: their silence says nothing about the title
   if (toAsk.length) {
     const answers = new Map();
     const all = Promise.all(toAsk.map((s) => askSource(kino, s, title, start).then((r) => { answers.set(s.id, r); })));
@@ -128,9 +129,9 @@ async function collect(kino, title, { enabled, sources = SOURCES, phaseMs = PHAS
     recordRun(kino, toAsk.map((s) => ({ id: s.id, ok: !!answers.get(s.id) && !answers.get(s.id).failed }))); // late counts as failed
     for (const s of toAsk) {
       const r = answers.get(s.id);
-      if (!r) { kino.log("[latino]", s.id, "late"); continue; }
+      if (!r) { kino.log("[latino]", s.id, "late"); failed.push(s.id); continue; }
       if (!r.failed || !NETWORK_CODES.has(r.failed)) down = false;
-      if (r.failed) continue;
+      if (r.failed) { failed.push(s.id); continue; }
       if (r.missing) missing = { seasonFound: !!(missing && missing.seasonFound) || r.missing.seasonFound === true };
       done.add(s.id);
       bySource.set(s.id, r.embeds.map((e) => ({ ...e, source: s.id })));
@@ -147,12 +148,18 @@ async function collect(kino, title, { enabled, sources = SOURCES, phaseMs = PHAS
 
   const on = new Set(active.map((s) => s.id));
   const embeds = unique.filter((e) => on.has(e.source));
-  return { embeds, down: down && embeds.length === 0, missing: embeds.length ? null : missing, cached: !!cached, key };
+  return { embeds, down: down && embeds.length === 0, missing: embeds.length ? null : missing, failed, cached: !!cached, key };
 }
 
 /** Phase 1: every enabled source's embeds for the title, deduplicated by URL in source priority order. */
 export async function listEmbeds(kino, title, options = {}) {
   return (await collect(kino, title, options)).embeds;
+}
+
+/** Like listEmbeds, plus `failed`: the ids of the sources asked now that failed or did not answer in time. */
+export async function listEmbedsDetailed(kino, title, options = {}) {
+  const { embeds, failed } = await collect(kino, title, options);
+  return { embeds, failed };
 }
 
 // ---------- choosing ----------
