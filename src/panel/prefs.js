@@ -48,7 +48,8 @@ export function prefsTab(kino, ctx) {
   const confirm = both("prefResetConfirm");
   elements.push({ type: "button", key: "reset", ...label(both("prefReset")), confirm: confirm.es, confirmEn: confirm.en });
   const note = both("prefApplies");
-  elements.push({ type: "status", text: note.es, textEn: note.en });
+  const wins = both("prefWins");
+  elements.push({ type: "status", text: `${note.es}. ${wins.es}`, textEn: `${note.en}. ${wins.en}` });
   return { elements };
 }
 
@@ -73,7 +74,9 @@ function patchOf(panelValues, stored) {
 export function reconcile(kino, ctx) {
   try {
     const panelValues = ctx && ctx.values && ctx.values.plugin;
-    if (!panelValues || typeof panelValues !== "object" || !allKeys().some((k) => k in panelValues)) return;
+    if (!panelValues || typeof panelValues !== "object") return;
+    // No synced key left: the person reset on another device, so this device's override goes too.
+    if (!allKeys().some((k) => k in panelValues)) { clearPrefs(kino); return; }
     const stored = readPrefs(kino);
     const patch = patchOf(panelValues, stored);
     const differs = Object.keys(patch).some((k) => JSON.stringify(patch[k]) !== JSON.stringify(k === "avoid" ? stored.avoid : stored[k]));

@@ -85,3 +85,35 @@ test("report without kino.log.report says it is off in Settings and never throws
     assert.equal(answerOutput(out, { log: (l) => assert.fail(l) }).message, "El aviso no está activo en Ajustes");
   } finally { done(); }
 });
+
+// ---------- fix round: scoping per ref, own report flag, kind whitelist ----------
+
+test("events of another title are ignored by Si falla", async () => {
+  const { kino } = install();
+  try {
+    await playerEvent({ type: "failed", kind: "timeout", label: "Old" }, { ref: "m:1" });
+    assert.match(failTab(kino, { ref: "m:2" }).elements[0].text, /todo bien/i);
+    assert.ok(texts(failTab(kino, { ref: "m:1" })).includes("El servidor tardó en contestar"));
+  } finally { done(); }
+});
+
+test("20 later events do not erase the reported flag", async () => {
+  const { reports } = install();
+  try {
+    const ctx = { ref: "m:1" };
+    await playerEvent({ type: "failed", kind: "timeout", label: "x" }, ctx);
+    await panelAction(press, ctx);
+    for (let i = 0; i < 25; i++) await playerEvent({ type: "failed", kind: "timeout", label: "y" + i }, ctx);
+    await panelAction(press, ctx);
+    assert.equal(reports.length, 1);
+  } finally { done(); }
+});
+
+test("an unknown failure kind is reported as 'unknown'", async () => {
+  const { reports } = install();
+  try {
+    await playerEvent({ type: "failed", kind: "https://secret.example/x?token=1" }, { ref: "m:1" });
+    await panelAction(press, { ref: "m:1" });
+    assert.deepEqual(reports[0], ["panel_bad_copy", "unknown"]);
+  } finally { done(); }
+});

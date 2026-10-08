@@ -92,7 +92,7 @@ async function askSource(kino, source, title, start) {
     const req = makeRequester(kino, { budget: SOURCE.budget, deadline: start + SOURCE.deadlineMs });
     const out = await source.list(title, { kino, req });
     const embeds = (Array.isArray(out) ? out : []).filter(validEmbed);
-    return { embeds, failed: null, missing: embeds.length ? null : missingOf(out) };
+    return { embeds, failed: null, degraded: req.degraded(), missing: embeds.length ? null : missingOf(out) };
   } catch (e) {
     const code = (e && e.code) || (e && e.name) || "error";
     kino.log("[latino]", source.id, code);
@@ -106,7 +106,7 @@ async function askSource(kino, source, title, start) {
  * has the series but none had the episode -- `seasonFound` true when one of them has that season. The cache keeps which sources answered, so
  * a source turned on later is asked on its own and merged in.
  */
-async function collect(kino, title, { enabled, sources = SOURCES, phaseMs = PHASE_MS, fresh = false } = {}) {
+async function collect(kino, title, { enabled, sources = SOURCES, phaseMs = PHASE_MS, fresh = false, skip = [] } = {}) {
   const start = Date.now();
   const active = sources.filter((s) => isOn(enabled, s.id) && (!s.kinds || s.kinds.includes(title.kind)));
   const key = cacheKey(title);
@@ -118,7 +118,7 @@ async function collect(kino, title, { enabled, sources = SOURCES, phaseMs = PHAS
     bySource.get(e.source).push(e);
   }
 
-  const toAsk = active.filter((s) => !done.has(s.id));
+  const toAsk = active.filter((s) => !done.has(s.id) && !skip.includes(s.id));
   let down = toAsk.length > 0 && active.every((s) => toAsk.includes(s));
   let missing = null;
   const failed = []; // sources asked just now that failed or were late: their silence says nothing about the title
@@ -132,6 +132,7 @@ async function collect(kino, title, { enabled, sources = SOURCES, phaseMs = PHAS
       if (!r) { kino.log("[latino]", s.id, "late"); failed.push(s.id); continue; }
       if (!r.failed || !NETWORK_CODES.has(r.failed)) down = false;
       if (r.failed) { failed.push(s.id); continue; }
+      if (r.degraded) failed.push(s.id); // answered, but from a struggling site (429/5xx): counted for the panel only
       if (r.missing) missing = { seasonFound: !!(missing && missing.seasonFound) || r.missing.seasonFound === true };
       done.add(s.id);
       bySource.set(s.id, r.embeds.map((e) => ({ ...e, source: s.id })));
@@ -148,7 +149,7 @@ async function collect(kino, title, { enabled, sources = SOURCES, phaseMs = PHAS
 
   const on = new Set(active.map((s) => s.id));
   const embeds = unique.filter((e) => on.has(e.source));
-  return { embeds, down: down && embeds.length === 0, missing: embeds.length ? null : missing, failed, cached: !!cached, key };
+  return { embeds, down: down && embeds.length === 0, missing: embeds.length ? null : missing, failed, cached: !!cached, key, asked: toAsk.map((s) => s.id), contributed: new Set(unique.map((e) => e.source)) };
 }
 
 /** Phase 1: every enabled source's embeds for the title, deduplicated by URL in source priority order. */
@@ -156,10 +157,34 @@ export async function listEmbeds(kino, title, options = {}) {
   return (await collect(kino, title, options)).embeds;
 }
 
-/** Like listEmbeds, plus `failed`: the ids of the sources asked now that failed or did not answer in time. */
+const NEG_TTL_MS = 10 * 60 * 1000;
+const negKey = (title) => "embn:" + cacheKey(title).slice(4);
+
+function readNeg(kino, key) {
+  try {
+    const n = JSON.parse(kino.storage.get(key) || "null");
+    return n && n.v === 1 && Array.isArray(n.skip) && Array.isArray(n.failed) ? n : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+/**
+ * Like listEmbeds, plus `failed`: the ids of the sources that failed, were late or answered from a struggling site
+ * (429/5xx). For the panel's Disponibilidad only: a source that gave nothing or failed is not asked again for 10
+ * minutes (a short negative cache, never mixed with the positive `emb:*` one), so reopening the tab costs no request.
+ */
 export async function listEmbedsDetailed(kino, title, options = {}) {
-  const { embeds, failed } = await collect(kino, title, options);
-  return { embeds, failed };
+  const key = negKey(title);
+  const neg = options.fresh ? null : readNeg(kino, key);
+  const r = await collect(kino, title, neg ? { ...options, skip: neg.skip } : options);
+  const failed = [...new Set([...(neg ? neg.failed : []), ...r.failed])];
+  const quiet = r.asked.filter((id) => r.failed.includes(id) || !r.contributed.has(id));
+  if (quiet.length) {
+    const skip = [...new Set([...(neg ? neg.skip : []), ...quiet])];
+    try { kino.storage.set(key, JSON.stringify({ v: 1, skip, failed }), { ttlMs: NEG_TTL_MS }); } catch (_) { /* no negative cache */ }
+  }
+  return { embeds: r.embeds, failed };
 }
 
 // ---------- choosing ----------

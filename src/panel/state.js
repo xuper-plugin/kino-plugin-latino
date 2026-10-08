@@ -3,7 +3,8 @@
 //
 //   pp:prefs       the panel's preference override { v:1, preferred?, maxQuality?, avoid:[serverId] } (read by resolve)
 //   pp:last:<ref>  how resolve chose the copy for <ref> { v:1, at, total, order, chosen, alternatives:[label] }
-//   pp:ev          the last 20 session events [{ t, type, kind?, label? }]
+//   pp:ev          the last 20 session events [{ t, type, kind?, label?, ref? }], read per ref
+//   pp:rep:<ref>   set once the bad-copy notice was sent for <ref> (its own key, so later events cannot evict it)
 
 import { LANGS, QUALITIES, SERVER_LABEL } from "../resolver.js";
 
@@ -82,12 +83,22 @@ export function pushEvent(kino, ev) {
   const rec = { t: Number(ev.t) || Date.now(), type: ev.type };
   if (isStr(ev.kind)) rec.kind = ev.kind;
   if (isStr(ev.label)) rec.label = ev.label;
+  if (isStr(ev.ref) && ev.ref) rec.ref = ev.ref;
   writeJson(kino, EVENTS_KEY, { events: [...readEvents(kino), rec].slice(-MAX_EVENTS) }, EVENTS_TTL_MS);
 }
 
-/** The last 20 events, oldest first. */
-export function readEvents(kino) {
+/** The last 20 events of `ref` (events without a ref belong to the empty ref), oldest first. */
+export function readEvents(kino, ref) {
   const r = readJson(kino, EVENTS_KEY);
   if (!r || !Array.isArray(r.events)) return [];
-  return r.events.filter((e) => e && isStr(e.type) && Number.isFinite(e.t)).slice(-MAX_EVENTS);
+  const want = isStr(ref) ? ref : "";
+  return r.events.filter((e) => e && isStr(e.type) && Number.isFinite(e.t) && (isStr(e.ref) ? e.ref : "") === want).slice(-MAX_EVENTS);
+}
+
+const REPORTED_PREFIX = "pp:rep:";
+export function markReported(kino, ref) {
+  writeJson(kino, REPORTED_PREFIX + (isStr(ref) ? ref : ""), { at: Date.now() }, EVENTS_TTL_MS);
+}
+export function wasReported(kino, ref) {
+  return !!readJson(kino, REPORTED_PREFIX + (isStr(ref) ? ref : ""));
 }

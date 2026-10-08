@@ -31,7 +31,9 @@ export function makeRequester(kino, { budget = 12, deadline = Date.now() + 8000 
     return kino.fetch(url, { ...rest, headers, timeoutMs: Math.min(8000, left) });
   }
 
-  async function req(url, opts = {}) {
+  let degraded = false;
+
+  async function send(url, opts = {}) {
     try {
       const r = await once(url, opts);
       if (opts.retry === false || !RETRY_STATUS.has(r.status)) return r;
@@ -55,6 +57,15 @@ export function makeRequester(kino, { budget = 12, deadline = Date.now() + 8000 
     }
   }
 
+  // Whether any answer this requester ended with was a 429 or a 5xx: the site was struggling, so an empty page from it
+  // is no proof that it lacks the title. Only the panel reads this.
+  async function req(url, opts = {}) {
+    const r = await send(url, opts);
+    if (r && (r.status === 429 || r.status >= 500)) degraded = true;
+    return r;
+  }
+
+  req.degraded = () => degraded;
   req.used = () => used;
   /** Whether this requester can send nothing more (budget spent or deadline passed): a "not found" may be a cut. */
   req.exhausted = () => used >= budget || deadline - Date.now() <= 0;

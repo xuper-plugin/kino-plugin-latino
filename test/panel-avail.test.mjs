@@ -67,3 +67,44 @@ test("availability: no TMDB id gives only a status", async () => {
   assert.equal(r.elements[0].type, "status");
   assert.equal(r.elements[0].text, "Este título no tiene ficha para revisar");
 });
+
+// ---------- fix round: negative cache and 5xx ----------
+
+const TEN_MIN = 10 * 60 * 1000;
+const withClock = async (offsetMs, fn) => {
+  const real = Date.now;
+  Date.now = () => real() + offsetMs;
+  try { return await fn(); } finally { Date.now = real; }
+};
+
+test("availability: an all-failing title is not re-probed within 10 minutes, but is after", async () => {
+  const { kino, calls } = setup({ tmdb: fc });
+  const first = await availTab(kino, movie, untilMs());
+  assert.ok(calls.length > 0);
+  assert.ok(texts(first).includes("Respuesta parcial: algunas fuentes no contestaron"));
+  const n = calls.length;
+  const again = await availTab(kino, movie, untilMs());
+  assert.equal(calls.length, n);
+  assert.ok(texts(again).includes("Respuesta parcial: algunas fuentes no contestaron"));
+  await withClock(TEN_MIN + 1000, () => availTab(kino, movie, { untilMs: Date.now() + 20000 }));
+  assert.ok(calls.length > n);
+});
+
+test("availability: an all-empty title is not re-probed within 10 minutes and is never stored as a positive", async () => {
+  const { kino, calls } = setup({ tmdb: fc, fetch: async () => ({ status: 404, body: "" }) });
+  await availTab(kino, movie, untilMs());
+  const n = calls.length;
+  assert.ok(n > 0);
+  await availTab(kino, movie, untilMs());
+  assert.equal(calls.length, n);
+  assert.equal(kino.storage.get("emb:movie:550::"), null);
+  await withClock(TEN_MIN + 1000, () => availTab(kino, movie, { untilMs: Date.now() + 20000 }));
+  assert.ok(calls.length > n);
+});
+
+test("availability: every site answering HTTP 500 is a partial answer, never 'none'", async () => {
+  const { kino } = setup({ tmdb: fc, fetch: async () => ({ status: 500, body: "" }) });
+  const t = texts(await availTab(kino, movie, untilMs()));
+  assert.ok(t.includes("Respuesta parcial: algunas fuentes no contestaron"), t.join("|"));
+  assert.ok(!t.includes("Ninguna fuente contestó con copias de este título"));
+});

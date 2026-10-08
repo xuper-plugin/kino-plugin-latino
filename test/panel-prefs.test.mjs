@@ -25,7 +25,7 @@ test("prefs tab: selects, one toggle per server, reset button, status; values fa
   assert.equal(byKey("avoid.voe").hint, "Pasa al final de la lista, no se borra");
   assert.equal(leaves.filter((e) => e.type === "toggle").length, 8);
   assert.equal(byKey("reset").confirm, "¿Volver a tus ajustes de siempre?");
-  assert.ok(leaves.some((e) => e.type === "status" && e.text === "Se aplica al abrir la próxima copia"));
+  assert.ok(leaves.some((e) => e.type === "status" && e.text.startsWith("Se aplica al abrir la próxima copia")));
   for (const k of ["preferred", "maxQuality", "avoid.voe"]) assert.equal(byKey(k).scope, "plugin");
   panelOutput({ title: "x", elements: r.elements }, { log: (l) => assert.fail(l) });
 });
@@ -83,4 +83,34 @@ test("an unknown key answers null and writes nothing; a value over 500 chars is 
   assert.equal(await withKino(kino, () => panelAction(ev("preferred", "change", "x".repeat(501)), ctxOf())), null);
   assert.equal(await withKino(kino, () => panelAction(ev("preferred", "change", "klingon"), ctxOf())), null);
   assert.equal(kino.storage.get("pp:prefs"), null);
+});
+
+// ---------- fix round: reset sync and precedence hint ----------
+
+test("reconcile: a panel whose synced keys are all gone (reset on another device) clears the override", () => {
+  const { kino } = fakeKino();
+  kino.storage.set("pp:prefs", JSON.stringify({ v: 1, preferred: "esp", avoid: ["voe"] }));
+  reconcile(kino, ctxOf({}));
+  assert.equal(kino.storage.get("pp:prefs"), null);
+});
+
+test("reconcile: no values at all in the context leaves the override alone", () => {
+  const { kino } = fakeKino();
+  kino.storage.set("pp:prefs", JSON.stringify({ v: 1, preferred: "esp", avoid: [] }));
+  reconcile(kino, { kind: "movie" });
+  assert.equal(readPrefs(kino).preferred, "esp");
+});
+
+test("the tab says values set here win over Ajustes until reset, and so do the settings hints", async () => {
+  const { kino } = fakeKino();
+  const r = prefsTab(kino, ctxOf());
+  const status = flat(r.elements).filter((e) => e.type === "status").map((e) => e.text).join("|");
+  assert.match(status, /tiene prioridad sobre Ajustes/);
+  assert.match(status, /Volver a tus ajustes/);
+  const manifest = JSON.parse((await import("node:fs")).readFileSync(new URL("../kino-plugin.json", import.meta.url), "utf8"));
+  for (const k of ["preferred", "maxQuality"]) {
+    const f = manifest.settings.find((x) => x.key === k);
+    assert.match(f.hint, /panel del reproductor/);
+    assert.ok(f.hintEn);
+  }
 });

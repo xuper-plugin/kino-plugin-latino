@@ -345,7 +345,11 @@ var kino_plugin_default = {
   name: "Latino",
   version: "1.1.0",
   apiVersion: 9,
-  panel: { label: "Latino", labelEn: "Latino", icon: "language" },
+  panel: {
+    label: "Latino",
+    labelEn: "Latino",
+    icon: "language"
+  },
   entry: "plugin.js",
   icon: "icon.png",
   description: "Pel\xEDculas y series en espa\xF1ol latino, castellano o subtituladas desde varias fuentes",
@@ -463,7 +467,9 @@ var kino_plugin_default = {
           value: "sub",
           label: "Subtitulado"
         }
-      ]
+      ],
+      hint: "Si lo cambias en el panel del reproductor, ese valor manda hasta restablecer.",
+      hintEn: "Changed in the player panel, that value wins until you reset it."
     },
     {
       key: "maxQuality",
@@ -487,7 +493,9 @@ var kino_plugin_default = {
           value: "480p",
           label: "Hasta 480p (ahorra datos)"
         }
-      ]
+      ],
+      hint: "Si lo cambias en el panel del reproductor, ese valor manda hasta restablecer.",
+      hintEn: "Changed in the player panel, that value wins until you reset it."
     },
     {
       key: "srcSection",
@@ -632,7 +640,8 @@ function makeRequester(kino, { budget = 12, deadline = Date.now() + 8e3 } = {}) 
     const { retry, ...rest } = opts;
     return kino.fetch(url, { ...rest, headers, timeoutMs: Math.min(8e3, left) });
   }
-  async function req(url, opts = {}) {
+  let degraded = false;
+  async function send(url, opts = {}) {
     try {
       const r = await once(url, opts);
       if (opts.retry === false || !RETRY_STATUS.has(r.status)) return r;
@@ -650,6 +659,12 @@ function makeRequester(kino, { budget = 12, deadline = Date.now() + 8e3 } = {}) 
       throw e;
     }
   }
+  async function req(url, opts = {}) {
+    const r = await send(url, opts);
+    if (r && (r.status === 429 || r.status >= 500)) degraded = true;
+    return r;
+  }
+  req.degraded = () => degraded;
   req.used = () => used;
   req.exhausted = () => used >= budget || deadline - Date.now() <= 0;
   req.left = () => Math.max(0, deadline - Date.now());
@@ -1942,6 +1957,7 @@ var WORDS = {
     prefResetConfirm: "\xBFVolver a tus ajustes de siempre?",
     prefApplies: "Se aplica al abrir la pr\xF3xima copia",
     prefSaved: "Listo: se aplica en la pr\xF3xima copia",
+    prefWins: "Lo que cambies aqu\xED tiene prioridad sobre Ajustes hasta que pulses Volver a tus ajustes",
     failAllGood: "Todo bien: en esta sesi\xF3n no ha fallado ninguna copia",
     failTimeout: "El servidor tard\xF3 en contestar",
     failNetwork: "No hubo conexi\xF3n con el servidor",
@@ -2054,6 +2070,7 @@ var WORDS = {
     prefResetConfirm: "Go back to your usual settings?",
     prefApplies: "Applies when the next copy opens",
     prefSaved: "Done: applies on the next copy",
+    prefWins: "What you change here takes priority over Settings until you press Back to your usual settings",
     failAllGood: "All good: no copy has failed in this session",
     failTimeout: "The server took too long to answer",
     failNetwork: "There was no connection to the server",
@@ -2185,12 +2202,21 @@ function pushEvent(kino, ev) {
   const rec = { t: Number(ev.t) || Date.now(), type: ev.type };
   if (isStr(ev.kind)) rec.kind = ev.kind;
   if (isStr(ev.label)) rec.label = ev.label;
+  if (isStr(ev.ref) && ev.ref) rec.ref = ev.ref;
   writeJson(kino, EVENTS_KEY, { events: [...readEvents(kino), rec].slice(-MAX_EVENTS) }, EVENTS_TTL_MS);
 }
-function readEvents(kino) {
+function readEvents(kino, ref) {
   const r = readJson(kino, EVENTS_KEY);
   if (!r || !Array.isArray(r.events)) return [];
-  return r.events.filter((e) => e && isStr(e.type) && Number.isFinite(e.t)).slice(-MAX_EVENTS);
+  const want = isStr(ref) ? ref : "";
+  return r.events.filter((e) => e && isStr(e.type) && Number.isFinite(e.t) && (isStr(e.ref) ? e.ref : "") === want).slice(-MAX_EVENTS);
+}
+var REPORTED_PREFIX = "pp:rep:";
+function markReported(kino, ref) {
+  writeJson(kino, REPORTED_PREFIX + (isStr(ref) ? ref : ""), { at: Date.now() }, EVENTS_TTL_MS);
+}
+function wasReported(kino, ref) {
+  return !!readJson(kino, REPORTED_PREFIX + (isStr(ref) ? ref : ""));
 }
 
 // src/settings.js
@@ -2317,14 +2343,14 @@ async function askSource(kino, source, title, start) {
     const req = makeRequester(kino, { budget: SOURCE.budget, deadline: start + SOURCE.deadlineMs });
     const out = await source.list(title, { kino, req });
     const embeds = (Array.isArray(out) ? out : []).filter(validEmbed);
-    return { embeds, failed: null, missing: embeds.length ? null : missingOf(out) };
+    return { embeds, failed: null, degraded: req.degraded(), missing: embeds.length ? null : missingOf(out) };
   } catch (e) {
     const code = e && e.code || e && e.name || "error";
     kino.log("[latino]", source.id, code);
     return { embeds: [], failed: code, missing: null };
   }
 }
-async function collect(kino, title, { enabled, sources = SOURCES, phaseMs = PHASE_MS, fresh = false } = {}) {
+async function collect(kino, title, { enabled, sources = SOURCES, phaseMs = PHASE_MS, fresh = false, skip = [] } = {}) {
   const start = Date.now();
   const active = sources.filter((s) => isOn(enabled, s.id) && (!s.kinds || s.kinds.includes(title.kind)));
   const key = cacheKey(title);
@@ -2335,7 +2361,7 @@ async function collect(kino, title, { enabled, sources = SOURCES, phaseMs = PHAS
     if (!bySource.has(e.source)) bySource.set(e.source, []);
     bySource.get(e.source).push(e);
   }
-  const toAsk = active.filter((s) => !done.has(s.id));
+  const toAsk = active.filter((s) => !done.has(s.id) && !skip.includes(s.id));
   let down = toAsk.length > 0 && active.every((s) => toAsk.includes(s));
   let missing = null;
   const failed = [];
@@ -2358,6 +2384,7 @@ async function collect(kino, title, { enabled, sources = SOURCES, phaseMs = PHAS
         failed.push(s.id);
         continue;
       }
+      if (r.degraded) failed.push(s.id);
       if (r.missing) missing = { seasonFound: !!(missing && missing.seasonFound) || r.missing.seasonFound === true };
       done.add(s.id);
       bySource.set(s.id, r.embeds.map((e) => ({ ...e, source: s.id })));
@@ -2374,14 +2401,35 @@ async function collect(kino, title, { enabled, sources = SOURCES, phaseMs = PHAS
   if (toAsk.length && unique.length) writeCache(kino, key, [...done], unique);
   const on = new Set(active.map((s) => s.id));
   const embeds = unique.filter((e) => on.has(e.source));
-  return { embeds, down: down && embeds.length === 0, missing: embeds.length ? null : missing, failed, cached: !!cached, key };
+  return { embeds, down: down && embeds.length === 0, missing: embeds.length ? null : missing, failed, cached: !!cached, key, asked: toAsk.map((s) => s.id), contributed: new Set(unique.map((e) => e.source)) };
 }
 async function listEmbeds(kino, title, options3 = {}) {
   return (await collect(kino, title, options3)).embeds;
 }
+var NEG_TTL_MS = 10 * 60 * 1e3;
+var negKey = (title) => "embn:" + cacheKey(title).slice(4);
+function readNeg(kino, key) {
+  try {
+    const n = JSON.parse(kino.storage.get(key) || "null");
+    return n && n.v === 1 && Array.isArray(n.skip) && Array.isArray(n.failed) ? n : null;
+  } catch (_) {
+    return null;
+  }
+}
 async function listEmbedsDetailed(kino, title, options3 = {}) {
-  const { embeds, failed } = await collect(kino, title, options3);
-  return { embeds, failed };
+  const key = negKey(title);
+  const neg = options3.fresh ? null : readNeg(kino, key);
+  const r = await collect(kino, title, neg ? { ...options3, skip: neg.skip } : options3);
+  const failed = [.../* @__PURE__ */ new Set([...neg ? neg.failed : [], ...r.failed])];
+  const quiet = r.asked.filter((id9) => r.failed.includes(id9) || !r.contributed.has(id9));
+  if (quiet.length) {
+    const skip = [.../* @__PURE__ */ new Set([...neg ? neg.skip : [], ...quiet])];
+    try {
+      kino.storage.set(key, JSON.stringify({ v: 1, skip, failed }), { ttlMs: NEG_TTL_MS });
+    } catch (_) {
+    }
+  }
+  return { embeds: r.embeds, failed };
 }
 function pickLanguage(embeds, preferred) {
   const have = new Set((embeds || []).map((e) => e.lang));
@@ -3171,7 +3219,8 @@ function prefsTab(kino, ctx) {
   const confirm = both("prefResetConfirm");
   elements.push({ type: "button", key: "reset", ...label2(both("prefReset")), confirm: confirm.es, confirmEn: confirm.en });
   const note = both("prefApplies");
-  elements.push({ type: "status", text: note.es, textEn: note.en });
+  const wins = both("prefWins");
+  elements.push({ type: "status", text: `${note.es}. ${wins.es}`, textEn: `${note.en}. ${wins.en}` });
   return { elements };
 }
 function patchOf(panelValues, stored) {
@@ -3193,7 +3242,11 @@ function patchOf(panelValues, stored) {
 function reconcile(kino, ctx) {
   try {
     const panelValues = ctx && ctx.values && ctx.values.plugin;
-    if (!panelValues || typeof panelValues !== "object" || !allKeys().some((k) => k in panelValues)) return;
+    if (!panelValues || typeof panelValues !== "object") return;
+    if (!allKeys().some((k) => k in panelValues)) {
+      clearPrefs(kino);
+      return;
+    }
     const stored = readPrefs(kino);
     const patch = patchOf(panelValues, stored);
     const differs = Object.keys(patch).some((k) => JSON.stringify(patch[k]) !== JSON.stringify(k === "avoid" ? stored.avoid : stored[k]));
@@ -3231,20 +3284,20 @@ var KIND_KEY = { timeout: "failTimeout", network: "failNetwork", not_found: "fai
 var MAX_TRIED = 5;
 var text4 = (m) => ({ type: "text", text: m.es, textEn: m.en });
 var status2 = (m) => ({ type: "status", text: m.es, textEn: m.en });
-function recordPlayerEvent(kino, ev) {
+function recordPlayerEvent(kino, ev, ctx) {
   try {
     if (!ev || ev.type !== "failed" && ev.type !== "copyChanged") return;
-    pushEvent(kino, { t: Date.now(), type: ev.type, kind: ev.kind, label: ev.label });
+    pushEvent(kino, { t: Date.now(), type: ev.type, kind: ev.kind, label: ev.label, ref: ctx && ctx.ref });
   } catch (_) {
   }
 }
-function failTab(kino) {
-  const events = readEvents(kino);
+function failTab(kino, ctx) {
+  const events = readEvents(kino, ctx && ctx.ref);
   const failures = events.filter((e) => e.type === "failed");
   const last = failures[failures.length - 1];
   if (!last) return { elements: [status2(both("failAllGood"))] };
   const sentence = both(KIND_KEY[last.kind] || "failGeneric");
-  const tried = [...new Set(events.filter((e) => e.type !== "reported" && e.label).map((e) => e.label))].slice(-MAX_TRIED);
+  const tried = [...new Set(events.filter((e) => e.label).map((e) => e.label))].slice(-MAX_TRIED);
   const elements = [text4(sentence)];
   if (tried.length) elements.push({ type: "text", text: both("failTried", { v: tried.join(", ") }).es, textEn: both("failTried", { v: tried.join(", ") }).en });
   elements.push(text4(both("failHowTo")));
@@ -3259,16 +3312,17 @@ function failAction(kino, ev, ctx) {
   const say = (key) => ({ message: both(key)[lang] });
   const report = kino && kino.log && kino.log.report;
   if (typeof report !== "function") return say("failReportOff");
-  const events = readEvents(kino);
-  if (events.some((e) => e.type === "reported")) return say("failAlready");
+  const ref = ctx && ctx.ref;
+  if (wasReported(kino, ref)) return say("failAlready");
+  const events = readEvents(kino, ref);
   const failures = events.filter((e) => e.type === "failed");
   const kind = (failures[failures.length - 1] || {}).kind;
   try {
-    report(AREA, typeof kind === "string" ? kind : "unknown");
+    report(AREA, Object.prototype.hasOwnProperty.call(KIND_KEY, kind) ? kind : "unknown");
   } catch (_) {
     return say("failReportOff");
   }
-  pushEvent(kino, { t: Date.now(), type: "reported" });
+  markReported(kino, ref);
   return say("failReported");
 }
 
@@ -3280,7 +3334,7 @@ var TABS2 = [
   { id: "summary", label: "tabSummary", when: (kino, ctx) => ctx.kind !== "live" && !!titleTmdbId(ctx) && typeof kino.tmdb === "function", load: (kino, ctx, dl) => summaryTab(kino, ctx, { untilMs: dl.end }) },
   { id: "avail", label: "tabAvail", when: (kino, ctx) => ctx.kind !== "live", load: (kino, ctx, dl) => availTab(kino, ctx, { untilMs: dl.end }) },
   { id: "prefs", label: "tabPrefs", when: () => true, load: (kino, ctx) => prefsTab(kino, ctx) },
-  { id: "fail", label: "tabFail", when: () => true, load: (kino) => failTab(kino) }
+  { id: "fail", label: "tabFail", when: () => true, load: (kino, ctx) => failTab(kino, ctx) }
 ];
 async function panel(ctx) {
   const kino = globalThis.kino;
@@ -3322,8 +3376,8 @@ async function panelAction(ev, ctx) {
     return null;
   }
 }
-async function playerEvent(ev) {
-  recordPlayerEvent(globalThis.kino, ev);
+async function playerEvent(ev, ctx) {
+  recordPlayerEvent(globalThis.kino, ev, ctx);
   return null;
 }
 

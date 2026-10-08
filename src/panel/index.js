@@ -19,7 +19,7 @@ const TABS = [
   { id: "summary", label: "tabSummary", when: (kino, ctx) => ctx.kind !== "live" && !!titleTmdbId(ctx) && typeof kino.tmdb === "function", load: (kino, ctx, dl) => summaryTab(kino, ctx, { untilMs: dl.end }) },
   { id: "avail", label: "tabAvail", when: (kino, ctx) => ctx.kind !== "live", load: (kino, ctx, dl) => availTab(kino, ctx, { untilMs: dl.end }) },
   { id: "prefs", label: "tabPrefs", when: () => true, load: (kino, ctx) => prefsTab(kino, ctx) },
-  { id: "fail", label: "tabFail", when: () => true, load: (kino) => failTab(kino) },
+  { id: "fail", label: "tabFail", when: () => true, load: (kino, ctx) => failTab(kino, ctx) },
 ];
 
 export async function panel(ctx) {
@@ -60,7 +60,7 @@ export async function panelAction(ev, ctx) {
     return null;
   }
 }
-export async function playerEvent(ev) {
-  recordPlayerEvent(globalThis.kino, ev);
+export async function playerEvent(ev, ctx) {
+  recordPlayerEvent(globalThis.kino, ev, ctx);
   return null;
 }
