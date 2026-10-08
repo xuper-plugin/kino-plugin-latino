@@ -66,7 +66,8 @@
     "nupload.me",
     "*.nupload.me",
     "nupload.my",
-    "*.nupload.my"
+    "*.nupload.my",
+    "xupalace.org"
   ],
   "capabilities": [
     "search",
@@ -205,6 +206,12 @@
       "key": "src_deepflix",
       "type": "toggle",
       "label": "DeepFlix",
+      "default": true
+    },
+    {
+      "key": "src_xupalace",
+      "type": "toggle",
+      "label": "XuPalace",
       "default": true
     },
     {

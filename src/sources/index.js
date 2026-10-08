@@ -7,8 +7,9 @@ import * as embed69 from "./embed69.js";
 import * as peliserieshoy from "./peliserieshoy.js";
 import * as zoowomaniacos from "./zoowomaniacos.js";
 import * as deepflix from "./deepflix.js";
+import * as xupalace from "./xupalace.js";
 
 /** Sources in priority order. */
-export const SOURCES = [lamovie, hackstore, cinecalidad, seriesmetro, seriesflix, embed69, peliserieshoy, zoowomaniacos, deepflix];
+export const SOURCES = [lamovie, hackstore, cinecalidad, seriesmetro, seriesflix, embed69, peliserieshoy, zoowomaniacos, deepflix, xupalace];
 
 export const sourceById = (id) => SOURCES.find((s) => s.id === id) || null;
