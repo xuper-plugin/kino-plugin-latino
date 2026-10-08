@@ -8,6 +8,7 @@ import { sourceById } from "../sources/index.js";
 import { readSettings } from "../settings.js";
 import { titleContext, episodeList } from "../tmdb.js";
 import { missingSeasons } from "../availability.js";
+import { titleTmdbId } from "./ids.js";
 
 const BUDGET_MS = 12000;
 const SETTLE_MS = 1500; // kept for the answer once the checks are done
@@ -20,7 +21,7 @@ const pair = (f) => ({ es: f("es"), en: f("en") });
 export const siteLabel = (id) => (sourceById(id) || {}).name || id;
 
 export async function availTab(kino, ctx, { untilMs } = {}) {
-  const tmdbId = ctx && ctx.ids && ctx.ids.tmdb;
+  const tmdbId = titleTmdbId(ctx);
   if (!tmdbId) return { elements: [status(both("availNoTmdb"))] };
   const isMovie = ctx.kind === "movie";
   const end = Math.min(untilMs ?? Infinity, Date.now() + BUDGET_MS);

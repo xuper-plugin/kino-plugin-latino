@@ -62,3 +62,20 @@ test("a throwing or empty tab becomes one status and the panel is still valid", 
   assert.ok(empty.out.tabs.length <= 6);
   valid(empty.out, "en");
 });
+
+test("a throw from inside a non-TMDB tab loader shows the error status and the panel still renders", async () => {
+  const bad = { ...movie, tab: "copy" };
+  Object.defineProperty(bad, "playing", { get() { throw new Error("boom"); }, enumerable: true });
+  const { out } = await run(bad);
+  assert.equal(out.tab, "copy");
+  assert.equal(out.elements.length, 1);
+  assert.equal(out.elements[0].type, "status");
+  assert.equal(out.elements[0].text, "No se pudo cargar esta pestaña");
+  valid(out);
+});
+
+test("the summary tab is offered for an episode whose ref carries the series id", async () => {
+  const ep = { ...movie, kind: "episode", ref: "e:1396:1:1", ids: {}, season: 1, episode: 1 };
+  const { out } = await run(ep);
+  assert.ok(out.tabs.some((t) => t.id === "summary"));
+});

@@ -44,3 +44,12 @@ test("summary tab is null for live, no tmdb id, no kino.tmdb, or a failing kino.
   assert.equal(await summaryTab(fake(undefined), ctx, untilMs()), null);
   assert.equal(await summaryTab(fake(async () => { throw new Error("rate_limited"); }), ctx, untilMs()), null);
 });
+
+test("an episode asks for the SERIES id read from its ref, not the episode's own ids.tmdb", async () => {
+  const calls = [];
+  const kino = fake(async (p) => { calls.push(p); return data; });
+  await summaryTab(kino, { kind: "episode", ref: "e:1396:2:5", title: "x", ids: { tmdb: 999 } }, untilMs());
+  assert.deepEqual(calls, ["/tv/1396"]);
+  await summaryTab(kino, { kind: "episode", ref: "e:1396:2:5", title: "x", ids: {} }, untilMs());
+  assert.deepEqual(calls, ["/tv/1396", "/tv/1396"]);
+});

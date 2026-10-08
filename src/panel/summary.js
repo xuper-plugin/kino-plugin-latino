@@ -2,6 +2,7 @@
 // title without a TMDB id and whenever kino.tmdb is missing or fails.
 
 import { both } from "../i18n.js";
+import { titleTmdbId } from "./ids.js";
 import { summaryOf } from "../tmdb.js";
 
 const MAX_OVERVIEW = 240;
@@ -10,8 +11,9 @@ const cut = (s) => (s.length <= MAX_OVERVIEW ? s : s.slice(0, MAX_OVERVIEW - 1).
 const text = (p) => ({ type: "text", text: p.es, textEn: p.en });
 
 export async function summaryTab(kino, ctx, { untilMs } = {}) {
-  if (!ctx || ctx.kind === "live" || !ctx.ids || !ctx.ids.tmdb || typeof kino.tmdb !== "function") return null;
-  const s = await summaryOf(kino, ctx.kind === "episode" ? "tv" : "movie", ctx.ids.tmdb, { untilMs });
+  const id = titleTmdbId(ctx);
+  if (!ctx || ctx.kind === "live" || !id || typeof kino.tmdb !== "function") return null;
+  const s = await summaryOf(kino, ctx.kind === "episode" ? "tv" : "movie", id, { untilMs });
   if (!s) return null;
   const col = [];
   const head = [];

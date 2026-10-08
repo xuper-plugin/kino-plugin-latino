@@ -42,3 +42,11 @@ test("language normalisation", () => {
 test("unpack of a real packed player block contains an m3u8 URL", () => {
   assert.match(unpack(fixture("packed/real.txt")), /https:\/\/[^"']+\.m3u8/);
 });
+
+import { callDeadline as panelDeadline } from "../src/util/time.js";
+test("panel calls get Kino's real limits minus the margin", () => {
+  const near = (dl, ms) => assert.ok(Math.abs(dl.left() - ms) < 200, `${dl.left()} vs ${ms}`);
+  near(panelDeadline({}, "panel"), 18500);
+  near(panelDeadline({}, "panelAction"), 18500);
+  near(panelDeadline({}, "playerEvent"), 4000);
+});

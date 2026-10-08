@@ -45,7 +45,10 @@ var LIMIT_MS = {
   resolve: 2e4,
   action: 3e4,
   settingsStatus: 1e4,
-  validateSettings: 2e4
+  validateSettings: 2e4,
+  panel: 2e4,
+  panelAction: 2e4,
+  playerEvent: 5e3
 };
 var BROWSER_RESOLVE_MS = 45e3;
 function callDeadline(kino, call) {
@@ -1912,6 +1915,7 @@ var WORDS = {
     copyQuality: "Calidad: {v}",
     copyServer: "Servidor: {v}",
     copyChosen: "Elegida entre {n} copias",
+    copyChosenOne: "Elegida entre 1 copia",
     copyNoInfo: "Todav\xEDa no s\xE9 qu\xE9 copia suena.",
     statResolution: "Imagen {v}",
     statNetwork: "Red {v}",
@@ -2023,6 +2027,7 @@ var WORDS = {
     copyQuality: "Quality: {v}",
     copyServer: "Server: {v}",
     copyChosen: "Chosen from {n} copies",
+    copyChosenOne: "Chosen among 1 copy",
     copyNoInfo: "I don't know yet which copy is playing.",
     statResolution: "Picture {v}",
     statNetwork: "Network {v}",
@@ -2105,7 +2110,10 @@ function t(key, kino = globalThis.kino) {
 function tf(key, vars, kino = globalThis.kino) {
   return t(key, kino).replace(/\{(\w+)\}/g, (m, k) => vars && vars[k] != null ? String(vars[k]) : m);
 }
-var both = (key, vars) => ({ es: tf(key, vars, { lang: "es" }), en: tf(key, vars, { lang: "en" }) });
+var both = (key, vars) => {
+  const one = (lang) => tf(key, vars && Object.fromEntries(Object.entries(vars).map(([k, v]) => [k, typeof v === "function" ? v(lang) : v])), { lang });
+  return { es: one("es"), en: one("en") };
+};
 var has = (key) => Object.prototype.hasOwnProperty.call(WORDS.es, key);
 var KEYS = { es: Object.keys(WORDS.es), en: Object.keys(WORDS.en) };
 
@@ -2997,29 +3005,42 @@ function markEpisodes(kino, out, missing) {
   return { ...out, episodes: out.episodes.map((e) => gone.has(e.season) ? { ...e, title: markTitle(e.title, kino) } : e) };
 }
 
+// src/panel/ids.js
+function titleTmdbId(ctx) {
+  if (!ctx) return null;
+  if (ctx.kind === "episode") {
+    const m = /^e:(\d+):/.exec(String(ctx.ref || ""));
+    if (m) return Number(m[1]);
+  }
+  return ctx.ids && ctx.ids.tmdb || null;
+}
+
 // src/panel/copy.js
 var STALLS_HINT_AT = 3;
 var NETWORK_KEY = { wifi: "netWifi", ethernet: "netEthernet", cellular: "netCellular", other: "netOther" };
 var text = (p) => ({ type: "text", text: p.es, textEn: p.en });
-var pair = (f) => ({ es: f("es"), en: f("en") });
+var LABEL_MAX = 200;
 var isNum = (n) => typeof n === "number" && Number.isFinite(n);
 function copyTab(kino, ctx) {
   const playing = ctx && ctx.playing || {};
   const stats = ctx && ctx.stats || {};
   const lines = [];
-  if (playing.label) lines.push({ type: "text", text: String(playing.label), textEn: String(playing.label) });
-  if (playing.lang) lines.push(text(pair((l) => t("copyLang", { lang: l }).replace("{v}", t(playing.lang, { lang: l })))));
-  if (playing.quality) lines.push(text(both("copyQuality", { v: playing.quality })));
-  if (playing.server) lines.push(text(both("copyServer", { v: SERVER_LABEL[playing.server] || playing.server })));
+  if (playing.label) {
+    const l = String(playing.label).slice(0, LABEL_MAX);
+    lines.push({ type: "text", text: l, textEn: l });
+  }
+  if (playing.lang) lines.push(text(both("copyLang", { v: (l) => t(String(playing.lang), { lang: l }) })));
+  if (playing.quality) lines.push(text(both("copyQuality", { v: String(playing.quality).slice(0, LABEL_MAX) })));
+  if (playing.server) lines.push(text(both("copyServer", { v: String(SERVER_LABEL[playing.server] || playing.server).slice(0, LABEL_MAX) })));
   const last = ctx && ctx.ref ? readLast(kino, ctx.ref) : null;
-  if (last && last.total > 0) lines.push(text(both("copyChosen", { n: last.total })));
+  if (last && last.total > 0) lines.push(text(last.total === 1 ? both("copyChosenOne") : both("copyChosen", { n: last.total })));
   if (!lines.length) lines.push(text(both("copyNoInfo")));
   const elements = [{ type: "card", title: t("nowPlaying", { lang: "es" }), titleEn: t("nowPlaying", { lang: "en" }), children: lines }];
   const statLines = [];
   if (isNum(stats.width) && isNum(stats.height)) statLines.push(text(both("statResolution", { v: `${stats.width}x${stats.height}` })));
   if (stats.network) {
     const key = NETWORK_KEY[stats.network] || "netOther";
-    statLines.push(text(pair((l) => t("statNetwork", { lang: l }).replace("{v}", t(key, { lang: l })))));
+    statLines.push(text(both("statNetwork", { v: (l) => t(key, { lang: l }) })));
   }
   if (isNum(stats.stallsThisSession)) statLines.push(text(both("statStalls", { v: stats.stallsThisSession })));
   elements.push(...statLines);
@@ -3035,8 +3056,9 @@ var MAX_OVERVIEW = 240;
 var cut = (s) => s.length <= MAX_OVERVIEW ? s : s.slice(0, MAX_OVERVIEW - 1).trimEnd() + "\u2026";
 var text2 = (p) => ({ type: "text", text: p.es, textEn: p.en });
 async function summaryTab(kino, ctx, { untilMs } = {}) {
-  if (!ctx || ctx.kind === "live" || !ctx.ids || !ctx.ids.tmdb || typeof kino.tmdb !== "function") return null;
-  const s = await summaryOf(kino, ctx.kind === "episode" ? "tv" : "movie", ctx.ids.tmdb, { untilMs });
+  const id9 = titleTmdbId(ctx);
+  if (!ctx || ctx.kind === "live" || !id9 || typeof kino.tmdb !== "function") return null;
+  const s = await summaryOf(kino, ctx.kind === "episode" ? "tv" : "movie", id9, { untilMs });
   if (!s) return null;
   const col = [];
   const head = [];
@@ -3057,10 +3079,10 @@ var BUDGET_MS = 12e3;
 var SETTLE_MS = 1500;
 var text3 = (m) => ({ type: "text", text: m.es, textEn: m.en });
 var status = (m) => ({ type: "status", text: m.es, textEn: m.en });
-var pair2 = (f) => ({ es: f("es"), en: f("en") });
+var pair = (f) => ({ es: f("es"), en: f("en") });
 var siteLabel = (id9) => (sourceById(id9) || {}).name || id9;
 async function availTab(kino, ctx, { untilMs } = {}) {
-  const tmdbId = ctx && ctx.ids && ctx.ids.tmdb;
+  const tmdbId = titleTmdbId(ctx);
   if (!tmdbId) return { elements: [status(both("availNoTmdb"))] };
   const isMovie = ctx.kind === "movie";
   const end = Math.min(untilMs ?? Infinity, Date.now() + BUDGET_MS);
@@ -3080,7 +3102,7 @@ async function availTab(kino, ctx, { untilMs } = {}) {
     }
     for (const [id9, langs] of bySite) {
       const ordered = LANGS.filter((l) => langs.has(l));
-      elements.push(text3(pair2((l) => `${siteLabel(id9)}: ${ordered.map((x) => t(x, { lang: l })).join(", ")}`)));
+      elements.push(text3(pair((l) => `${siteLabel(id9)}: ${ordered.map((x) => t(x, { lang: l })).join(", ")}`)));
     }
     if (!bySite.size && !partial) elements.push(text3(both("availNone")));
   }
@@ -3255,7 +3277,7 @@ var TITLE_MAX = 60;
 var DEFAULT_TAB = "copy";
 var TABS2 = [
   { id: "copy", label: "tabCopy", when: () => true, load: async (kino, ctx) => copyTab(kino, ctx) },
-  { id: "summary", label: "tabSummary", when: (kino, ctx) => ctx.kind !== "live" && !!(ctx.ids && ctx.ids.tmdb) && typeof kino.tmdb === "function", load: (kino, ctx, dl) => summaryTab(kino, ctx, { untilMs: dl.end }) },
+  { id: "summary", label: "tabSummary", when: (kino, ctx) => ctx.kind !== "live" && !!titleTmdbId(ctx) && typeof kino.tmdb === "function", load: (kino, ctx, dl) => summaryTab(kino, ctx, { untilMs: dl.end }) },
   { id: "avail", label: "tabAvail", when: (kino, ctx) => ctx.kind !== "live", load: (kino, ctx, dl) => availTab(kino, ctx, { untilMs: dl.end }) },
   { id: "prefs", label: "tabPrefs", when: () => true, load: (kino, ctx) => prefsTab(kino, ctx) },
   { id: "fail", label: "tabFail", when: () => true, load: (kino) => failTab(kino) }

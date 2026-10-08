@@ -3,6 +3,7 @@
 
 import { both, t } from "../i18n.js";
 import { callDeadline } from "../util/time.js";
+import { titleTmdbId } from "./ids.js";
 import { copyTab } from "./copy.js";
 import { summaryTab } from "./summary.js";
 import { availTab } from "./avail.js";
@@ -15,7 +16,7 @@ const DEFAULT_TAB = "copy";
 // `load(kino, ctx, deadline) -> { elements, refreshMs? } | null`; null = nothing to show. Tabs not written yet have none.
 const TABS = [
   { id: "copy", label: "tabCopy", when: () => true, load: async (kino, ctx) => copyTab(kino, ctx) },
-  { id: "summary", label: "tabSummary", when: (kino, ctx) => ctx.kind !== "live" && !!(ctx.ids && ctx.ids.tmdb) && typeof kino.tmdb === "function", load: (kino, ctx, dl) => summaryTab(kino, ctx, { untilMs: dl.end }) },
+  { id: "summary", label: "tabSummary", when: (kino, ctx) => ctx.kind !== "live" && !!titleTmdbId(ctx) && typeof kino.tmdb === "function", load: (kino, ctx, dl) => summaryTab(kino, ctx, { untilMs: dl.end }) },
   { id: "avail", label: "tabAvail", when: (kino, ctx) => ctx.kind !== "live", load: (kino, ctx, dl) => availTab(kino, ctx, { untilMs: dl.end }) },
   { id: "prefs", label: "tabPrefs", when: () => true, load: (kino, ctx) => prefsTab(kino, ctx) },
   { id: "fail", label: "tabFail", when: () => true, load: (kino) => failTab(kino) },

@@ -33,6 +33,7 @@ export async function bounded(kino, run, ms, what) {
 export const LIMIT_MS = {
   search: 15000, scopedSearch: 6000, home: 20000, section: 20000, browse: 20000, categories: 20000, episodes: 20000,
   details: 20000, resolve: 20000, action: 30000, settingsStatus: 10000, validateSettings: 20000,
+  panel: 20000, panelAction: 20000, playerEvent: 5000,
 };
 // An approved hidden browser gives resolve 75 s; the plugin keeps itself well under that.
 export const BROWSER_RESOLVE_MS = 45000;

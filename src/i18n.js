@@ -45,6 +45,7 @@ const WORDS = {
     copyQuality: "Calidad: {v}",
     copyServer: "Servidor: {v}",
     copyChosen: "Elegida entre {n} copias",
+    copyChosenOne: "Elegida entre 1 copia",
     copyNoInfo: "Todavía no sé qué copia suena.",
     statResolution: "Imagen {v}",
     statNetwork: "Red {v}",
@@ -156,6 +157,7 @@ const WORDS = {
     copyQuality: "Quality: {v}",
     copyServer: "Server: {v}",
     copyChosen: "Chosen from {n} copies",
+    copyChosenOne: "Chosen among 1 copy",
     copyNoInfo: "I don't know yet which copy is playing.",
     statResolution: "Picture {v}",
     statNetwork: "Network {v}",
@@ -246,7 +248,11 @@ export function tf(key, vars, kino = globalThis.kino) {
 }
 
 /** `tf(key, vars)` in both languages: `{ es, en }`, for the panel's `text` / `textEn` twins. */
-export const both = (key, vars) => ({ es: tf(key, vars, { lang: "es" }), en: tf(key, vars, { lang: "en" }) });
+// A var that is a function is called with the language ("es"/"en"), for values that are themselves words.
+export const both = (key, vars) => {
+  const one = (lang) => tf(key, vars && Object.fromEntries(Object.entries(vars).map(([k, v]) => [k, typeof v === "function" ? v(lang) : v])), { lang });
+  return { es: one("es"), en: one("en") };
+};
 
 /** Whether `key` has words (a genre slug without a name has none). */
 export const has = (key) => Object.prototype.hasOwnProperty.call(WORDS.es, key);
