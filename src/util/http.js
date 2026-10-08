@@ -5,8 +5,9 @@ const RETRY_STATUS = new Set([408, 425, 429, 500, 502, 503, 504, 520, 521, 522, 
 
 /**
  * Whether a direct kino.fetch of this URL can go out without Kino stopping the call to ask the person about a host:
- * the manifest declares its host, or Kino says (kino.fetchAnyHost, Kino 0.9.54+) the approved `fetchHosts: "any"`
- * covers every public host.
+ * the manifest declares its host, or Kino says (kino.fetchAnyHost) an approved `fetchHosts: "any"` covers every
+ * public host. That grant exists only from apiVersion 9 and Latino does not request it (Kino 0.9.54 never had it, so
+ * 1.0.3 never held it), so in practice only the declared hosts pass; the check stays for a Kino that sets the flag.
  */
 export const fetchAllowed = (kino, url) => (kino && kino.fetchAnyHost === true) || urlDeclared(url);
 

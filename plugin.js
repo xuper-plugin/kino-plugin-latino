@@ -424,7 +424,6 @@ var kino_plugin_default = {
     "download"
   ],
   streamHosts: "any",
-  fetchHosts: "any",
   categories: [
     "movies",
     "series"
