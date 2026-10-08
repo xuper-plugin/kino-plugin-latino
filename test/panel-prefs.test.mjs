@@ -112,6 +112,7 @@ test("the tab says values set here win over Ajustes until reset, and so do the s
     const f = manifest.settings.find((x) => x.key === k);
     assert.match(f.hint, /panel/);
     assert.match(f.hint, /Restablecer/);
+    assert.ok(f.hint.length <= 80 && f.hintEn.length <= 80);
     assert.ok(f.hintEn);
   }
 });
@@ -126,7 +127,7 @@ test("the tab opens with the effective settings and an always-visible precedence
   assert.ok(first.textEn.startsWith("Now: "));
   const second = flat(r.elements)[1];
   assert.equal(second.type, "text");
-  assert.match(second.text, /manda sobre Ajustes/);
+  assert.match(second.text, /manda sobre Ajustes hasta que uses Restablecer \(abajo\)/);
   const plain = prefsTab(fakeKino().kino, ctxOf());
   assert.equal(flat(plain.elements)[0].text, "Ahora: Latino primero · calidad automática");
 });

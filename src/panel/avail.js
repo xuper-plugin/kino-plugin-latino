@@ -8,7 +8,7 @@ import { sourceById } from "../sources/index.js";
 import { readSettings } from "../settings.js";
 import { titleContext, episodeList } from "../tmdb.js";
 import { missingSeasons } from "../availability.js";
-import { titleTmdbId } from "./ids.js";
+import { episodeOf, titleTmdbId } from "./ids.js";
 
 // The panel keeps its own versioned caches: it never reads what the 1.0.x code wrote under emb:/avail:.
 export const PANEL_EMB = "pa2:emb:";
@@ -28,15 +28,19 @@ export async function availTab(kino, ctx, { untilMs } = {}) {
   const tmdbId = titleTmdbId(ctx);
   if (!tmdbId) return { elements: [status(both("availNoTmdb"))] };
   const isMovie = ctx.kind === "movie";
+  const at = episodeOf(ctx); // from the ref (Kino wraps it) or the context's own numbers
+  const season = at ? at.season : ctx.season ?? null;
+  const episode = at ? at.episode : ctx.episode ?? null;
   const end = Math.min(untilMs ?? Infinity, Date.now() + BUDGET_MS);
   const settings = readSettings(kino);
   const enabled = normalizeSettings({ enabled: settings.enabled }).enabled;
 
-  const title = await titleContext(kino, { kind: isMovie ? "movie" : "tv", tmdbId, season: ctx.season ?? null, episode: ctx.episode ?? null }, { untilMs: end });
+  const title = await titleContext(kino, { kind: isMovie ? "movie" : "tv", tmdbId, season, episode }, { untilMs: end });
   let partial = false;
   const elements = [];
 
-  if (isMovie || (ctx.season != null && ctx.episode != null)) {
+  if (isMovie || (season != null && episode != null)) {
+    if (!isMovie) elements.push({ type: "text", text: `T${season} · E${episode}`, textEn: `S${season} · E${episode}` });
     const phaseMs = Math.max(1000, end - Date.now() - SETTLE_MS);
     const { embeds, failed, answered } = await listEmbedsDetailed(kino, title, { enabled, phaseMs, cachePrefix: PANEL_EMB, ttlMs: PANEL_TTL_MS });
     if (failed.length) partial = true;
@@ -62,7 +66,7 @@ export async function availTab(kino, ctx, { untilMs } = {}) {
       const seasons = [...new Set(episodes.map((e) => e.season))];
       const gone = await missingSeasons(kino, title, seasons, { enabled, untilMs: end, cachePrefix: PANEL_AVAIL });
       if (gone.length) elements.push(text(both("availSeasons", { v: gone.join(", ") })));
-      if (ctx.season != null && gone.includes(ctx.season)) elements.push(text(both("availSeasonGone")));
+      if (season != null && gone.includes(season)) elements.push(text(both("availSeasonGone")));
     } catch (e) {
       partial = true;
       try { kino.log("[latino]", "panel avail", (e && e.code) || "error"); } catch (_) { /* logging is optional */ }

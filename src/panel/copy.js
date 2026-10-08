@@ -4,6 +4,7 @@
 import { both, t } from "../i18n.js";
 import { LANGS, SERVER_LABEL } from "../resolver.js";
 import { readLast, readLatest } from "./state.js";
+import { plainRef } from "./ids.js";
 
 const STALLS_HINT_AT = 3;
 const NETWORK_KEY = { wifi: "netWifi", ethernet: "netEthernet", cellular: "netCellular", other: "netOther" };
@@ -33,7 +34,7 @@ export function copyTab(kino, ctx) {
   if (rows.site) lines.push(text(both("copySite", { v: String(rows.site).slice(0, LABEL_MAX) })));
   if (rows.server) lines.push(text(both("copyServer", { v: String(SERVER_LABEL[rows.server] || rows.server).slice(0, LABEL_MAX) })));
   if (rows.quality) lines.push(text(both("copyQuality", { v: String(rows.quality).slice(0, LABEL_MAX) })));
-  const last = (ctx && ctx.ref ? readLast(kino, ctx.ref) : null) || readLatest(kino);
+  const last = (ctx && ctx.ref ? readLast(kino, plainRef(ctx.ref)) : null) || readLatest(kino);
   if (last && last.total > 0) {
     if (playing.label && last.chosen && last.chosen !== String(playing.label)) lines.push(text(both("copyManual", { v: last.chosen.slice(0, 100) })));
     else lines.push(text(last.total === 1 ? both("copyChosenOne") : both("copyChosen", { n: last.total })));

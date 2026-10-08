@@ -467,8 +467,8 @@ var kino_plugin_default = {
           label: "Subtitulado"
         }
       ],
-      hint: "Lo que cambies en el panel manda hasta que pulses Restablecer.",
-      hintEn: "Set in the player panel, it wins until you press Reset."
+      hint: "Lo que cambies en el panel manda hasta que uses Restablecer all\xED.",
+      hintEn: "Set in the player panel, it wins until you use Reset there."
     },
     {
       key: "maxQuality",
@@ -493,8 +493,8 @@ var kino_plugin_default = {
           label: "Hasta 480p (ahorra datos)"
         }
       ],
-      hint: "Lo que cambies en el panel manda hasta que pulses Restablecer.",
-      hintEn: "Set in the player panel, it wins until you press Reset."
+      hint: "Lo que cambies en el panel manda hasta que uses Restablecer all\xED.",
+      hintEn: "Set in the player panel, it wins until you use Reset there."
     },
     {
       key: "srcSection",
@@ -1974,7 +1974,7 @@ var WORDS = {
     availNoEpisode: "sin este cap\xEDtulo",
     availNoTitle: "sin esta pel\xEDcula",
     availSeasonGone: "Esta temporada no tiene versi\xF3n en espa\xF1ol",
-    prefWins: "Lo que cambies aqu\xED manda sobre Ajustes hasta que pulses Restablecer",
+    prefWins: "Lo que cambies aqu\xED manda sobre Ajustes hasta que uses Restablecer (abajo)",
     failAllGood: "Todo bien: en esta sesi\xF3n no ha fallado ninguna copia",
     failTimeout: "El servidor tard\xF3 en contestar",
     failNetwork: "No hubo conexi\xF3n con el servidor",
@@ -2105,7 +2105,7 @@ var WORDS = {
     availNoEpisode: "no copy of this episode",
     availNoTitle: "no copy of this film",
     availSeasonGone: "This season has no Spanish version",
-    prefWins: "What you change here beats Settings until you press Reset",
+    prefWins: "What you change here beats Settings until you use Reset (below)",
     failAllGood: "All good: no copy has failed in this session",
     failTimeout: "The server took too long to answer",
     failNetwork: "There was no connection to the server",
@@ -3096,12 +3096,31 @@ function markEpisodes(kino, out, missing) {
 }
 
 // src/panel/ids.js
+var WRAPPED = "plg1:latino:";
+function plainRef(ref) {
+  if (typeof ref !== "string") return "";
+  if (!ref.startsWith(WRAPPED)) return ref;
+  const b64 = ref.slice(WRAPPED.length);
+  if (!/^[A-Za-z0-9_-]+$/.test(b64)) return ref;
+  try {
+    const bin = atob(b64.replace(/-/g, "+").replace(/_/g, "/") + "===".slice((b64.length + 3) % 4));
+    const j = JSON.parse(new TextDecoder().decode(Uint8Array.from(bin, (c) => c.charCodeAt(0))));
+    return j && typeof j.r === "string" ? j.r : ref;
+  } catch (_) {
+    return ref;
+  }
+}
+function episodeOf(ctx) {
+  if (!ctx || ctx.kind !== "episode") return null;
+  const m = /^e:(\d+):(\d+):(\d+)$/.exec(plainRef(ctx.ref));
+  if (m) return { id: Number(m[1]), season: Number(m[2]), episode: Number(m[3]) };
+  const id9 = ctx.ids && ctx.ids.tmdb;
+  return Number.isInteger(id9) && Number.isInteger(ctx.season) && Number.isInteger(ctx.episode) ? { id: id9, season: ctx.season, episode: ctx.episode } : null;
+}
 function titleTmdbId(ctx) {
   if (!ctx) return null;
-  if (ctx.kind === "episode") {
-    const m = /^e:(\d+):/.exec(String(ctx.ref || ""));
-    if (m) return Number(m[1]);
-  }
+  const at = episodeOf(ctx);
+  if (at) return at.id;
   return ctx.ids && ctx.ids.tmdb || null;
 }
 
@@ -3133,7 +3152,7 @@ function copyTab(kino, ctx) {
   if (rows2.site) lines.push(text(both("copySite", { v: String(rows2.site).slice(0, LABEL_MAX) })));
   if (rows2.server) lines.push(text(both("copyServer", { v: String(SERVER_LABEL[rows2.server] || rows2.server).slice(0, LABEL_MAX) })));
   if (rows2.quality) lines.push(text(both("copyQuality", { v: String(rows2.quality).slice(0, LABEL_MAX) })));
-  const last = (ctx && ctx.ref ? readLast(kino, ctx.ref) : null) || readLatest(kino);
+  const last = (ctx && ctx.ref ? readLast(kino, plainRef(ctx.ref)) : null) || readLatest(kino);
   if (last && last.total > 0) {
     if (playing.label && last.chosen && last.chosen !== String(playing.label)) lines.push(text(both("copyManual", { v: last.chosen.slice(0, 100) })));
     else lines.push(text(last.total === 1 ? both("copyChosenOne") : both("copyChosen", { n: last.total })));
@@ -3189,13 +3208,17 @@ async function availTab(kino, ctx, { untilMs } = {}) {
   const tmdbId = titleTmdbId(ctx);
   if (!tmdbId) return { elements: [status(both("availNoTmdb"))] };
   const isMovie = ctx.kind === "movie";
+  const at = episodeOf(ctx);
+  const season = at ? at.season : ctx.season ?? null;
+  const episode = at ? at.episode : ctx.episode ?? null;
   const end = Math.min(untilMs ?? Infinity, Date.now() + BUDGET_MS);
   const settings = readSettings(kino);
   const enabled = normalizeSettings({ enabled: settings.enabled }).enabled;
-  const title = await titleContext(kino, { kind: isMovie ? "movie" : "tv", tmdbId, season: ctx.season ?? null, episode: ctx.episode ?? null }, { untilMs: end });
+  const title = await titleContext(kino, { kind: isMovie ? "movie" : "tv", tmdbId, season, episode }, { untilMs: end });
   let partial = false;
   const elements = [];
-  if (isMovie || ctx.season != null && ctx.episode != null) {
+  if (isMovie || season != null && episode != null) {
+    if (!isMovie) elements.push({ type: "text", text: `T${season} \xB7 E${episode}`, textEn: `S${season} \xB7 E${episode}` });
     const phaseMs = Math.max(1e3, end - Date.now() - SETTLE_MS);
     const { embeds, failed, answered } = await listEmbedsDetailed(kino, title, { enabled, phaseMs, cachePrefix: PANEL_EMB, ttlMs: PANEL_TTL_MS });
     if (failed.length) partial = true;
@@ -3219,7 +3242,7 @@ async function availTab(kino, ctx, { untilMs } = {}) {
       const seasons = [...new Set(episodes2.map((e) => e.season))];
       const gone = await missingSeasons(kino, title, seasons, { enabled, untilMs: end, cachePrefix: PANEL_AVAIL });
       if (gone.length) elements.push(text3(both("availSeasons", { v: gone.join(", ") })));
-      if (ctx.season != null && gone.includes(ctx.season)) elements.push(text3(both("availSeasonGone")));
+      if (season != null && gone.includes(season)) elements.push(text3(both("availSeasonGone")));
     } catch (e) {
       partial = true;
       try {
@@ -3353,11 +3376,6 @@ var PHASE_MS2 = 6e3;
 var TITLE_MAX = 60;
 var inflight = /* @__PURE__ */ new Map();
 var line = (m) => ({ type: "text", text: m.es, textEn: m.en });
-function where(ctx) {
-  const m = /^e:(\d+):(\d+):(\d+)$/.exec(String(ctx && ctx.ref || ""));
-  if (m) return { id: Number(m[1]), season: Number(m[2]), episode: Number(m[3]) };
-  return null;
-}
 async function seasonEpisodes(kino, id9, season, untilMs) {
   const s = await tmdb(kino, `/tv/${id9}/season/${season}`, { language: "es-MX" }, { untilMs });
   return s && Array.isArray(s.episodes) ? s.episodes : null;
@@ -3398,21 +3416,42 @@ function availabilityLine(r) {
   if (r.embeds.length) return line(both("nextSubOnly"));
   return r.failed.length || !r.answered.length ? null : line(both("nextNone"));
 }
+var why = (kino, reason) => {
+  try {
+    kino.log("[latino]", "strip", reason);
+  } catch (_) {
+  }
+};
 async function nextStrip(kino, ctx, { untilMs = Date.now() + 6e3, probeMs = PROBE_MS } = {}) {
   try {
-    if (!ctx || ctx.kind !== "episode" || !kino || typeof kino.tmdb !== "function") return [];
-    const at = where(ctx);
-    if (!at) return [];
+    if (!ctx || ctx.kind !== "episode") return [];
+    if (!kino || typeof kino.tmdb !== "function") {
+      why(kino, "no_tmdb");
+      return [];
+    }
+    const at = episodeOf(ctx);
+    if (!at) {
+      why(kino, "no_position");
+      return [];
+    }
     const next = await nextEpisode(kino, at, untilMs);
-    if (!next) return [];
+    if (!next) {
+      why(kino, "no_season_data");
+      return [];
+    }
     if (next.end) return [line(both("nextEnd", { s: next.end }))];
     const num = next.ep.episode_number;
     const head = line(both(next.nextSeason ? "nextSeason" : "nextEp", { s: next.season, e: num, tail: tailOf(next.ep) }));
     const r = await within(kino, lookup(kino, at.id, next.season, num, untilMs), Math.max(0, Math.min(probeMs, untilMs - Date.now())), null);
-    if (r.late || r.e || !r.v) return r.late ? [head, line(both("nextChecking"))] : [head];
+    if (r.late) return [head, line(both("nextChecking"))];
+    if (r.e || !r.v) {
+      why(kino, "lookup_" + (r.e && r.e.code || "failed"));
+      return [head];
+    }
     const avail = availabilityLine(r.v);
     return avail ? [head, avail] : [head];
-  } catch (_) {
+  } catch (e) {
+    why(kino, "error_" + (e && e.code || "unknown"));
     return [];
   }
 }

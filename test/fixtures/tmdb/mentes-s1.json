@@ -1,0 +1,162 @@
+{
+ "_id": "52575b0319c29531db17f80c",
+ "air_date": "2005-09-22",
+ "name": "Temporada 1",
+ "season_number": 1,
+ "episodes": [
+  {
+   "episode_number": 1,
+   "season_number": 1,
+   "name": "Agresor extremo",
+   "runtime": 40,
+   "air_date": "2005-09-22"
+  },
+  {
+   "episode_number": 2,
+   "season_number": 1,
+   "name": "Obligación",
+   "runtime": 43,
+   "air_date": "2005-09-28"
+  },
+  {
+   "episode_number": 3,
+   "season_number": 1,
+   "name": "No me engañarás otra vez",
+   "runtime": 41,
+   "air_date": "2005-10-05"
+  },
+  {
+   "episode_number": 4,
+   "season_number": 1,
+   "name": "A simple vista",
+   "runtime": 40,
+   "air_date": "2005-10-12"
+  },
+  {
+   "episode_number": 5,
+   "season_number": 1,
+   "name": "Espejo roto",
+   "runtime": 42,
+   "air_date": "2005-10-19"
+  },
+  {
+   "episode_number": 6,
+   "season_number": 1,
+   "name": "Asesino serial a larga distancia",
+   "runtime": 40,
+   "air_date": "2005-11-02"
+  },
+  {
+   "episode_number": 7,
+   "season_number": 1,
+   "name": "El zorro",
+   "runtime": 42,
+   "air_date": "2005-11-09"
+  },
+  {
+   "episode_number": 8,
+   "season_number": 1,
+   "name": "Asesino nato",
+   "runtime": 42,
+   "air_date": "2005-11-16"
+  },
+  {
+   "episode_number": 9,
+   "season_number": 1,
+   "name": "Descarrilado",
+   "runtime": 41,
+   "air_date": "2005-11-23"
+  },
+  {
+   "episode_number": 10,
+   "season_number": 1,
+   "name": "Los niños buenos",
+   "runtime": 41,
+   "air_date": "2005-11-30"
+  },
+  {
+   "episode_number": 11,
+   "season_number": 1,
+   "name": "Hambriento de sangre",
+   "runtime": 43,
+   "air_date": "2005-12-14"
+  },
+  {
+   "episode_number": 12,
+   "season_number": 1,
+   "name": "Lo que faltaba",
+   "runtime": 43,
+   "air_date": "2006-01-11"
+  },
+  {
+   "episode_number": 13,
+   "season_number": 1,
+   "name": "Veneno",
+   "runtime": 40,
+   "air_date": "2006-01-18"
+  },
+  {
+   "episode_number": 14,
+   "season_number": 1,
+   "name": "Alcanzar el relámpago",
+   "runtime": 43,
+   "air_date": "2006-01-25"
+  },
+  {
+   "episode_number": 15,
+   "season_number": 1,
+   "name": "Asuntos pendientes",
+   "runtime": 41,
+   "air_date": "2006-03-01"
+  },
+  {
+   "episode_number": 16,
+   "season_number": 1,
+   "name": "La tribu",
+   "runtime": 43,
+   "air_date": "2006-03-08"
+  },
+  {
+   "episode_number": 17,
+   "season_number": 1,
+   "name": "Lluvia de verdad",
+   "runtime": 42,
+   "air_date": "2006-03-22"
+  },
+  {
+   "episode_number": 18,
+   "season_number": 1,
+   "name": "Alguien te vigila",
+   "runtime": 42,
+   "air_date": "2006-03-29"
+  },
+  {
+   "episode_number": 19,
+   "season_number": 1,
+   "name": "Machismo",
+   "runtime": 41,
+   "air_date": "2006-04-12"
+  },
+  {
+   "episode_number": 20,
+   "season_number": 1,
+   "name": "Daño y encanto",
+   "runtime": 41,
+   "air_date": "2006-04-19"
+  },
+  {
+   "episode_number": 21,
+   "season_number": 1,
+   "name": "Secretos y mentiras",
+   "runtime": 42,
+   "air_date": "2006-05-03"
+  },
+  {
+   "episode_number": 22,
+   "season_number": 1,
+   "name": "El rey pescador",
+   "runtime": 41,
+   "air_date": "2006-05-10"
+  }
+ ]
+}

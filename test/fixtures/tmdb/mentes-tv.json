@@ -1,0 +1,106 @@
+{
+ "id": 4057,
+ "name": "Mentes Criminales",
+ "original_name": "Criminal Minds",
+ "first_air_date": "2005-09-22",
+ "last_air_date": "2026-07-23",
+ "episode_run_time": [],
+ "vote_average": 8.3,
+ "external_ids": {
+  "imdb_id": "tt0452046",
+  "freebase_mid": "/m/06x5rm",
+  "freebase_id": "/en/criminal_minds",
+  "tvdb_id": 75710,
+  "tvrage_id": 3171,
+  "wikidata_id": "Q202141",
+  "facebook_id": "CriminalMinds",
+  "instagram_id": "criminalminds",
+  "twitter_id": "criminalminds"
+ },
+ "number_of_seasons": 19,
+ "seasons": [
+  {
+   "season_number": 0,
+   "episode_count": 1
+  },
+  {
+   "season_number": 1,
+   "episode_count": 22
+  },
+  {
+   "season_number": 2,
+   "episode_count": 23
+  },
+  {
+   "season_number": 3,
+   "episode_count": 20
+  },
+  {
+   "season_number": 4,
+   "episode_count": 26
+  },
+  {
+   "season_number": 5,
+   "episode_count": 23
+  },
+  {
+   "season_number": 6,
+   "episode_count": 24
+  },
+  {
+   "season_number": 7,
+   "episode_count": 24
+  },
+  {
+   "season_number": 8,
+   "episode_count": 24
+  },
+  {
+   "season_number": 9,
+   "episode_count": 24
+  },
+  {
+   "season_number": 10,
+   "episode_count": 23
+  },
+  {
+   "season_number": 11,
+   "episode_count": 22
+  },
+  {
+   "season_number": 12,
+   "episode_count": 22
+  },
+  {
+   "season_number": 13,
+   "episode_count": 22
+  },
+  {
+   "season_number": 14,
+   "episode_count": 15
+  },
+  {
+   "season_number": 15,
+   "episode_count": 10
+  },
+  {
+   "season_number": 16,
+   "episode_count": 10
+  },
+  {
+   "season_number": 17,
+   "episode_count": 10
+  },
+  {
+   "season_number": 18,
+   "episode_count": 10
+  },
+  {
+   "season_number": 19,
+   "episode_count": 10
+  }
+ ],
+ "translations": {
+  "translations": []
+ }
+}

@@ -8,6 +8,7 @@ import { listEmbedsDetailed, normalizeSettings } from "../resolver.js";
 import { readSettings } from "../settings.js";
 import { tmdb, titleContext } from "../tmdb.js";
 import { within } from "../util/time.js";
+import { episodeOf } from "./ids.js";
 import { PANEL_EMB, PANEL_TTL_MS, siteLabel } from "./avail.js";
 
 const PROBE_MS = 2500;
@@ -16,13 +17,6 @@ const TITLE_MAX = 60;
 const inflight = new Map(); // cache key -> the running lookup
 
 const line = (m) => ({ type: "text", text: m.es, textEn: m.en });
-
-/** `{ id, season, episode }` of an episode context (the ref is `e:<series>:<season>:<episode>`), or null. */
-function where(ctx) {
-  const m = /^e:(\d+):(\d+):(\d+)$/.exec(String((ctx && ctx.ref) || ""));
-  if (m) return { id: Number(m[1]), season: Number(m[2]), episode: Number(m[3]) };
-  return null;
-}
 
 async function seasonEpisodes(kino, id, season, untilMs) {
   const s = await tmdb(kino, `/tv/${id}/season/${season}`, { language: "es-MX" }, { untilMs });
@@ -72,22 +66,27 @@ function availabilityLine(r) {
   return r.failed.length || !r.answered.length ? null : line(both("nextNone"));
 }
 
-/** The strip's elements (one or two text lines), or [] whenever it has nothing sure to show. Never throws. */
+const why = (kino, reason) => { try { kino.log("[latino]", "strip", reason); } catch (_) { /* logging is optional */ } };
+
+/** The strip's elements (one or two text lines), or [] whenever it has nothing sure to show (the reason is logged). Never throws. */
 export async function nextStrip(kino, ctx, { untilMs = Date.now() + 6000, probeMs = PROBE_MS } = {}) {
   try {
-    if (!ctx || ctx.kind !== "episode" || !kino || typeof kino.tmdb !== "function") return [];
-    const at = where(ctx);
-    if (!at) return [];
+    if (!ctx || ctx.kind !== "episode") return [];
+    if (!kino || typeof kino.tmdb !== "function") { why(kino, "no_tmdb"); return []; }
+    const at = episodeOf(ctx);
+    if (!at) { why(kino, "no_position"); return []; }
     const next = await nextEpisode(kino, at, untilMs);
-    if (!next) return [];
+    if (!next) { why(kino, "no_season_data"); return []; }
     if (next.end) return [line(both("nextEnd", { s: next.end }))];
     const num = next.ep.episode_number;
     const head = line(both(next.nextSeason ? "nextSeason" : "nextEp", { s: next.season, e: num, tail: tailOf(next.ep) }));
     const r = await within(kino, lookup(kino, at.id, next.season, num, untilMs), Math.max(0, Math.min(probeMs, untilMs - Date.now())), null);
-    if (r.late || r.e || !r.v) return r.late ? [head, line(both("nextChecking"))] : [head];
+    if (r.late) return [head, line(both("nextChecking"))];
+    if (r.e || !r.v) { why(kino, "lookup_" + ((r.e && r.e.code) || "failed")); return [head]; }
     const avail = availabilityLine(r.v);
     return avail ? [head, avail] : [head];
-  } catch (_) {
+  } catch (e) {
+    why(kino, "error_" + ((e && e.code) || "unknown"));
     return [];
   }
 }
