@@ -33,6 +33,27 @@ recibe una copia en tu idioma y las demás como alternativas en el menú Servido
 Los ajustes se sincronizan entre tus aparatos. El plugin comparte con Kino registros de errores
 (`telemetry`) y avisa cuando una fuente falla tres veces seguidas.
 
+## Panel del reproductor
+
+Desde 1.1.0, mientras ves un título, el botón Latino del reproductor abre un panel con cinco pestañas:
+
+- **Esta copia**: idioma, calidad y servidor de lo que estás viendo, con datos de la reproducción.
+- **Resumen**: sinopsis, reparto y datos del título (TMDB).
+- **Disponibilidad**: en qué fuentes está el título y en qué idioma.
+- **Preferencias**: idioma preferido y calidad máxima. Lo que cambies aquí manda sobre los ajustes del
+  plugin hasta que lo restablezcas.
+- **Si falla**: pistas cuando la copia no carga y un aviso para reportar una copia mala.
+
+**Requiere Kino 0.9.55 o más reciente** (apiVersion 9). Si tienes Kino 0.9.54 o anterior, te quedas en la
+versión 1.0.3 del plugin.
+
+### Player panel (English)
+
+Since 1.1.0 the player's Latino button opens a panel with five tabs: This copy, Summary, Availability,
+Preferences and If it fails. Preferences changed in the panel are stored by the plugin and win over the
+plugin settings until reset. **It needs Kino 0.9.55 or newer** (apiVersion 9); Kino 0.9.54 or older
+stays on version 1.0.3.
+
 ## Desarrollo
 
 ```

@@ -348,7 +348,7 @@ var kino_plugin_default = {
   panel: {
     label: "Latino",
     labelEn: "Latino",
-    icon: "language"
+    iconFile: "panel-icon.png"
   },
   entry: "plugin.js",
   icon: "icon.png",
