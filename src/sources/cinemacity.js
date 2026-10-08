@@ -2,7 +2,6 @@
 // Search via /?do=search, parse results, decode atob scripts, navigate season/episode folders.
 // No external embed hosts — streams are direct URLs (m3u8/mp4). Ported from Nuvio Latino (src/cinemacity/).
 import { orEmpty, toEmbeds } from "./wpapi.js";
-import { normLang } from "../util/lang.js";
 
 export const id = "cinemacity";
 export const name = "CinemaCity";
