@@ -68,12 +68,14 @@ test("scoped search: filters that page's listing by every word; another plugin's
 
 // ---------- home ----------
 
-test("home: three rows from the listings, each with ref (Ver más), genre and dressed items", async () => {
+test("home: rows from the listings, each with ref (Ver más), genre and dressed items", async () => {
   install({ routes: LISTINGS });
   const rows = await plugin.home(null);
-  assert.deepEqual(rows.map((r) => r.title), ["Estrenos en latino", "Series en latino", "Recién agregadas"]);
-  assert.deepEqual(rows.map((r) => r.ref), ["latest:lamovie:movie", "latest:lamovie:tv", "latest:hackstore:movie"]);
-  assert.deepEqual(rows.map((r) => r.genre), ["peliculas", "series", "peliculas"]);
+  // First three rows are the "latest" rows; genre rows follow.
+  assert.ok(rows.length >= 3);
+  assert.deepEqual(rows.slice(0, 3).map((r) => r.title), ["Estrenos en latino", "Series en latino", "Recién agregadas"]);
+  assert.deepEqual(rows.slice(0, 3).map((r) => r.ref), ["latest:lamovie:movie", "latest:lamovie:tv", "latest:hackstore:movie"]);
+  assert.deepEqual(rows.slice(0, 3).map((r) => r.genre), ["peliculas", "series", "peliculas"]);
   const una = rows[0].items.find((i) => i.title === "UNABOMBER");
   assert.equal(una.id, "lm-90152");
   assert.equal(una.ref, "lm:90152:movie:unabomber-2026:2026");
@@ -99,14 +101,21 @@ test("home: three rows from the listings, each with ref (Ver más), genre and dr
 test("home: a row whose listing fails is dropped, the rest stay", async () => {
   install({ routes: [[/hackstore2\.com/, down], ...LISTINGS] });
   const rows = await plugin.home(null);
-  assert.deepEqual(rows.map((r) => r.id), ["lm-movies", "lm-series"]);
+  const ids = rows.map((r) => r.id);
+  assert.ok(ids.includes("lm-movies"));
+  assert.ok(ids.includes("lm-series"));
+  assert.ok(!ids.includes("hs-latest")); // hackstore down: its latest row dropped
 });
 
 test("home: homeRows off gives no rows; a source turned off hides its rows", async () => {
   install({ routes: LISTINGS, config: { homeRows: false } });
   assert.deepEqual(await plugin.home(null), []);
   install({ routes: LISTINGS, config: { src_lamovie: false } });
-  assert.deepEqual((await plugin.home(null)).map((r) => r.id), ["hs-latest"]);
+  const ids = (await plugin.home(null)).map((r) => r.id);
+  // LaMovie-only latest rows are gone; genre rows fall back to HackStore; hs-latest stays.
+  assert.ok(ids.includes("hs-latest"));
+  assert.ok(!ids.includes("lm-movies"));
+  assert.ok(!ids.includes("lm-series"));
 });
 
 test("home rows in English when Kino speaks English", async () => {
@@ -145,7 +154,7 @@ test("section: Inicio with a featured title, Películas and Series tabs", async 
   assert.deepEqual(home.tabs.map((x) => x.label), ["Inicio", "Películas", "Series"]);
   assert.equal(home.tab, "inicio");
   assert.ok(home.hero && home.hero.title && home.hero.image && home.hero.text.length <= 300);
-  assert.equal(home.rows.length, 3);
+  assert.ok(home.rows.length >= 3);
   const series = await plugin.section({ tab: "series" });
   assert.equal(series.tab, "series");
   assert.equal(series.hero, undefined);

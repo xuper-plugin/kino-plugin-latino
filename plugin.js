@@ -1,7 +1,7 @@
 var __defProp = Object.defineProperty;
 var __export = (target, all) => {
-  for (var name9 in all)
-    __defProp(target, name9, { get: all[name9], enumerable: true });
+  for (var name19 in all)
+    __defProp(target, name19, { get: all[name19], enumerable: true });
 };
 
 // src/util/time.js
@@ -70,8 +70,8 @@ async function tmdb(kino, path, params, { untilMs, maxMs = TMDB_MS } = {}) {
 var year = (d) => typeof d === "string" && /^\d{4}/.test(d) ? Number(d.slice(0, 4)) : null;
 var img = (size, p) => p ? IMG + size + p : null;
 function translated(translations, country) {
-  const list9 = translations && translations.translations || [];
-  const hit = list9.find((t2) => t2.iso_3166_1 === country && t2.iso_639_1 === (country === "US" ? "en" : "es") && t2.data && (t2.data.title || t2.data.name));
+  const list19 = translations && translations.translations || [];
+  const hit = list19.find((t2) => t2.iso_3166_1 === country && t2.iso_639_1 === (country === "US" ? "en" : "es") && t2.data && (t2.data.title || t2.data.name));
   return hit ? hit.data.title || hit.data.name : "";
 }
 async function titleContext(kino, { kind, tmdbId, season = null, episode = null }, { untilMs } = {}) {
@@ -343,7 +343,7 @@ __export(streamwish_exports, {
 var kino_plugin_default = {
   id: "latino",
   name: "Latino",
-  version: "1.1.0",
+  version: "2.0.0",
   apiVersion: 9,
   panel: {
     label: "Latino",
@@ -365,6 +365,7 @@ var kino_plugin_default = {
     "seriesflixhd.casa",
     "seriesflixhd.best",
     "embed69.org",
+    "mg.homelabx.qzz.io",
     "player.pelisserieshoy.com",
     "proyectox.yoyatengoabuela.com",
     "goodstream.one",
@@ -412,7 +413,22 @@ var kino_plugin_default = {
     "nupload.me",
     "*.nupload.me",
     "nupload.my",
-    "*.nupload.my"
+    "*.nupload.my",
+    "xupalace.org",
+    "www.pelisplushd.la",
+    "pelisplushd.la",
+    "www.fuegocine.com",
+    "fuegocine.com",
+    "drive.usercontent.google.com",
+    "pelisgo.online",
+    "pelispanda.org",
+    "api.videasy.net",
+    "api2.videasy.net",
+    "enc-dec.app",
+    "cuevana.unbuendato.com",
+    "www.playhubmax.com",
+    "api.playhubmax.com",
+    "cinemacity.cc"
   ],
   capabilities: [
     "search",
@@ -855,10 +871,10 @@ function playerMetadata(html) {
 }
 var order = (h) => h == null ? 99999 : h <= 1080 ? 1080 - h : 1e3 + h;
 function renditions(meta) {
-  const list9 = meta && Array.isArray(meta.videos) ? meta.videos : [];
-  return list9.filter((v) => v && typeof v.url === "string" && /^https?:\/\//i.test(v.url) && !v.disallowed).map((v) => {
-    const name9 = String(v.name || "").toLowerCase();
-    return { name: name9, height: HEIGHT_OF[name9] ?? null, url: v.url };
+  const list19 = meta && Array.isArray(meta.videos) ? meta.videos : [];
+  return list19.filter((v) => v && typeof v.url === "string" && /^https?:\/\//i.test(v.url) && !v.disallowed).map((v) => {
+    const name19 = String(v.name || "").toLowerCase();
+    return { name: name19, height: HEIGHT_OF[name19] ?? null, url: v.url };
   }).filter((v) => v.height !== HEIGHT_OF.mobile).sort((a, b) => order(a.height) - order(b.height));
 }
 async function extract7(embedUrl, req, kino) {
@@ -886,13 +902,13 @@ async function extract8(embedUrl, req, kino) {
   const html = r.text();
   const arr = /([A-Za-z]+)\.forEach\s*\(function\s+\w+\s*\(value\)\s*\{[^}]+atob/.exec(html);
   if (!arr) return miss(kino, "nupload", "no encoded address");
-  const name9 = arr[1];
-  const off = new RegExp(name9 + "\\.forEach[^-]+-\\s*(\\d+)").exec(html);
-  const list9 = new RegExp("var\\s+" + name9 + "\\s*=\\s*(\\[[^\\]]+\\])").exec(html);
+  const name19 = arr[1];
+  const off = new RegExp(name19 + "\\.forEach[^-]+-\\s*(\\d+)").exec(html);
+  const list19 = new RegExp("var\\s+" + name19 + "\\s*=\\s*(\\[[^\\]]+\\])").exec(html);
   const sesz = /var sesz\s*=\s*"([^"]+)"/.exec(html);
-  if (!off || !list9 || !sesz) return miss(kino, "nupload", "encoded address incomplete");
+  if (!off || !list19 || !sesz) return miss(kino, "nupload", "encoded address incomplete");
   let path = "";
-  for (const v of JSON.parse(list9[1])) {
+  for (const v of JSON.parse(list19[1])) {
     path += String.fromCharCode(parseInt(atob(v).replace(/\D/g, ""), 10) - parseInt(off[1], 10));
   }
   let url;
@@ -913,8 +929,8 @@ function extractorFor(embedUrl) {
   } catch (_) {
     return null;
   }
-  for (const [name9, mod] of Object.entries(TABLE)) {
-    if (mod.HOSTS.some((h) => host === h || host.endsWith("." + h))) return { name: name9, extract: mod.extract };
+  for (const [name19, mod] of Object.entries(TABLE)) {
+    if (mod.HOSTS.some((h) => host === h || host.endsWith("." + h))) return { name: name19, extract: mod.extract };
   }
   return null;
 }
@@ -1051,7 +1067,7 @@ function siteRef(prefix, postId, kind, slug, year2) {
 }
 var LANG_ORDER = ["lat", "esp", "sub"];
 var qualityRank = (q) => Number(/^(\d+)p$/.exec(q || "")?.[1] || 0);
-var namesQuality = (name9) => /\d|4k|uhd|full\s?hd|fhd/i.test(name9 || "") ? qualityOf(name9) : null;
+var namesQuality = (name19) => /\d|4k|uhd|full\s?hd|fhd/i.test(name19 || "") ? qualityOf(name19) : null;
 function toItem(post4, { prefix, base, tables = {} }) {
   const tv = post4.type === "tvshows" || post4.type === "animes";
   const kind = tv ? "tv" : "movie";
@@ -1084,7 +1100,7 @@ function toItem(post4, { prefix, base, tables = {} }) {
   if (best) item3.quality = best;
   return item3;
 }
-var bySlug = (table) => Object.fromEntries(Object.entries(table).map(([slug, id9]) => [String(id9), slug]));
+var bySlug = (table) => Object.fromEntries(Object.entries(table).map(([slug, id19]) => [String(id19), slug]));
 function parseSiteRef(ref) {
   const m = /^(lm|hs):(\d{1,12}):(movie|tv)(?::([a-z0-9-]{0,200}))?(?::(\d{4}))?$/.exec(String(ref || ""));
   return m ? { prefix: m[1], postId: m[2], kind: m[3], slug: m[4] || "", year: m[5] ? Number(m[5]) : null } : null;
@@ -1197,7 +1213,7 @@ async function findPostId(title, req) {
     return pageId(html);
   }, tv ? 8 : 6);
 }
-var seasonNumbers = (list9) => Array.isArray(list9) ? [...new Set(list9.map(Number).filter((n) => Number.isInteger(n) && n >= 1))] : null;
+var seasonNumbers = (list19) => Array.isArray(list19) ? [...new Set(list19.map(Number).filter((n) => Number.isInteger(n) && n >= 1))] : null;
 async function episodeLookup(seriesId, season, episode, req) {
   const j = await getJson(req, `${API}/single/episodes/list?_id=${seriesId}&season=${season}&page=1&postsPerPage=100`);
   if (!j || !j.data) return null;
@@ -1515,16 +1531,16 @@ async function episodeHit(title, req, onMissing = () => {
     if (!r.ok) return null;
     const post4 = /data-post="(\d+)"/.exec(r.text());
     if (!post4) return null;
-    const list9 = await req(`${SITE4}/wp-admin/admin-ajax.php`, {
+    const list19 = await req(`${SITE4}/wp-admin/admin-ajax.php`, {
       method: "POST",
       headers: { Referer: `${SITE4}/serie/${slug}/` },
       body: { form: { action: "action_select_season", season: String(title.season), post: post4[1] } }
     });
-    if (!list9.ok) return null;
+    if (!list19.ok) return null;
     const wantS = Number(title.season), wantE = Number(title.episode);
     let href = null;
     let seasonSeen = false;
-    for (const m of list9.text().matchAll(/href="([^"]+\/capitulo\/[^"]+)"/g)) {
+    for (const m of list19.text().matchAll(/href="([^"]+\/capitulo\/[^"]+)"/g)) {
       const n = /temporada-(\d+)-capitulo-(\d+)/i.exec(m[1]);
       if (!n || Number(n[1]) !== wantS) continue;
       seasonSeen = true;
@@ -1673,8 +1689,8 @@ function decryptLink(kino, keyHex, b64) {
   return kino.crypto.decrypt("aes-256-cbc", { key: keyHex, keyEncoding: "hex", iv: ivHex, ivEncoding: "hex", data: btoa(raw.slice(16)) });
 }
 var MAX_DIFFICULTY = 4;
-var quoted = (html, name9) => {
-  const m = new RegExp(name9 + "\\s*=\\s*'([^']*)'").exec(html);
+var quoted = (html, name19) => {
+  const m = new RegExp(name19 + "\\s*=\\s*'([^']*)'").exec(html);
   return m ? m[1] : null;
 };
 async function list6(title, { kino, req }) {
@@ -1883,9 +1899,845 @@ async function list8(title, { req }) {
   });
 }
 
+// src/sources/deepflix.js
+var deepflix_exports = {};
+__export(deepflix_exports, {
+  HOSTS: () => HOSTS18,
+  ORIGIN: () => ORIGIN9,
+  id: () => id9,
+  kinds: () => kinds9,
+  list: () => list9,
+  name: () => name9,
+  streamPath: () => streamPath
+});
+var id9 = "deepflix";
+var name9 = "DeepFlix";
+var kinds9 = ["movie", "tv"];
+var HOSTS18 = ["mg.homelabx.qzz.io"];
+var SITE9 = "https://mg.homelabx.qzz.io";
+var ORIGIN9 = SITE9;
+function streamPath(title) {
+  if (!title || !/^tt\d{5,12}$/.test(String(title.imdbId || ""))) return null;
+  if (title.kind === "tv") {
+    if (title.season == null || title.episode == null) return null;
+    const s = Number(title.season), e = Number(title.episode);
+    if (!Number.isInteger(s) || !Number.isInteger(e) || s < 0 || e < 1) return null;
+    return `series/${title.imdbId}:${s}:${e}`;
+  }
+  return `movie/${title.imdbId}`;
+}
+async function list9(title, { req }) {
+  const path = streamPath(title);
+  if (!path) return [];
+  return orEmpty(async () => {
+    const r = await req(`${SITE9}/stream/${path}.json`);
+    if (!r.ok) return [];
+    let streams;
+    try {
+      streams = JSON.parse(r.text()).streams;
+    } catch (_) {
+      return [];
+    }
+    if (!Array.isArray(streams)) return [];
+    const out = [];
+    for (const s of streams) {
+      const url = s && s.url;
+      if (typeof url !== "string" || !url.startsWith(SITE9 + "/resolve/")) continue;
+      if (out.some((e) => e.embedUrl === url)) continue;
+      out.push({ source: id9, lang: "lat", server: "direct", embedUrl: url, quality: null });
+    }
+    return out;
+  });
+}
+
+// src/sources/xupalace.js
+var xupalace_exports = {};
+__export(xupalace_exports, {
+  HOSTS: () => HOSTS19,
+  ORIGIN: () => ORIGIN10,
+  id: () => id10,
+  kinds: () => kinds10,
+  list: () => list10,
+  name: () => name10
+});
+var id10 = "xupalace";
+var name10 = "XuPalace";
+var kinds10 = ["movie", "tv"];
+var HOSTS19 = ["xupalace.org"];
+var SITE10 = "https://xupalace.org";
+var ORIGIN10 = SITE10;
+var LANG_CODES2 = { "0": "lat", "1": "esp", "2": "sub" };
+function parseEmbeds(html) {
+  const rows2 = [];
+  const vastRe = /go_to_playerVast\(['"]([^'"]{10,})['"]\)/g;
+  let m;
+  while ((m = vastRe.exec(html)) !== null) {
+    const url = m[1];
+    const before = html.slice(Math.max(0, m.index - 600), m.index);
+    const langRe = /data-lang="(\d)"/g;
+    let langM, lastLang = null;
+    while ((langM = langRe.exec(before)) !== null) lastLang = langM[1];
+    if (lastLang == null) continue;
+    const lang = LANG_CODES2[lastLang];
+    if (!lang) continue;
+    rows2.push({ url, lang, server: "" });
+  }
+  return rows2;
+}
+async function list10(title, { req }) {
+  const tv = title.kind === "tv";
+  if (tv && (title.season == null || title.episode == null)) return [];
+  const slugs = titleSlugs(title.titles, title.year);
+  if (!slugs.length) return [];
+  const sfx = tv ? `-${Number(title.season)}x${String(title.episode).padStart(2, "0")}` : "";
+  const rows2 = await firstHit(slugs, async (slug) => {
+    const r = await req(`${SITE10}/video/${slug}${sfx}/`, { headers: { "Accept-Language": "es-MX,es;q=0.9" } });
+    if (!r.ok) return null;
+    const found = parseEmbeds(r.text());
+    return found.length ? found : null;
+  });
+  return toEmbeds(id10, rows2 || []);
+}
+
+// src/sources/pelisplus.js
+var pelisplus_exports = {};
+__export(pelisplus_exports, {
+  HOSTS: () => HOSTS20,
+  ORIGIN: () => ORIGIN11,
+  id: () => id11,
+  kinds: () => kinds11,
+  list: () => list11,
+  name: () => name11
+});
+var id11 = "pelisplus";
+var name11 = "PelisPlusHD";
+var kinds11 = ["movie", "tv"];
+var HOSTS20 = ["www.pelisplushd.la", "pelisplushd.la"];
+var SITE11 = "https://www.pelisplushd.la";
+var ORIGIN11 = SITE11;
+var HEADERS3 = { Referer: SITE11 + "/", "Accept-Language": "es-MX,es;q=0.9" };
+var MAX_EMBEDS = 6;
+function normalize(text5) {
+  return String(text5 || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ").trim();
+}
+var STOPS = /* @__PURE__ */ new Set(["para", "como", "este", "esta", "una", "uno", "las", "los", "del", "por", "con", "que", "desde"]);
+function sigWords(text5) {
+  return normalize(text5).split(" ").filter((w) => w.length > 3 && !STOPS.has(w));
+}
+function titleMatches(candidate, query) {
+  const qWords = sigWords(query);
+  if (!qWords.length) return false;
+  const cWords = new Set(sigWords(candidate));
+  return qWords.filter((w) => cWords.has(w)).length / qWords.length >= 0.8;
+}
+function dataAttr(tag, name19) {
+  const m = new RegExp(`\\bdata-${name19}="([^"]*)"`, "i").exec(tag);
+  return m ? m[1] : "";
+}
+function parseEmbeds2(html) {
+  const rows2 = [];
+  const seen = /* @__PURE__ */ new Set();
+  const liRe = /<li([^>]*(?:data-url=|data-id=|playurl)[^>]*)>([\s\S]*?)<\/li>/gi;
+  let m;
+  while ((m = liRe.exec(html)) !== null && rows2.length < MAX_EMBEDS) {
+    const tag = m[1];
+    const inner = m[2];
+    const langName = dataAttr(tag, "name") || dataAttr(tag, "title") || "";
+    const lang = normLang(langName);
+    if (!lang) continue;
+    const url = dataAttr(tag, "url");
+    const embedId = dataAttr(tag, "id");
+    const tipo = dataAttr(tag, "tipo");
+    const server = inner.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim().split(/\s/)[0] || "";
+    const key = url || embedId;
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    rows2.push({ url, lang, server, embedId, tipo });
+  }
+  return rows2;
+}
+async function resolveIds(rows2, req) {
+  return Promise.all(rows2.map(async (row) => {
+    if (row.url) return row;
+    if (!row.embedId) return null;
+    const r = await req(
+      `${SITE11}/ajax/embed?id=${encodeURIComponent(row.embedId)}&tipo=${encodeURIComponent(row.tipo || "")}`,
+      { headers: { ...HEADERS3, "X-Requested-With": "XMLHttpRequest" } }
+    );
+    if (!r.ok) return null;
+    try {
+      const data = JSON.parse(r.text());
+      const url = typeof data === "string" ? data : data && data.url || "";
+      return url ? { ...row, url } : null;
+    } catch (_) {
+      return null;
+    }
+  }));
+}
+async function findPage2(titles, kind, req) {
+  const path = kind === "tv" ? "/serie/" : "/pelicula/";
+  const candidates = [titles.esMX, titles.esES, titles.en, titles.original].filter(Boolean).filter((v, i, a) => a.indexOf(v) === i).slice(0, 4);
+  return firstHit(candidates, async (term) => {
+    const r = await req(`${SITE11}/search?s=${encodeURIComponent(term)}`, { headers: HEADERS3 });
+    if (!r.ok) return null;
+    const html = r.text();
+    const anchorRe = /<a[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi;
+    let m;
+    while ((m = anchorRe.exec(html)) !== null) {
+      const href = m[1];
+      if (!href.includes(path)) continue;
+      const dtM = /data-title="([^"]*)"/i.exec(m[0]);
+      const pM = /<p[^>]*>([\s\S]*?)<\/p>/i.exec(m[2]);
+      const rawTitle = (dtM ? dtM[1] : pM ? pM[1] : m[2]).replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim().replace(/^VER\s+/i, "").replace(/\s+Online.*$/i, "").replace(/\s*\(\d{4}\)\s*$/, "").trim();
+      if (rawTitle && (titleMatches(rawTitle, term) || titleMatches(rawTitle, titles.esMX || "") || titleMatches(rawTitle, titles.original || ""))) {
+        return href;
+      }
+    }
+    return null;
+  }, 4);
+}
+async function list11(title, { req }) {
+  const tv = title.kind === "tv";
+  if (tv && (title.season == null || title.episode == null)) return [];
+  return orEmpty(async () => {
+    const basePage = await findPage2(title.titles || {}, title.kind, req);
+    if (!basePage) return [];
+    const contentUrl = tv ? `${basePage.replace(/\/$/, "")}/temporada/${Number(title.season)}/capitulo/${Number(title.episode)}` : basePage;
+    const r = await req(contentUrl, { headers: HEADERS3 });
+    if (!r.ok) return [];
+    const raw = parseEmbeds2(r.text());
+    if (!raw.length) return [];
+    const resolved = (await resolveIds(raw, req)).filter(Boolean).filter((row) => /^https?:\/\//i.test(row.url));
+    return toEmbeds(id11, resolved.map((row) => ({ url: row.url, lang: row.lang, server: row.server })));
+  });
+}
+
+// src/sources/fuegocine.js
+var fuegocine_exports = {};
+__export(fuegocine_exports, {
+  HOSTS: () => HOSTS21,
+  ORIGIN: () => ORIGIN12,
+  id: () => id12,
+  kinds: () => kinds12,
+  list: () => list12,
+  name: () => name12
+});
+var id12 = "fuegocine";
+var name12 = "FuegoCine";
+var kinds12 = ["movie", "tv"];
+var HOSTS21 = ["www.fuegocine.com", "fuegocine.com"];
+var SITE12 = "https://www.fuegocine.com";
+var ORIGIN12 = SITE12;
+var HEADERS4 = { Referer: SITE12 + "/", "Accept-Language": "es-MX,es;q=0.9" };
+var MAX_LINKS = 8;
+function stripAccents(s) {
+  return String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "");
+}
+function norm(s) {
+  return stripAccents(s).toLowerCase().replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ").trim();
+}
+function feedMatches(feedTitle, query) {
+  const nText = norm(feedTitle);
+  const qWords = norm(query).split(" ").filter((w) => w.length > 2);
+  return qWords.length > 0 && qWords.every((w) => nText.includes(w));
+}
+function unwrap2(url) {
+  if (!url) return url;
+  try {
+    const u = new URL(url);
+    const r = u.searchParams.get("r");
+    if (r) {
+      try {
+        return unwrap2(atob(r));
+      } catch (_) {
+      }
+    }
+    const link = u.searchParams.get("link");
+    if (link) {
+      try {
+        return unwrap2(decodeURIComponent(link));
+      } catch (_) {
+      }
+    }
+    const dm = /drive\.google\.com\/(?:file\/d\/|open\?id=|uc\?id=)([A-Za-z0-9_-]+)/.exec(url);
+    if (dm) return `https://drive.usercontent.google.com/download?id=${dm[1]}&export=download&confirm=t`;
+  } catch (_) {
+  }
+  return url;
+}
+function strVal(block, key) {
+  const m = new RegExp(`\\b${key}\\s*:\\s*["']([^"'\\\\]*)["']`).exec(block);
+  return m ? m[1].replace(/&amp;/g, "&").replace(/[✅✔]/g, "").trim() : "";
+}
+function parseLinks(html) {
+  const m = /const\s+_SV_LINKS\s*=\s*\[([\s\S]*?)\]\s*;/.exec(html);
+  if (!m) return [];
+  const block = m[1];
+  const rows2 = [];
+  const entryRe = /\{([^}]+)\}/g;
+  let em;
+  while ((em = entryRe.exec(block)) !== null && rows2.length < MAX_LINKS) {
+    const e = em[1];
+    const lang = strVal(e, "lang") || "lat";
+    const name19 = strVal(e, "name");
+    const quality = strVal(e, "quality") || "HD";
+    const url = unwrap2(strVal(e, "url"));
+    if (!url || !/^https?:\/\//i.test(url)) continue;
+    rows2.push({ url, lang, server: name19, quality });
+  }
+  return rows2;
+}
+async function searchFeed(query, req) {
+  const r = await req(
+    `${SITE12}/feeds/posts/default?alt=json&max-results=10&q=${encodeURIComponent(query)}`,
+    { headers: HEADERS4 }
+  );
+  if (!r.ok) return null;
+  let feed;
+  try {
+    feed = JSON.parse(r.text());
+  } catch (_) {
+    return null;
+  }
+  const entries = feed && feed.feed && feed.feed.entry || [];
+  for (const entry of entries) {
+    const feedTitle = entry.title && entry.title.$t || "";
+    if (!feedMatches(feedTitle, query)) continue;
+    const alt = Array.isArray(entry.link) ? entry.link.find((l) => l.rel === "alternate") : null;
+    if (alt && alt.href) return alt.href;
+  }
+  return null;
+}
+async function list12(title, { req }) {
+  const tv = title.kind === "tv";
+  if (tv && (title.season == null || title.episode == null)) return [];
+  return orEmpty(async () => {
+    const baseTitle = title.titles && (title.titles.esMX || title.titles.esES || title.titles.original || title.titles.en) || "";
+    const cleanTitle = baseTitle.replace(/\s*:.*$/, "").trim();
+    if (!cleanTitle) return [];
+    const epSuffix = tv ? ` ${Number(title.season)}x${String(title.episode).padStart(2, "0")}` : "";
+    const queries = [cleanTitle + epSuffix];
+    if (tv) {
+      const firstWord = cleanTitle.split(/\s+/)[0];
+      if (firstWord && firstWord !== cleanTitle) queries.push(firstWord + epSuffix);
+    } else {
+      const firstWord = cleanTitle.split(/\s+/)[0];
+      if (firstWord && firstWord !== cleanTitle) queries.push(firstWord);
+    }
+    let postUrl = null;
+    for (const q of queries) {
+      postUrl = await searchFeed(q, req);
+      if (postUrl) break;
+    }
+    if (!postUrl) return [];
+    const r = await req(postUrl, { headers: HEADERS4 });
+    if (!r.ok) return [];
+    const rows2 = parseLinks(r.text());
+    return toEmbeds(id12, rows2);
+  });
+}
+
+// src/sources/pelisgo.js
+var pelisgo_exports = {};
+__export(pelisgo_exports, {
+  HOSTS: () => HOSTS22,
+  ORIGIN: () => ORIGIN13,
+  id: () => id13,
+  kinds: () => kinds13,
+  list: () => list13,
+  name: () => name13
+});
+var id13 = "pelisgo";
+var name13 = "PelisGo";
+var kinds13 = ["movie", "tv"];
+var HOSTS22 = ["pelisgo.online"];
+var SITE13 = "https://pelisgo.online";
+var ORIGIN13 = SITE13;
+var HEADERS5 = {
+  Referer: SITE13 + "/",
+  Origin: SITE13,
+  "X-Requested-With": "XMLHttpRequest",
+  "Accept-Language": "es-MX,es;q=0.9"
+};
+function similarity(a, b) {
+  const wa = new Set(slugify(a).split("-").filter(Boolean));
+  const wb = new Set(slugify(b).split("-").filter(Boolean));
+  if (!wa.size || !wb.size) return 0;
+  let inter = 0;
+  for (const w of wa) if (wb.has(w)) inter++;
+  return inter / (wa.size + wb.size - inter);
+}
+function pageUrl(title) {
+  const tv = title.kind === "tv";
+  const base = title.titles && (title.titles.esMX || title.titles.esES || title.titles.original || title.titles.en) || "";
+  const slug = base.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9\s-]/g, "").replace(/\s+/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "");
+  if (!slug) return null;
+  if (!tv) return `${SITE13}/movies/${slug}`;
+  return `${SITE13}/series/${slug}/temporada/${Number(title.season)}/episodio/${Number(title.episode)}`;
+}
+async function searchPage(title, req) {
+  const query = title.titles && (title.titles.esMX || title.titles.esES || title.titles.original || title.titles.en) || "";
+  if (!query) return null;
+  const r = await req(`${SITE13}/search?q=${encodeURIComponent(query)}`, { headers: HEADERS5 });
+  if (!r.ok) return null;
+  const html = r.text();
+  const path = title.kind === "tv" ? "series" : "movies";
+  const linkRe = new RegExp(`href="(${SITE13.replace(/\./g, "\\.")}/${path}/([^"]+))"`, "gi");
+  let best = null, bestScore = 0.7;
+  let m;
+  while ((m = linkRe.exec(html)) !== null) {
+    const slug = m[2].replace(/\//g, " ").trim();
+    const score = similarity(query, slug.replace(/-/g, " "));
+    if (score > bestScore) {
+      bestScore = score;
+      best = m[1];
+    }
+  }
+  return best;
+}
+async function parseServers(html, req) {
+  const rows2 = [];
+  const seen = /* @__PURE__ */ new Set();
+  const objRe = /\{[^{}]*?server["' \\]+:[^{}]*?\}/gis;
+  let m;
+  while ((m = objRe.exec(html)) !== null) {
+    const obj = m[0];
+    const serverM = /\bserver["' \\]+:\s*["' \\]+([^"'\\, }]+)/i.exec(obj);
+    const urlM = /\b(?:url|download)["' \\]+:\s*["' \\]+([^"'\\, }]+)/i.exec(obj);
+    const qualM = /\bquality["' \\]+:\s*["' \\]+([^"'\\, }]+)/i.exec(obj);
+    const langM = /\blanguage["' \\]+:\s*["' \\]+([^"'\\, }]+)/i.exec(obj);
+    if (!serverM || !urlM) continue;
+    let url = urlM[1].trim();
+    if (seen.has(url)) continue;
+    seen.add(url);
+    const dlId = /\/download\/([^/?\s]+)/.exec(url);
+    if (dlId) {
+      const dr = await req(`${SITE13}/api/download/${dlId[1]}`, { headers: HEADERS5 });
+      if (dr.ok) {
+        try {
+          const d = JSON.parse(dr.text());
+          if (d && d.url) url = d.url;
+        } catch (_) {
+        }
+      }
+    }
+    if (!/^https?:\/\//i.test(url)) continue;
+    const lang = normLang(langM ? langM[1] : "") || "lat";
+    const quality = qualM ? qualM[1].trim() : "1080p";
+    const server = serverM[1].trim();
+    rows2.push({ url, lang, server, quality });
+  }
+  return rows2;
+}
+async function list13(title, { req }) {
+  const tv = title.kind === "tv";
+  if (tv && (title.season == null || title.episode == null)) return [];
+  return orEmpty(async () => {
+    let url = pageUrl(title);
+    if (!url) return [];
+    let html = null;
+    const r = await req(url, { headers: HEADERS5 });
+    if (r.ok && !r.text().includes("404")) {
+      html = r.text();
+    } else {
+      const found = await searchPage(title, req);
+      if (!found) return [];
+      const ep = tv ? `${found.replace(/\/$/, "")}/temporada/${Number(title.season)}/episodio/${Number(title.episode)}` : found;
+      const r2 = await req(ep, { headers: HEADERS5 });
+      if (!r2.ok) return [];
+      html = r2.text();
+    }
+    if (!html) return [];
+    const rows2 = await parseServers(html, req);
+    return toEmbeds(id13, rows2);
+  });
+}
+
+// src/sources/pelispanda.js
+var pelispanda_exports = {};
+__export(pelispanda_exports, {
+  HOSTS: () => HOSTS23,
+  ORIGIN: () => ORIGIN14,
+  id: () => id14,
+  kinds: () => kinds14,
+  list: () => list14,
+  name: () => name14
+});
+var id14 = "pelispanda";
+var name14 = "PelisPanda";
+var kinds14 = ["movie", "tv"];
+var HOSTS23 = ["pelispanda.org"];
+var SITE14 = "https://pelispanda.org";
+var ORIGIN14 = SITE14;
+var HEADERS6 = { Referer: SITE14 + "/", "Accept-Language": "es-MX,es;q=0.9" };
+function shortTitle(titles, n = 3) {
+  const t2 = titles && (titles.esMX || titles.esES || titles.original || titles.en) || "";
+  return t2.split(/\s+/).slice(0, n).join(" ");
+}
+async function list14(title, { req }) {
+  const tv = title.kind === "tv";
+  if (tv && (title.season == null || title.episode == null)) return [];
+  return orEmpty(async () => {
+    const query = shortTitle(title.titles);
+    if (!query) return [];
+    const results = await getJson(req, `${SITE14}/wp-json/wpreact/v1/search?query=${encodeURIComponent(query)}`);
+    if (!Array.isArray(results) || !results.length) return [];
+    const targetType = tv ? "serie" : "pelicula";
+    const match = results.find((r) => String(r.tmdb_id) === String(title.tmdbId) && r.type === targetType) || results.find((r) => r.type === targetType);
+    if (!match || !match.slug) return [];
+    const endpoint = tv ? "serie" : "movie";
+    const data = await getJson(req, `${SITE14}/wp-json/wpreact/v1/${endpoint}/${encodeURIComponent(match.slug)}/related`);
+    if (!data) return [];
+    let embeds = Array.isArray(data.embeds) ? data.embeds : [];
+    if (tv) {
+      embeds = embeds.filter((e) => e.season == title.season && e.episode == title.episode);
+    }
+    if (!embeds.length) return [];
+    const rows2 = [];
+    for (const e of embeds) {
+      if (!e.url || !/^https?:\/\//i.test(e.url)) continue;
+      const rawLang = String(e.lang || "Latino").toLowerCase();
+      if (/\b(?:sub|vose|espana|españa)\b/.test(rawLang)) continue;
+      const lang = normLang(rawLang) || "lat";
+      rows2.push({ url: e.url, lang, server: "" });
+    }
+    return toEmbeds(id14, rows2);
+  });
+}
+
+// src/sources/videasy.js
+var videasy_exports = {};
+__export(videasy_exports, {
+  HOSTS: () => HOSTS24,
+  id: () => id15,
+  kinds: () => kinds15,
+  list: () => list15,
+  name: () => name15
+});
+var id15 = "videasy";
+var name15 = "VidEasy Latino";
+var kinds15 = ["movie", "tv"];
+var HOSTS24 = ["api.videasy.net", "api2.videasy.net", "enc-dec.app"];
+var API_DEC = "https://enc-dec.app/api/dec-videasy";
+var SERVERS = [
+  { name: "lamovie", url: "https://api.videasy.net/lamovie/sources-with-title", label: "LaMovie" },
+  { name: "cuevana", url: "https://api2.videasy.net/cuevana/sources-with-title", label: "Cuevana" },
+  { name: "vimeos", url: "https://api.videasy.net/vimeos/sources-with-title", label: "Vimeos" },
+  { name: "superflix", url: "https://api.videasy.net/superflix/sources-with-title", label: "Superflix" }
+];
+var CINEBY_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
+var API_HEADERS = {
+  "User-Agent": CINEBY_UA,
+  Origin: "https://cineby.sc",
+  Referer: "https://cineby.sc/"
+};
+async function queryServer(srv, params, req) {
+  const r = await req(srv.url + "?" + params, { headers: API_HEADERS });
+  if (!r.ok) return [];
+  const encrypted = r.text();
+  if (!encrypted || encrypted.length < 20) return [];
+  const dr = await req(API_DEC, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "User-Agent": CINEBY_UA },
+    body: JSON.stringify({ text: encrypted, id: String(params.split("tmdbId=")[1]?.split("&")[0] || "") })
+  });
+  if (!dr.ok) return [];
+  let mediaData;
+  try {
+    const d = JSON.parse(dr.text());
+    mediaData = d.result || d;
+  } catch (_) {
+    return [];
+  }
+  return (Array.isArray(mediaData.sources) ? mediaData.sources : []).flatMap((s) => {
+    if (!s.url || !/^https?:\/\//i.test(s.url)) return [];
+    const quality = s.quality ? String(s.quality).toUpperCase().replace(/^AUTO$/i, "1080p") : "1080p";
+    return [{ url: s.url, lang: "lat", server: srv.label, quality }];
+  });
+}
+async function list15(title, { req }) {
+  const tv = title.kind === "tv";
+  if (tv && (title.season == null || title.episode == null)) return [];
+  return orEmpty(async () => {
+    const rawTitle = title.titles && (title.titles.esMX || title.titles.esES || title.titles.original || title.titles.en) || "";
+    if (!rawTitle || !title.tmdbId) return [];
+    const type = tv ? "tv" : "movie";
+    const year2 = title.year || "";
+    const imdbId = title.imdbId || "";
+    const doubleTitle = encodeURIComponent(encodeURIComponent(rawTitle));
+    let params = `title=${doubleTitle}&mediaType=${type}&year=${year2}&tmdbId=${title.tmdbId}&imdbId=${imdbId}`;
+    if (tv) params += `&seasonId=${Number(title.season)}&episodeId=${Number(title.episode)}`;
+    const results = await Promise.all(SERVERS.map((srv) => queryServer(srv, params, req).catch(() => [])));
+    const rows2 = results.flat();
+    return toEmbeds(id15, rows2);
+  });
+}
+
+// src/sources/cuevanaubd.js
+var cuevanaubd_exports = {};
+__export(cuevanaubd_exports, {
+  HOSTS: () => HOSTS25,
+  id: () => id16,
+  kinds: () => kinds16,
+  list: () => list16,
+  name: () => name16
+});
+var id16 = "cuevanaubd";
+var name16 = "Cuevana UBD";
+var kinds16 = ["movie", "tv"];
+var HOSTS25 = ["cuevana.unbuendato.com"];
+var SITE15 = "https://cuevana.unbuendato.com";
+var HEADERS7 = {
+  "User-Agent": "Dalvik/2.1.0 (Linux; U; Android 9; AndroidTV Build/PPR1.180610.011)"
+};
+var SKIP_SERVERS = /\b(?:netu|waaw|hqq|mixdrop)\b/i;
+async function list16(title, { req }) {
+  const tv = title.kind === "tv";
+  if (tv && (title.season == null || title.episode == null)) return [];
+  if (!title.tmdbId) return [];
+  return orEmpty(async () => {
+    let url = `${SITE15}/?id=${encodeURIComponent(title.tmdbId)}`;
+    if (tv) url += `&season=${Number(title.season)}&episode=${Number(title.episode)}`;
+    const r = await req(url, { headers: HEADERS7 });
+    if (!r.ok) return [];
+    let data;
+    try {
+      data = JSON.parse(r.text());
+    } catch (_) {
+      return [];
+    }
+    if (!data || !data.success || typeof data.languages !== "object") return [];
+    const rows2 = [];
+    const seen = /* @__PURE__ */ new Set();
+    for (const [langKey, servers] of Object.entries(data.languages)) {
+      const lang = normLang(langKey);
+      if (!lang) continue;
+      for (const s of Array.isArray(servers) ? servers : []) {
+        if (!s.url || !/^https?:\/\//i.test(s.url)) continue;
+        if (SKIP_SERVERS.test(s.name || "") || SKIP_SERVERS.test(s.url)) continue;
+        if (seen.has(s.url)) continue;
+        seen.add(s.url);
+        rows2.push({ url: s.url, lang, server: s.name || "" });
+      }
+    }
+    return toEmbeds(id16, rows2);
+  });
+}
+
+// src/sources/playhubmax.js
+var playhubmax_exports = {};
+__export(playhubmax_exports, {
+  HOSTS: () => HOSTS26,
+  ORIGIN: () => ORIGIN15,
+  id: () => id17,
+  kinds: () => kinds17,
+  list: () => list17,
+  name: () => name17
+});
+var id17 = "playhubmax";
+var name17 = "PlayHubMax";
+var kinds17 = ["movie", "tv"];
+var HOSTS26 = ["www.playhubmax.com", "api.playhubmax.com"];
+var API3 = "https://api.playhubmax.com/api";
+var ORIGIN15 = "https://www.playhubmax.com";
+var HEADERS8 = {
+  "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+  Origin: "https://www.playhubmax.com",
+  Referer: "https://www.playhubmax.com/"
+};
+var KEY_STR = "33dff3b1c1362e45e1425fcc9724d6f3";
+var IV_STR = "33dff3b1c1362e45";
+var toHex = (s) => Array.from(s).map((c) => c.charCodeAt(0).toString(16).padStart(2, "0")).join("");
+var KEY_HEX = toHex(KEY_STR);
+var IV_HEX = toHex(IV_STR);
+function decryptSources(kino, b64) {
+  try {
+    const plain = kino.crypto.decrypt("aes-256-cbc", { key: KEY_HEX, keyEncoding: "hex", iv: IV_HEX, ivEncoding: "hex", data: b64 });
+    const arr = JSON.parse(plain);
+    return Array.isArray(arr) ? arr : [];
+  } catch (_) {
+    return [];
+  }
+}
+async function getSources(kino, uuid, type, req) {
+  const endpoint = type === "episode" ? `episode/${uuid}/sources` : `en/contents/${uuid}/sources`;
+  const r = await req(`${API3}/${endpoint}`, { headers: HEADERS8 });
+  if (!r.ok) return [];
+  let data;
+  try {
+    data = JSON.parse(r.text());
+  } catch (_) {
+    return [];
+  }
+  const b64 = data && data.data;
+  if (typeof b64 !== "string" || b64.length < 20) return [];
+  return decryptSources(kino, b64);
+}
+async function list17(title, { kino, req }) {
+  const tv = title.kind === "tv";
+  if (tv && (title.season == null || title.episode == null)) return [];
+  return orEmpty(async () => {
+    const rawTitle = title.titles && (title.titles.esMX || title.titles.esES || title.titles.original || title.titles.en) || "";
+    if (!rawTitle) return [];
+    const results = await getJson(req, `${API3}/US/en/contents?q=${encodeURIComponent(rawTitle)}`);
+    const list22 = results && (results.data || results);
+    if (!Array.isArray(list22) || !list22.length) return [];
+    const match = list22.find((c) => (c.title || "").toLowerCase() === rawTitle.toLowerCase()) || list22[0];
+    if (!match || !match.uuid) return [];
+    let sources;
+    if (!tv) {
+      sources = await getSources(kino, match.uuid, "content", req);
+    } else {
+      const detail = await getJson(req, `${API3}/en/contents/${match.uuid}`);
+      const season = detail && Array.isArray(detail.seasons) ? detail.seasons.find((s) => parseInt(s.seasonNumber) === parseInt(title.season)) : null;
+      if (!season) return [];
+      const episodes2 = await getJson(req, `${API3}/en/episodes?season_id=${season.id}`);
+      const ep = Array.isArray(episodes2) ? episodes2.find((e) => parseInt(e.episodeNumber) === parseInt(title.episode)) : null;
+      if (!ep || !ep.uuid) return [];
+      sources = await getSources(kino, ep.uuid, "episode", req);
+    }
+    if (!sources.length) return [];
+    const rows2 = sources.filter((s) => s.url && /^https?:\/\//i.test(s.url) && Array.isArray(s.languages) && s.languages.includes("es")).map((s) => ({ url: s.url, lang: "lat", server: s.hostName || "PlayHub", quality: "1080p" }));
+    return toEmbeds(id17, rows2);
+  });
+}
+
+// src/sources/cinemacity.js
+var cinemacity_exports = {};
+__export(cinemacity_exports, {
+  HOSTS: () => HOSTS27,
+  ORIGIN: () => ORIGIN16,
+  id: () => id18,
+  kinds: () => kinds18,
+  list: () => list18,
+  name: () => name18
+});
+var id18 = "cinemacity";
+var name18 = "CinemaCity";
+var kinds18 = ["movie", "tv"];
+var HOSTS27 = ["cinemacity.cc"];
+var SITE16 = "https://cinemacity.cc";
+var ORIGIN16 = SITE16;
+var HEADERS9 = {
+  "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+  Referer: SITE16 + "/",
+  Cookie: "dle_user_id=1491647; dle_password=d00dbe7ee8bcd26c6c3e79765cd39da9"
+};
+var MAX_STREAMS = 6;
+var SKIP_LABEL = /\b(?:sub|castellano|esp|vose)\b/i;
+function decodeAtobs(html) {
+  const out = [];
+  const re = /\batob\s*\(\s*['"]([A-Za-z0-9+/=]+)['"]\s*\)/g;
+  let m;
+  while ((m = re.exec(html)) !== null) {
+    try {
+      out.push(atob(m[1]));
+    } catch (_) {
+    }
+  }
+  return out;
+}
+function extractFile(blob) {
+  const arrM = /"file"\s*:\s*(\[[^\]]*\{[^\]]*\])/s.exec(blob) || /"file"\s*:\s*(\[[\s\S]*?\])\s*[,}]/s.exec(blob);
+  if (arrM) {
+    try {
+      return JSON.parse(arrM[1]);
+    } catch (_) {
+    }
+  }
+  const strM = /"file"\s*:\s*"([^"]+)"/.exec(blob);
+  return strM ? strM[1] : null;
+}
+function processStr(raw) {
+  const rows2 = [];
+  if (!raw || typeof raw !== "string") return rows2;
+  const parts2 = raw.split(/,(?=\[|https?:\/\/)/).filter(Boolean);
+  for (const part of parts2) {
+    const labeled = /^\[([^\]]*)\](https?:\/\/\S+)/.exec(part.trim());
+    if (labeled) {
+      const label3 = labeled[1];
+      if (SKIP_LABEL.test(label3)) continue;
+      const url = labeled[2].split(",")[0].trim();
+      if (url) rows2.push({ url, lang: "lat", server: "", quality: extractQuality(url) });
+    } else {
+      const url = part.trim().split(",")[0].trim();
+      if (/^https?:\/\//i.test(url)) rows2.push({ url, lang: "lat", server: "", quality: extractQuality(url) });
+    }
+  }
+  return rows2;
+}
+function extractQuality(url) {
+  if (/2160p|4k/i.test(url)) return "2160p";
+  if (/1080p/i.test(url)) return "1080p";
+  if (/720p/i.test(url)) return "720p";
+  if (/480p/i.test(url)) return "480p";
+  if (/360p/i.test(url)) return "360p";
+  return "HD";
+}
+function findResultUrl(html, searchTitle) {
+  const norm2 = (s) => String(s || "").toLowerCase().replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ").trim();
+  const nt = norm2(searchTitle);
+  const blockRe = /class="dar-short_item"[\s\S]*?href="([^"]+\.html)"[\s\S]*?<[^>]+>([^<]+)</gi;
+  let m;
+  while ((m = blockRe.exec(html)) !== null) {
+    const href = m[1];
+    const text5 = norm2(m[2].replace(/\(.*\)$/, "").trim());
+    if (text5 === nt || nt.includes(text5) || text5.includes(nt)) return href;
+  }
+  return null;
+}
+function movieStreams(fileData) {
+  if (typeof fileData === "string") return processStr(fileData);
+  if (!Array.isArray(fileData)) return [];
+  for (const item3 of fileData) {
+    if (item3 && item3.file && !item3.folder) return processStr(item3.file);
+  }
+  return [];
+}
+function episodeStreams(fileData, season, episode) {
+  if (!Array.isArray(fileData)) return [];
+  const sNum = Number(season), eNum = Number(episode);
+  const seasonObj = fileData.find((item3) => {
+    const t2 = String(item3.title || "").toLowerCase();
+    return /season\s*\d|s\d/i.test(t2) && new RegExp(`season\\s*0*${sNum}\\b|s0*${sNum}\\b`, "i").test(t2);
+  });
+  if (!seasonObj || !Array.isArray(seasonObj.folder)) return [];
+  const epObj = seasonObj.folder.find((item3) => {
+    const t2 = String(item3.title || "").toLowerCase();
+    return new RegExp(`episode\\s*0*${eNum}\\b|e0*${eNum}\\b`, "i").test(t2);
+  });
+  if (!epObj) return [];
+  return typeof epObj.file === "string" ? processStr(epObj.file) : [];
+}
+async function list18(title, { req }) {
+  const tv = title.kind === "tv";
+  if (tv && (title.season == null || title.episode == null)) return [];
+  return orEmpty(async () => {
+    const query = title.titles && (title.titles.esMX || title.titles.esES || title.titles.original || title.titles.en) || "";
+    if (!query) return [];
+    const searchUrl = `${SITE16}/?do=search&subaction=search&search_start=0&full_search=0&story=${encodeURIComponent(query)}`;
+    const sr = await req(searchUrl, { headers: HEADERS9 });
+    if (!sr.ok) return [];
+    const pageUrl2 = findResultUrl(sr.text(), query);
+    if (!pageUrl2) return [];
+    const pr = await req(pageUrl2, { headers: HEADERS9 });
+    if (!pr.ok) return [];
+    const blobs = decodeAtobs(pr.text());
+    for (const blob of blobs) {
+      const fileData = extractFile(blob);
+      if (!fileData) continue;
+      const rows2 = tv ? episodeStreams(fileData, title.season, title.episode) : movieStreams(fileData);
+      if (rows2.length) {
+        return toEmbeds(id18, rows2.slice(0, MAX_STREAMS));
+      }
+    }
+    return [];
+  });
+}
+
 // src/sources/index.js
-var SOURCES = [lamovie_exports, hackstore_exports, cinecalidad_exports, seriesmetro_exports, seriesflix_exports, embed69_exports, peliserieshoy_exports, zoowomaniacos_exports];
-var sourceById = (id9) => SOURCES.find((s) => s.id === id9) || null;
+var SOURCES = [lamovie_exports, hackstore_exports, cinecalidad_exports, seriesmetro_exports, seriesflix_exports, embed69_exports, peliserieshoy_exports, zoowomaniacos_exports, deepflix_exports, xupalace_exports, pelisplus_exports, fuegocine_exports, pelisgo_exports, pelispanda_exports, videasy_exports, cuevanaubd_exports, playhubmax_exports, cinemacity_exports];
+var sourceById = (id19) => SOURCES.find((s) => s.id === id19) || null;
 
 // src/i18n.js
 var WORDS = {
@@ -2283,7 +3135,7 @@ function readSettings(kino) {
   const base = normalizeSettings({ preferred: prefs.preferred ?? get("preferred"), maxQuality: prefs.maxQuality ?? get("maxQuality"), enabled });
   return { ...base, homeRows: bool(get("homeRows"), true), avoid: prefs.avoid };
 }
-var sourceOn = (settings, id9) => settings.enabled[id9] !== false;
+var sourceOn = (settings, id19) => settings.enabled[id19] !== false;
 
 // src/health.js
 var KEY = "health";
@@ -2301,12 +3153,12 @@ function recordRun(kino, results) {
   try {
     const h = readHealth(kino);
     const at = Date.now();
-    for (const { id: id9, ok } of results) {
-      const fails = ok ? 0 : (h[id9] && Number.isFinite(h[id9].fails) ? h[id9].fails : 0) + 1;
-      h[id9] = { ok: !!ok, fails, at };
+    for (const { id: id19, ok } of results) {
+      const fails = ok ? 0 : (h[id19] && Number.isFinite(h[id19].fails) ? h[id19].fails : 0) + 1;
+      h[id19] = { ok: !!ok, fails, at };
       if (fails === DOWN_AFTER) {
         try {
-          kino.log.report("latino:source_down", id9);
+          kino.log.report("latino:source_down", id19);
         } catch (_) {
         }
       }
@@ -2361,7 +3213,7 @@ function normalizeSettings(s = {}) {
     enabled: { ...OFF_BY_DEFAULT, ...v.enabled && typeof v.enabled === "object" ? v.enabled : {} }
   };
 }
-var isOn = (enabled, id9) => ({ ...OFF_BY_DEFAULT, ...enabled || {} })[id9] !== false;
+var isOn = (enabled, id19) => ({ ...OFF_BY_DEFAULT, ...enabled || {} })[id19] !== false;
 var cacheKey = (title, prefix = "emb:") => `${prefix}${title.kind}:${title.tmdbId}:${title.season ?? ""}:${title.episode ?? ""}`;
 var validEmbed = (e) => e && typeof e === "object" && typeof e.source === "string" && LANGS.includes(e.lang) && typeof e.server === "string" && typeof e.embedUrl === "string" && /^https?:\/\//i.test(e.embedUrl) && (e.quality == null || typeof e.quality === "string");
 function readCache(kino, key) {
@@ -2432,11 +3284,11 @@ async function collect(kino, title, { enabled, sources = SOURCES, phaseMs = PHAS
     }
   }
   const order2 = sources.map((s) => s.id);
-  const rank2 = (id9) => {
-    const i = order2.indexOf(id9);
+  const rank2 = (id19) => {
+    const i = order2.indexOf(id19);
     return i < 0 ? order2.length : i;
   };
-  const everything = [...bySource.keys()].sort((a, b) => rank2(a) - rank2(b)).flatMap((id9) => bySource.get(id9));
+  const everything = [...bySource.keys()].sort((a, b) => rank2(a) - rank2(b)).flatMap((id19) => bySource.get(id19));
   const seen = /* @__PURE__ */ new Set();
   const unique = everything.filter((e) => seen.has(e.embedUrl) ? false : (seen.add(e.embedUrl), true));
   if (toAsk.length && unique.length) writeCache(kino, key, [...done], unique, ttlMs);
@@ -2462,7 +3314,7 @@ async function listEmbedsDetailed(kino, title, options3 = {}) {
   const neg = options3.fresh ? null : readNeg(kino, key);
   const r = await collect(kino, title, neg ? { ...options3, skip: neg.skip } : options3);
   const failed = [.../* @__PURE__ */ new Set([...neg ? neg.failed : [], ...r.failed])];
-  const quiet = r.asked.filter((id9) => r.failed.includes(id9) || !r.contributed.has(id9));
+  const quiet = r.asked.filter((id19) => r.failed.includes(id19) || !r.contributed.has(id19));
   if (quiet.length) {
     const skip = [.../* @__PURE__ */ new Set([...neg ? neg.skip : [], ...quiet])];
     try {
@@ -2470,7 +3322,7 @@ async function listEmbedsDetailed(kino, title, options3 = {}) {
     } catch (_) {
     }
   }
-  const answered = [.../* @__PURE__ */ new Set([...r.answered, ...neg ? neg.skip.filter((id9) => !neg.failed.includes(id9)) : []])];
+  const answered = [.../* @__PURE__ */ new Set([...r.answered, ...neg ? neg.skip.filter((id19) => !neg.failed.includes(id19)) : []])];
   return { embeds: r.embeds, failed, answered };
 }
 function pickLanguage(embeds, preferred) {
@@ -2489,8 +3341,8 @@ function rank(embeds, { maxQuality = "auto", avoid = [] } = {}) {
   return (embeds || []).map((e, i) => ({ e, i, k: key(e) })).sort((a, b) => a.k[0] - b.k[0] || a.k[1] - b.k[1] || a.k[2] - b.k[2] || a.i - b.i).map((x) => x.e);
 }
 function label(kino, e, sourceName) {
-  const id9 = serverOf(e);
-  const server = id9 === "direct" ? t("direct", kino) : SERVER_LABEL[id9] || e.server;
+  const id19 = serverOf(e);
+  const server = id19 === "direct" ? t("direct", kino) : SERVER_LABEL[id19] || e.server;
   const q = e.quality ? " " + e.quality : "";
   const full = `${t(e.lang, kino)} \xB7 ${sourceName} \xB7 ${server}${q}`;
   return full.length <= 48 ? full : `${t(e.lang, kino)} \xB7 ${server}${q}`.slice(0, 48);
@@ -2649,8 +3501,8 @@ function noteChoice(kino, ref, { total, order: order2, chosen, rest }) {
 }
 function missingMessage(kino, title, missing) {
   const names = title.titles || {};
-  const name9 = (langOf(kino) === "en" ? names.en || names.original || names.esMX : names.esMX || names.original || names.en) || "";
-  const vars = { season: title.season, episode: title.episode, title: name9 };
+  const name19 = (langOf(kino) === "en" ? names.en || names.original || names.esMX : names.esMX || names.original || names.en) || "";
+  const vars = { season: title.season, episode: title.episode, title: name19 };
   return tf(missing && missing.seasonFound ? "episodeMissing" : "seasonMissing", vars, kino);
 }
 function withCopies(kino, stream, rest, nameOf) {
@@ -2776,7 +3628,7 @@ async function searchSites(kino, settings, q, { untilMs } = {}) {
     return [];
   }
 }
-var latestRow = (id9, site, kind, titleKey) => ({ id: id9, site, kind, titleKey, ref: `latest:${site}:${kind}`, genre: kind === "tv" ? "series" : "peliculas" });
+var latestRow = (id19, site, kind, titleKey) => ({ id: id19, site, kind, titleKey, ref: `latest:${site}:${kind}`, genre: kind === "tv" ? "series" : "peliculas" });
 var genreRow = (slug, kind) => ({
   id: `g-${slug}-${kind}`,
   site: "lamovie",
@@ -2788,19 +3640,54 @@ var genreRow = (slug, kind) => ({
 var HOME_ROWS = [
   latestRow("lm-movies", "lamovie", "movie", "rowMovies"),
   latestRow("lm-series", "lamovie", "tv", "rowSeries"),
-  latestRow("hs-latest", "hackstore", "movie", "rowHackstore")
+  latestRow("hs-latest", "hackstore", "movie", "rowHackstore"),
+  genreRow("accion", "movie"),
+  genreRow("comedia", "movie"),
+  genreRow("animacion", "movie"),
+  genreRow("drama", "tv"),
+  genreRow("crimen", "tv"),
+  genreRow("animacion", "tv")
 ];
 var TABS = {
   inicio: HOME_ROWS,
   peliculas: [
     latestRow("lm-movies", "lamovie", "movie", "rowMovies"),
     latestRow("hs-movies", "hackstore", "movie", "rowHackstore"),
-    ...["accion", "comedia", "terror", "animacion", "ciencia-ficcion", "documental"].map((g) => genreRow(g, "movie"))
+    ...[
+      "accion",
+      "comedia",
+      "drama",
+      "terror",
+      "suspense",
+      "animacion",
+      "aventura",
+      "romance",
+      "ciencia-ficcion",
+      "fantasia",
+      "familia",
+      "misterio",
+      "documental",
+      "historia",
+      "belica",
+      "western"
+    ].map((g) => genreRow(g, "movie"))
   ],
   series: [
     latestRow("lm-series", "lamovie", "tv", "rowSeries"),
     latestRow("hs-series", "hackstore", "tv", "rowHackstoreSeries"),
-    ...["drama", "comedia", "crimen", "animacion", "sci-fi-fantasy"].map((g) => genreRow(g, "tv"))
+    ...[
+      "drama",
+      "comedia",
+      "crimen",
+      "animacion",
+      "sci-fi-fantasy",
+      "action-adventure",
+      "suspense",
+      "familia",
+      "misterio",
+      "reality",
+      "war-politics"
+    ].map((g) => genreRow(g, "tv"))
   ]
 };
 async function buildRows(kino, settings, defs, { untilMs } = {}) {
@@ -2866,11 +3753,11 @@ function categoryTiles(kino) {
 }
 
 // src/match.js
-var SITE9 = { lm: lamovie_exports, hs: hackstore_exports };
+var SITE17 = { lm: lamovie_exports, hs: hackstore_exports };
 var HIT_TTL_MS = 30 * 24 * 3600 * 1e3;
 var MISS_TTL_MS = 24 * 3600 * 1e3;
 var yearOf2 = (d) => typeof d === "string" && /^\d{4}/.test(d) ? Number(d.slice(0, 4)) : null;
-var siteOf = (site) => SITE9[site.prefix];
+var siteOf = (site) => SITE17[site.prefix];
 function guessFromRef(site) {
   let slug = site.slug || "";
   let year2 = site.year;
@@ -2900,15 +3787,15 @@ function pick2(results, names, year2) {
     return !year2 || !y || Math.abs(y - year2) <= 1;
   };
   const namesOf = (r) => [r.title, r.name, r.original_title, r.original_name].map(slugify).filter(Boolean);
-  const list9 = (results || []).filter((r) => r && Number.isInteger(r.id) && near(r));
-  const exact = [...new Set(list9.filter((r) => namesOf(r).some((n) => wanted.has(n))).map((r) => r.id))];
+  const list19 = (results || []).filter((r) => r && Number.isInteger(r.id) && near(r));
+  const exact = [...new Set(list19.filter((r) => namesOf(r).some((n) => wanted.has(n))).map((r) => r.id))];
   if (exact.length > 1 && !year2) return null;
   if (exact.length) return exact[0];
   const close = (n, w) => {
     const [short, long] = n.length <= w.length ? [n, w] : [w, n];
     return short.length >= 4 && short.length >= 0.6 * long.length && long.startsWith(short);
   };
-  const prefix = list9.find((r) => namesOf(r).some((n) => [...wanted].some((w) => close(n, w))));
+  const prefix = list19.find((r) => namesOf(r).some((n) => [...wanted].some((w) => close(n, w))));
   return prefix && year2 ? prefix.id : null;
 }
 async function searchTmdb(kino, kind, names, year2, untilMs) {
@@ -2918,8 +3805,8 @@ async function searchTmdb(kino, kind, names, year2, untilMs) {
     if (!key || tried.has(key)) continue;
     tried.add(key);
     const r = await tmdb(kino, `/search/${kind === "tv" ? "tv" : "movie"}`, { query: q, language: "es-MX" }, { untilMs });
-    const id9 = pick2(r && r.results, names, year2);
-    if (id9) return id9;
+    const id19 = pick2(r && r.results, names, year2);
+    if (id19) return id19;
   }
   return null;
 }
@@ -2941,15 +3828,15 @@ async function tmdbIdFor(kino, site, { post: post4, postFailed = false, untilMs 
   };
   try {
     const guess = guessFromRef(site);
-    let id9 = guess.title ? await searchTmdb(kino, site.kind, [guess.title], guess.year, untilMs) : null;
+    let id19 = guess.title ? await searchTmdb(kino, site.kind, [guess.title], guess.year, untilMs) : null;
     let failed = false;
-    if (!id9) {
+    if (!id19) {
       const r = post4 !== void 0 ? { post: post4, failed: postFailed } : await sitePostResult(kino, site, { untilMs });
       failed = r.failed;
-      if (r.post) id9 = await searchTmdb(kino, site.kind, [r.post.title, r.post.originalTitle].filter(Boolean), Number(r.post.year) || guess.year, untilMs);
+      if (r.post) id19 = await searchTmdb(kino, site.kind, [r.post.title, r.post.originalTitle].filter(Boolean), Number(r.post.year) || guess.year, untilMs);
     }
-    if (id9 || !failed) remember(id9 || "none", id9 ? HIT_TTL_MS : MISS_TTL_MS);
-    return id9;
+    if (id19 || !failed) remember(id19 || "none", id19 ? HIT_TTL_MS : MISS_TTL_MS);
+    return id19;
   } catch (e) {
     kino.log("[latino]", "tmdb match", e && e.code || "error");
     return null;
@@ -2980,7 +3867,7 @@ var MAX_PROBED = 10;
 var MAX_TITLE = 200;
 var AT_ONCE3 = 3;
 var CHECKED = [lamovie_exports, seriesflix_exports, embed69_exports];
-var isOn2 = (enabled, id9) => (enabled || {})[id9] !== false;
+var isOn2 = (enabled, id19) => (enabled || {})[id19] !== false;
 var cacheKeyOf = (tmdbId, ids, prefix = "avail:") => `${prefix}${tmdbId}:${ids.join(",")}`;
 function readCache2(kino, key) {
   try {
@@ -3007,12 +3894,12 @@ function watched(kino, deadline, budget) {
   out.exhausted = req.exhausted;
   return out;
 }
-async function guarded(kino, id9, fn, req, failedWhen = () => true) {
+async function guarded(kino, id19, fn, req, failedWhen = () => true) {
   try {
     const v = await fn();
     return req.failed && failedWhen(v) ? null : v;
   } catch (e) {
-    kino.log("[latino]", "availability", id9, e && e.code || "error");
+    kino.log("[latino]", "availability", id19, e && e.code || "error");
     return null;
   }
 }
@@ -3114,8 +4001,8 @@ function episodeOf(ctx) {
   if (!ctx || ctx.kind !== "episode") return null;
   const m = /^e:(\d+):(\d+):(\d+)$/.exec(plainRef(ctx.ref));
   if (m) return { id: Number(m[1]), season: Number(m[2]), episode: Number(m[3]) };
-  const id9 = ctx.ids && ctx.ids.tmdb;
-  return Number.isInteger(id9) && Number.isInteger(ctx.season) && Number.isInteger(ctx.episode) ? { id: id9, season: ctx.season, episode: ctx.episode } : null;
+  const id19 = ctx.ids && ctx.ids.tmdb;
+  return Number.isInteger(id19) && Number.isInteger(ctx.season) && Number.isInteger(ctx.episode) ? { id: id19, season: ctx.season, episode: ctx.episode } : null;
 }
 function titleTmdbId(ctx) {
   if (!ctx) return null;
@@ -3133,7 +4020,7 @@ var isNum = (n) => typeof n === "number" && Number.isFinite(n);
 function fromLabel(label3) {
   const parts2 = typeof label3 === "string" ? label3.split(" \xB7 ") : [];
   if (parts2.length < 2 || parts2.length > 3) return {};
-  const lang = LANGS.find((id9) => t(id9, { lang: "es" }) === parts2[0] || t(id9, { lang: "en" }) === parts2[0]);
+  const lang = LANGS.find((id19) => t(id19, { lang: "es" }) === parts2[0] || t(id19, { lang: "en" }) === parts2[0]);
   if (!lang) return {};
   const tail = parts2[parts2.length - 1].split(" ");
   const quality = /^\d{3,4}p$/.test(tail[tail.length - 1]) ? tail.pop() : null;
@@ -3179,9 +4066,9 @@ var MAX_OVERVIEW = 150;
 var cut = (s) => s.length <= MAX_OVERVIEW ? s : s.slice(0, MAX_OVERVIEW - 1).trimEnd() + "\u2026";
 var text2 = (p) => ({ type: "text", text: p.es, textEn: p.en });
 async function summaryTab(kino, ctx, { untilMs } = {}) {
-  const id9 = titleTmdbId(ctx);
-  if (!ctx || ctx.kind === "live" || !id9 || typeof kino.tmdb !== "function") return null;
-  const s = await summaryOf(kino, ctx.kind === "episode" ? "tv" : "movie", id9, { untilMs });
+  const id19 = titleTmdbId(ctx);
+  if (!ctx || ctx.kind === "live" || !id19 || typeof kino.tmdb !== "function") return null;
+  const s = await summaryOf(kino, ctx.kind === "episode" ? "tv" : "movie", id19, { untilMs });
   if (!s) return null;
   const col = [];
   const head = [];
@@ -3203,7 +4090,7 @@ var SETTLE_MS = 1500;
 var text3 = (m) => ({ type: "text", text: m.es, textEn: m.en });
 var status = (m) => ({ type: "status", text: m.es, textEn: m.en });
 var pair = (f) => ({ es: f("es"), en: f("en") });
-var siteLabel = (id9) => (sourceById(id9) || {}).name || id9;
+var siteLabel = (id19) => (sourceById(id19) || {}).name || id19;
 async function availTab(kino, ctx, { untilMs } = {}) {
   const tmdbId = titleTmdbId(ctx);
   if (!tmdbId) return { elements: [status(both("availNoTmdb"))] };
@@ -3227,12 +4114,12 @@ async function availTab(kino, ctx, { untilMs } = {}) {
       if (!bySite.has(e.source)) bySite.set(e.source, /* @__PURE__ */ new Set());
       bySite.get(e.source).add(e.lang);
     }
-    for (const [id9, langs] of bySite) {
+    for (const [id19, langs] of bySite) {
       const ordered = LANGS.filter((l) => langs.has(l));
-      elements.push(text3(pair((l) => `${siteLabel(id9)}: ${ordered.map((x) => t(x, { lang: l })).join(", ")}`)));
+      elements.push(text3(pair((l) => `${siteLabel(id19)}: ${ordered.map((x) => t(x, { lang: l })).join(", ")}`)));
     }
-    for (const id9 of answered) {
-      if (!bySite.has(id9)) elements.push(text3(pair((l) => `${siteLabel(id9)}: ${t(isMovie ? "availNoTitle" : "availNoEpisode", { lang: l })}`)));
+    for (const id19 of answered) {
+      if (!bySite.has(id19)) elements.push(text3(pair((l) => `${siteLabel(id19)}: ${t(isMovie ? "availNoTitle" : "availNoEpisode", { lang: l })}`)));
     }
     if (!bySite.size && !partial) elements.push(text3(both("availNone")));
   }
@@ -3278,7 +4165,7 @@ function prefsTab(kino, ctx) {
     both("prefFirst", { v: (l) => t(LANG_KEY[current.preferred], { lang: l }) }),
     quality
   ];
-  if (current.avoid.length) parts2.push(both("prefAvoidList", { v: current.avoid.map((id9) => SERVER_LABEL[id9] || id9).join(", ") }));
+  if (current.avoid.length) parts2.push(both("prefAvoidList", { v: current.avoid.map((id19) => SERVER_LABEL[id19] || id19).join(", ") }));
   const now = both("prefNow", { v: (l) => parts2.map((p) => p[l]).join(" \xB7 ") });
   const wins = both("prefWins");
   const elements = [
@@ -3304,10 +4191,10 @@ function prefsTab(kino, ctx) {
     }
   ];
   const hint = both("prefAvoidHint");
-  for (const id9 of serverIds2()) {
-    const key = AVOID + id9;
-    const on = key in panelValues ? bool2(panelValues[key]) : current.avoid.includes(id9);
-    elements.push({ type: "toggle", key, scope: "plugin", autoSave: true, value: on, ...label2(both("prefAvoid", { v: SERVER_LABEL[id9] })), hint: hint.es, hintEn: hint.en });
+  for (const id19 of serverIds2()) {
+    const key = AVOID + id19;
+    const on = key in panelValues ? bool2(panelValues[key]) : current.avoid.includes(id19);
+    elements.push({ type: "toggle", key, scope: "plugin", autoSave: true, value: on, ...label2(both("prefAvoid", { v: SERVER_LABEL[id19] })), hint: hint.es, hintEn: hint.en });
   }
   const confirm = both("prefResetConfirm");
   elements.push({ type: "button", key: "reset", ...label2(both("prefReset")), confirm: confirm.es, confirmEn: confirm.en });
@@ -3321,12 +4208,12 @@ function patchOf(panelValues, stored) {
   if (PANEL_QUALITIES.includes(panelValues.maxQuality)) patch.maxQuality = panelValues.maxQuality;
   const avoid = new Set(stored.avoid);
   let touched = false;
-  for (const id9 of serverIds2()) {
-    const key = AVOID + id9;
+  for (const id19 of serverIds2()) {
+    const key = AVOID + id19;
     if (!(key in panelValues)) continue;
     touched = true;
-    if (bool2(panelValues[key])) avoid.add(id9);
-    else avoid.delete(id9);
+    if (bool2(panelValues[key])) avoid.add(id19);
+    else avoid.delete(id19);
   }
   if (touched) patch.avoid = [...avoid];
   return patch;
@@ -3360,10 +4247,10 @@ function prefsAction(kino, ev, ctx) {
   if (key === "preferred" && LANGS.includes(value)) patch = { preferred: value };
   else if (key === "maxQuality" && PANEL_QUALITIES.includes(value)) patch = { maxQuality: value };
   else if (key.startsWith(AVOID) && serverIds2().includes(key.slice(AVOID.length)) && (typeof value === "boolean" || value === "true" || value === "false")) {
-    const id9 = key.slice(AVOID.length);
+    const id19 = key.slice(AVOID.length);
     const avoid = new Set(readPrefs(kino).avoid);
-    if (bool2(value)) avoid.add(id9);
-    else avoid.delete(id9);
+    if (bool2(value)) avoid.add(id19);
+    else avoid.delete(id19);
     patch = { avoid: [...avoid] };
   } else return null;
   writePrefs(kino, patch);
@@ -3376,14 +4263,14 @@ var PHASE_MS2 = 6e3;
 var TITLE_MAX = 60;
 var inflight = /* @__PURE__ */ new Map();
 var line = (m) => ({ type: "text", text: m.es, textEn: m.en });
-async function seasonEpisodes(kino, id9, season, untilMs) {
-  const s = await tmdb(kino, `/tv/${id9}/season/${season}`, { language: "es-MX" }, { untilMs });
+async function seasonEpisodes(kino, id19, season, untilMs) {
+  const s = await tmdb(kino, `/tv/${id19}/season/${season}`, { language: "es-MX" }, { untilMs });
   return s && Array.isArray(s.episodes) ? s.episodes : null;
 }
 var tailOf = (ep) => {
-  const name9 = typeof ep.name === "string" && ep.name ? ` \xAB${ep.name.slice(0, TITLE_MAX)}\xBB` : "";
+  const name19 = typeof ep.name === "string" && ep.name ? ` \xAB${ep.name.slice(0, TITLE_MAX)}\xBB` : "";
   const mins = Number.isFinite(ep.runtime) && ep.runtime > 0 ? ` \xB7 ${Math.round(ep.runtime)} min` : "";
-  return name9 + mins;
+  return name19 + mins;
 };
 async function nextEpisode(kino, at, untilMs) {
   const eps = await seasonEpisodes(kino, at.id, at.season, untilMs);
@@ -3398,11 +4285,11 @@ async function nextEpisode(kino, at, untilMs) {
     return e && e.code === "not_found" ? { end: at.season } : null;
   }
 }
-function lookup(kino, id9, season, episode, untilMs) {
-  const key = `${PANEL_EMB}tv:${id9}:${season}:${episode}`;
+function lookup(kino, id19, season, episode, untilMs) {
+  const key = `${PANEL_EMB}tv:${id19}:${season}:${episode}`;
   if (!inflight.has(key)) {
     const run = (async () => {
-      const title = await titleContext(kino, { kind: "tv", tmdbId: id9, season, episode }, { untilMs });
+      const title = await titleContext(kino, { kind: "tv", tmdbId: id19, season, episode }, { untilMs });
       const enabled = normalizeSettings({ enabled: readSettings(kino).enabled }).enabled;
       return listEmbedsDetailed(kino, title, { enabled, phaseMs: PHASE_MS2, cachePrefix: PANEL_EMB, ttlMs: PANEL_TTL_MS });
     })().finally(() => inflight.delete(key));
@@ -3624,22 +4511,22 @@ var tmdbRef = (ref, prefix) => {
 async function episodes(ref) {
   const kino = getKino();
   const untilMs = callDeadline(kino, "episodes").end;
-  let id9 = tmdbRef(String(ref || ""), "s");
-  if (id9 == null) {
+  let id19 = tmdbRef(String(ref || ""), "s");
+  if (id19 == null) {
     const site = parseSiteRef(ref);
     if (!site || site.kind !== "tv") throw notFound(kino, "not a series ref");
-    id9 = await tmdbIdFor(kino, site, { untilMs });
-    if (id9 == null) throw notFound(kino, "series not on TMDB");
+    id19 = await tmdbIdFor(kino, site, { untilMs });
+    if (id19 == null) throw notFound(kino, "series not on TMDB");
   }
   let out;
   try {
-    out = await episodeList(kino, id9, { untilMs });
+    out = await episodeList(kino, id19, { untilMs });
   } catch (e) {
     kino.log("[latino]", "episodes tmdb", e && e.code || "error");
     throw tmdbFailure(kino, e);
   }
-  out = await markUnavailable(kino, id9, out, untilMs);
-  return { ...out, series: { ...out.series, ids: { tmdb: id9 } } };
+  out = await markUnavailable(kino, id19, out, untilMs);
+  return { ...out, series: { ...out.series, ids: { tmdb: id19 } } };
 }
 async function markUnavailable(kino, tmdbId, out, untilMs) {
   try {
@@ -3684,10 +4571,10 @@ async function contextFor(kino, ref, untilMs) {
   if (m) return tmdbTitle({ kind: "tv", tmdbId: Number(m[1]), season: Number(m[2]), episode: Number(m[3]) });
   const site = parseSiteRef(ref);
   if (!site || site.kind !== "movie") return null;
-  const id9 = await tmdbIdFor(kino, site, { untilMs });
-  if (id9 != null) {
+  const id19 = await tmdbIdFor(kino, site, { untilMs });
+  if (id19 != null) {
     try {
-      return await titleContext(kino, { kind: "movie", tmdbId: id9 }, { untilMs });
+      return await titleContext(kino, { kind: "movie", tmdbId: id19 }, { untilMs });
     } catch (e) {
       kino.log("[latino]", "tmdb context", e && e.code || "error");
     }
@@ -3703,7 +4590,8 @@ async function resolve(ref) {
   if (!title) throw notFound(kino, "not a playable ref");
   return resolveTitle(kino, title, readSettings(kino), { callMs: dl.left(), ref: r });
 }
-var PREFERENCE_KEYS = ["preferred", "maxQuality", "homeRows", ...SOURCES.map((s) => "src_" + s.id)];
+var TOGGLABLE_SOURCE_IDS = ["lamovie", "hackstore", "cinecalidad", "seriesmetro", "seriesflix", "embed69", "peliserieshoy", "zoowomaniacos"];
+var PREFERENCE_KEYS = ["preferred", "maxQuality", "homeRows", ...TOGGLABLE_SOURCE_IDS.map((id19) => "src_" + id19)];
 var PROBE_TMDB_ID = 550;
 var fill = (text5, vars) => text5.replace(/\{(\w+)\}/g, (_, k) => String(vars[k]));
 async function settingsStatus() {

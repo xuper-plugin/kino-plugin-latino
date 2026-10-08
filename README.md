@@ -14,7 +14,7 @@ xuper-plugin/kino-plugin-latino
 
 ## Fuentes
 
-LaMovie, HackStore, CineCalidad, SeriesMetro, Seriesflix, Embed69, Zoowomaniacos y PelisSeriesHoy
+LaMovie, HackStore, CineCalidad, SeriesMetro, Seriesflix, Embed69, Zoowomaniacos, DeepFlix y PelisSeriesHoy
 (esta última viene apagada). Cada título se busca en TMDB y se pide a todas las fuentes encendidas; Kino
 recibe una copia en tu idioma y las demás como alternativas en el menú Servidor.
 

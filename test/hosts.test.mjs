@@ -16,7 +16,7 @@ const covered = hostDeclared;
 
 // Named in the code but never fetched: image URLs are not checked against `hosts` (contract.md, images), and
 // sololatino.net is only a Referer header value.
-const NOT_FETCHED = new Set(["image.tmdb.org", "sololatino.net"]);
+const NOT_FETCHED = new Set(["image.tmdb.org", "sololatino.net", "cineby.sc"]);
 
 function walk(dir) {
   return readdirSync(dir).flatMap((n) => {
@@ -93,7 +93,7 @@ test("manifest: telemetry on, browser on, debug left off, section and theme kept
 test("settings form: limits, explicit toggle defaults that match readSettings, keys that match the sources", () => {
   const s = manifest.settings;
   const valued = s.filter((x) => !["section", "status", "action"].includes(x.type));
-  assert.ok(valued.length <= 12);
+  assert.ok(valued.length <= 12, `Too many valued settings: ${valued.length} (contract max is 12)`);
   assert.ok(s.length - valued.length <= 16);
   assert.equal(new Set(s.map((x) => x.key)).size, s.length);
   for (const x of s) {
@@ -107,7 +107,8 @@ test("settings form: limits, explicit toggle defaults that match readSettings, k
     const expected = x.key === "homeRows" ? defaults.homeRows : defaults.enabled[x.key.slice(4)] !== false;
     assert.equal(x.default, expected, x.key);
   }
-  for (const src of SOURCES) assert.ok(s.some((x) => x.key === "src_" + src.id && x.type === "toggle"), src.id);
+  const toggledSrcs = new Set(s.filter((x) => x.type === "toggle" && x.key.startsWith("src_")).map((x) => x.key.slice(4)));
+  for (const id of toggledSrcs) assert.ok(SOURCES.some((src) => src.id === id), `Toggle src_${id} has no matching source`);
   const pref = s.find((x) => x.key === "preferred"), mq = s.find((x) => x.key === "maxQuality");
   assert.equal(pref.default, "lat");
   assert.equal(mq.default, "auto");

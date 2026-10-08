@@ -1,7 +1,7 @@
 {
   "id": "latino",
   "name": "Latino",
-  "version": "1.1.0",
+  "version": "2.0.0",
   "apiVersion": 9,
   "panel": {
     "label": "Latino",
@@ -23,6 +23,7 @@
     "seriesflixhd.casa",
     "seriesflixhd.best",
     "embed69.org",
+    "mg.homelabx.qzz.io",
     "player.pelisserieshoy.com",
     "proyectox.yoyatengoabuela.com",
     "goodstream.one",
@@ -70,7 +71,22 @@
     "nupload.me",
     "*.nupload.me",
     "nupload.my",
-    "*.nupload.my"
+    "*.nupload.my",
+    "xupalace.org",
+    "www.pelisplushd.la",
+    "pelisplushd.la",
+    "www.fuegocine.com",
+    "fuegocine.com",
+    "drive.usercontent.google.com",
+    "pelisgo.online",
+    "pelispanda.org",
+    "api.videasy.net",
+    "api2.videasy.net",
+    "enc-dec.app",
+    "cuevana.unbuendato.com",
+    "www.playhubmax.com",
+    "api.playhubmax.com",
+    "cinemacity.cc"
   ],
   "capabilities": [
     "search",

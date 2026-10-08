@@ -180,6 +180,12 @@ export const HOME_ROWS = [
   latestRow("lm-movies", "lamovie", "movie", "rowMovies"),
   latestRow("lm-series", "lamovie", "tv", "rowSeries"),
   latestRow("hs-latest", "hackstore", "movie", "rowHackstore"),
+  genreRow("accion", "movie"),
+  genreRow("comedia", "movie"),
+  genreRow("animacion", "movie"),
+  genreRow("drama", "tv"),
+  genreRow("crimen", "tv"),
+  genreRow("animacion", "tv"),
 ];
 
 const TABS = {
@@ -187,12 +193,14 @@ const TABS = {
   peliculas: [
     latestRow("lm-movies", "lamovie", "movie", "rowMovies"),
     latestRow("hs-movies", "hackstore", "movie", "rowHackstore"),
-    ...["accion", "comedia", "terror", "animacion", "ciencia-ficcion", "documental"].map((g) => genreRow(g, "movie")),
+    ...["accion", "comedia", "drama", "terror", "suspense", "animacion", "aventura", "romance",
+       "ciencia-ficcion", "fantasia", "familia", "misterio", "documental", "historia", "belica", "western"].map((g) => genreRow(g, "movie")),
   ],
   series: [
     latestRow("lm-series", "lamovie", "tv", "rowSeries"),
     latestRow("hs-series", "hackstore", "tv", "rowHackstoreSeries"),
-    ...["drama", "comedia", "crimen", "animacion", "sci-fi-fantasy"].map((g) => genreRow(g, "tv")),
+    ...["drama", "comedia", "crimen", "animacion", "sci-fi-fantasy", "action-adventure",
+       "suspense", "familia", "misterio", "reality", "war-politics"].map((g) => genreRow(g, "tv")),
   ],
 };
 

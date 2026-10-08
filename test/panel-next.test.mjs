@@ -5,7 +5,8 @@ import { nextStrip } from "../src/panel/next.js";
 import { panel } from "../src/panel/index.js";
 import { panelOutput } from "../sdk/panel.mjs";
 
-const ALL = ["lamovie", "hackstore", "cinecalidad", "seriesmetro", "seriesflix", "embed69", "peliserieshoy", "zoowomaniacos"];
+import { SOURCES } from "../src/sources/index.js";
+const ALL = SOURCES.map((s) => s.id);
 const emb = (source, lang, n) => ({ source, lang, server: "vimeos", embedUrl: `https://vimeos.net/e/${source}${lang}${n}`, quality: null });
 const SERIES = { name: "Serie", first_air_date: "2008-01-01", external_ids: { imdb_id: "tt1" } };
 const S1 = { episodes: [1, 2, 3].map((n) => ({ episode_number: n, name: ["Uno", "Dos", "Tres"][n - 1], runtime: 42 })) };

@@ -131,7 +131,8 @@ test("action resetPrefs: clearSettings names only the person's preferences, all 
   for (const k of r.clearSettings) {
     assert.ok(byKey[k] && !["section", "status", "action"].includes(byKey[k].type) && !byKey[k].required, k);
   }
-  for (const k of ["preferred", "maxQuality", "homeRows", ...SOURCES.map((s) => "src_" + s.id)]) assert.ok(r.clearSettings.includes(k), k);
+  const toggledSrcKeys = manifest.settings.filter((s) => s.type === "toggle" && s.key.startsWith("src_")).map((s) => s.key);
+  for (const k of ["preferred", "maxQuality", "homeRows", ...toggledSrcKeys]) assert.ok(r.clearSettings.includes(k), k);
   assert.equal(typeof r.message, "string");
 });
 

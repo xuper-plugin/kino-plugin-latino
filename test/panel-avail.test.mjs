@@ -7,7 +7,8 @@ import { panelOutput } from "../sdk/panel.mjs";
 
 const fc = JSON.parse(fixture("tmdb/fight-club.json"));
 const bb = JSON.parse(fixture("tmdb/breaking-bad.json"));
-const ALL = ["lamovie", "hackstore", "cinecalidad", "seriesmetro", "seriesflix", "embed69", "peliserieshoy", "zoowomaniacos"];
+import { SOURCES } from "../src/sources/index.js";
+const ALL = SOURCES.map((s) => s.id);
 const emb = (source, lang, n) => ({ source, lang, server: "vimeos", embedUrl: `https://vimeos.net/e/${source}${lang}${n}`, quality: null });
 const movie = { kind: "movie", ref: "m:550", title: "El club de la pelea", ids: { tmdb: 550 } };
 const episode = { kind: "episode", ref: "e:1396:1:1", title: "Breaking Bad", ids: { tmdb: 1396 }, season: 1, episode: 1 };
