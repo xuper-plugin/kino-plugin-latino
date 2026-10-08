@@ -38,7 +38,10 @@ export function readPrefs(kino) {
   if (!p) return out;
   if (LANGS.includes(p.preferred)) out.preferred = p.preferred;
   if (QUALITIES.includes(p.maxQuality)) out.maxQuality = p.maxQuality;
-  if (Array.isArray(p.avoid)) out.avoid = [...new Set(p.avoid.filter((s) => isStr(s) && serverIds().includes(s)))];
+  if (Array.isArray(p.avoid)) {
+    const known = serverIds();
+    out.avoid = [...new Set(p.avoid.filter((s) => isStr(s) && known.includes(s)))];
+  }
   return out;
 }
 

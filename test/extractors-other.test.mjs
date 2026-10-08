@@ -30,15 +30,16 @@ test("voe: decodeVoe is the documented chain", () => {
 
 const REDIRECT = "<script>window.location.href = 'https://random.example/e/abc';</script>";
 
+// These model a Kino whose approved grant does not reach the host (no fetchHosts "any" approval, kino.fetchAnyHost false).
 test("voe: an undeclared redirect host without the browser gives null and is never fetched", async () => {
-  const { kino, calls } = fakeKino({ fetch: async () => ({ status: 200, body: REDIRECT }) });
+  const { kino, calls } = fakeKino({ fetch: async () => ({ status: 200, body: REDIRECT }), extra: { fetchAnyHost: false } });
   const s = await extractorFor("https://voe.sx/e/abc").extract("https://voe.sx/e/abc", makeRequester(kino, { budget: 4, deadline: far() }), { ...kino, browser: undefined });
   assert.equal(s, null);
   assert.deepEqual(calls.map((c) => c.url), ["https://voe.sx/e/abc"]);
 });
 
 test("voe: an undeclared redirect host goes straight to the hidden browser (never fetched), media[0] played", async () => {
-  const { kino, calls } = fakeKino({ fetch: async () => ({ status: 200, body: REDIRECT }) });
+  const { kino, calls } = fakeKino({ fetch: async () => ({ status: 200, body: REDIRECT }), extra: { fetchAnyHost: false } });
   const seen = [];
   const browser = { captureAll: true, capture: async (url, o) => { seen.push([url, o]); return { media: [{ url: "https://cdn.example/v/master.m3u8", headers: { Origin: "https://random.example" } }], subtitles: [], finalUrl: "https://random.example/e/abc" }; } };
   const s = await extractorFor("https://voe.sx/e/abc").extract("https://voe.sx/e/abc", makeRequester(kino, { budget: 4, deadline: far() }), { ...kino, browser });
@@ -52,7 +53,7 @@ test("voe: an undeclared redirect host goes straight to the hidden browser (neve
 });
 
 test("voe: the capture never runs past the requester's deadline, and is skipped with under 3 s left", async () => {
-  const { kino } = fakeKino({ fetch: async () => ({ status: 200, body: REDIRECT }) });
+  const { kino } = fakeKino({ fetch: async () => ({ status: 200, body: REDIRECT }), extra: { fetchAnyHost: false } });
   const seen = [];
   const browser = { captureAll: true, capture: async (url, o) => { seen.push(o.timeoutMs); return { media: [{ url: "https://cdn.example/v.mp4" }] }; } };
   const s = await extractorFor("https://voe.sx/e/abc").extract("https://voe.sx/e/abc", makeRequester(kino, { budget: 4, deadline: Date.now() + 8000 }), { ...kino, browser });

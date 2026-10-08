@@ -283,7 +283,7 @@ test("cinecalidad: an intermediate link on a host Kino would refuse skips that o
     if (/go\/y/.test(u)) throw Object.assign(new Error("blocked"), { code: "host_not_allowed" });
     if (/go\/abc/.test(u)) return { status: 200, body: `<a id="btn_enlace" href="https://voe.sx/e/zzz111"></a>` };
     return { status: 404, body: "" };
-  } });
+  }, extra: { fetchAnyHost: false } });
   const titled = { ...FIGHT, titles: { esMX: "Algo", esES: "Algo", en: "Algo", original: "Algo" } };
   const seen = [];
   const req = makeRequester(f.kino, { budget: 12, deadline: Date.now() + 60_000 });

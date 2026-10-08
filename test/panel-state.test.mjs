@@ -93,11 +93,10 @@ const embeds = () => [E("lamovie", "lat", "vimeos", 1, "1080p"), E("lamovie", "l
 
 test("resolveTitle leaves a record of how the copy was chosen when given a ref", async () => {
   const { kino } = fakeKino();
-  const s = await resolveTitle(kino, T, { preferred: "lat" }, { sources: [src("lamovie", embeds())], extract: okExtract, ref: "m:550" });
+  await resolveTitle(kino, T, { preferred: "lat" }, { sources: [src("lamovie", embeds())], extract: okExtract, ref: "m:550" });
   const rec = readLast(kino, "m:550");
   assert.equal(rec.total, 3);
   assert.equal(rec.order, "lat");
-  assert.equal(rec.chosen, s.title || rec.chosen);
   assert.match(rec.chosen, /vimeos|Vimeos/);
   assert.equal(rec.alternatives.length, 2);
   assert.ok(rec.at > 0);

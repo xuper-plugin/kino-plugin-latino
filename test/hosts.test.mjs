@@ -5,6 +5,7 @@ import { SOURCES } from "../src/sources/index.js";
 import { HOSTS as EXTRACTOR_HOSTS } from "../src/extractors/index.js";
 import { readSettings } from "../src/settings.js";
 import { hostDeclared } from "../src/util/hosts.js";
+import { fetchAnyHost, validateManifest } from "../sdk/contract.mjs";
 
 const manifest = JSON.parse(readFileSync(new URL("../kino-plugin.json", import.meta.url)));
 const hostEntries = manifest.hosts.map((h) => (typeof h === "string" ? h : h.host));
@@ -53,9 +54,13 @@ test("hosts audit: the wildcard rule is exact (the apex is not covered by *.x)",
   assert.equal(covered("notarchive.org"), false);
 });
 
-test("manifest: no fetchHosts any (at apiVersion 9 the kit would turn the grant on), the explicit hosts list is the rule", () => {
-  assert.equal(manifest.fetchHosts, undefined);
-  assert.ok(manifest.apiVersion >= 8);
+test("manifest: fetchHosts any (Kino 0.9.54+ hand-written plugins), the explicit hosts list kept as the fallback", () => {
+  assert.equal(manifest.fetchHosts, "any");
+  assert.ok(manifest.apiVersion >= 9, "hand-written fetchHosts is honoured from apiVersion 9");
+  assert.equal(fetchAnyHost(manifest), true, "the kit treats the manifest as asking for the grant");
+  const checked = validateManifest(readFileSync(new URL("../kino-plugin.json", import.meta.url), "utf8"));
+  assert.notEqual(checked.ok, false, checked.message);
+  assert.equal((checked.manifest || checked).fetchHostsAny, true);
   assert.ok(hostEntries.length > 30);
 });
 

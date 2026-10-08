@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { fakeKino } from "./helpers/fakeKino.mjs";
 import { makeRequester, fetchAllowed, UA } from "../src/util/http.js";
 import { hostMatcher } from "../src/util/hosts.js";
+import { anyFetchRefusal } from "../sdk/contract.mjs";
 
 const far = () => Date.now() + 60_000;
 
@@ -96,7 +97,8 @@ test("the internal retry option never reaches kino.fetch", async () => {
 });
 
 test("an undeclared host is refused locally (host_not_allowed, local), never fetched, never counted", async () => {
-  const { kino, calls } = fakeKino({ fetch: async () => ({ status: 200, body: "" }) });
+  // Without the grant (kino.fetchAnyHost false): the person did not approve fetchHosts "any".
+  const { kino, calls } = fakeKino({ fetch: async () => ({ status: 200, body: "" }), extra: { fetchAnyHost: false } });
   const req = makeRequester(kino, { budget: 5, deadline: far() });
   await assert.rejects(req("https://sv3.rotating.example/x"), (e) => e.code === "host_not_allowed" && e.local === true);
   await assert.rejects(req("not a url"), (e) => e.code === "host_not_allowed" && e.local === true);
@@ -105,7 +107,7 @@ test("an undeclared host is refused locally (host_not_allowed, local), never fet
 });
 
 test("declared hosts pass: exact entries and *.x subdomains, never a look-alike", async () => {
-  const { kino, calls } = fakeKino({ fetch: async () => ({ status: 200, body: "" }) });
+  const { kino, calls } = fakeKino({ fetch: async () => ({ status: 200, body: "" }), extra: { fetchAnyHost: false } });
   const req = makeRequester(kino, { budget: 5, deadline: far() });
   await req("https://voe.sx/e/abc");
   await req("https://delivery.voe.sx/x");
@@ -119,6 +121,22 @@ test("kino.fetchAnyHost === true (approved fetchHosts any) lets any host through
   assert.equal(yes.calls.length, 1);
   const no = fakeKino({ fetch: async () => ({ status: 200, body: "" }), extra: { fetchAnyHost: "yes" } });
   await assert.rejects(makeRequester(no.kino, { budget: 2, deadline: far() })("https://sv3.rotating.example/x"), (e) => e.local === true);
+});
+
+test("with the v9 grant, Kino's own rules decide: https/443 dotted names pass, http, odd ports and single labels are refused", async () => {
+  // A fetch that applies the kit's PluginHostGate.anyFetchRefusal to hosts the manifest does not declare.
+  const gate = async (url) => {
+    const why = fetchAllowed({}, url) ? null : anyFetchRefusal(new URL(url));
+    if (why) throw Object.assign(new Error(why), { code: "host_not_allowed" });
+    return { status: 200, body: "" };
+  };
+  const { kino } = fakeKino({ fetch: gate, extra: { fetchAnyHost: true } });
+  const req = makeRequester(kino, { budget: 10, deadline: far() });
+  await req("https://sv3.rotating.example/x");
+  await req("http://voe.sx/e/abc"); // declared hosts keep their own rules
+  for (const bad of ["http://sv3.rotating.example/x", "https://sv3.rotating.example:8443/x", "https://router/x", "https://192.168.1.5/x"]) {
+    await assert.rejects(req(bad), (e) => e.code === "host_not_allowed", bad);
+  }
 });
 
 test("fetchAllowed and the host matcher agree with the manifest", () => {
