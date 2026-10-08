@@ -417,3 +417,39 @@ test("early end: with 6 playable copies after 2.5 s a resolve stops waiting for 
   assert.equal("slow" in readHealth(kino), false, "a source cut short is not a failure");
   assert.equal(readHealth(kino).fast.ok, true);
 });
+
+const slowNet = () => fakeKino({ extra: { sleep: (ms) => new Promise((r) => setTimeout(r, ms)) }, fetch: async () => { await new Promise((r) => setTimeout(r, 800)); return { status: 404, body: "" }; } });
+const anyExtract = () => Object.assign((e) => okExtract(e), { accepts: () => true });
+
+test("early end counts only the preferred language: six Subtitulado copies never cut the source with the Latino one", async () => {
+  const { kino } = slowNet();
+  const subs = src("subs", [1, 2, 3, 4, 5, 6].map((n) => E("subs", "sub", "vimeos", n)));
+  const lat = src("lat", [E("lat", "lat", "vimeos", 99)], 3500);
+  const s = await resolveTitle(kino, T, {}, { sources: [subs, lat], extract: anyExtract() });
+  assert.ok(s.label.startsWith("Latino"), s.label);
+});
+
+test("early end: a replay from the cache neither waits nor asks the sources cut short again", async () => {
+  const { kino } = slowNet();
+  const fast = src("fast", [1, 2, 3, 4, 5, 6].map((n) => E("fast", "lat", "vimeos", n)));
+  const slow = counted(src("slow", [E("slow", "lat", "vimeos", 99)], 6000));
+  await resolveTitle(kino, T, {}, { sources: [fast, slow], extract: anyExtract() });
+  const t0 = Date.now();
+  await resolveTitle(kino, T, {}, { sources: [fast, slow], extract: anyExtract() });
+  assert.ok(Date.now() - t0 < 1000, `replay took ${Date.now() - t0} ms`);
+  assert.equal(slow.calls, 1);
+});
+
+test("early end: a source cut short stops at its next request instead of holding Kino's fetch slots", async () => {
+  const { kino, calls } = slowNet();
+  const fast = src("fast", [1, 2, 3, 4, 5, 6].map((n) => E("fast", "lat", "vimeos", n)));
+  let refused = null;
+  const chatty = { id: "chatty", name: "chatty", kinds: ["movie"], list: async (t, { req }) => {
+    for (let i = 0; i < 10; i++) { try { await req("https://lamovie.org/chatty/" + i, { retry: false }); } catch (e) { refused = e.local ? i : "other"; break; } }
+    return [];
+  } };
+  await resolveTitle(kino, T, {}, { sources: [fast, chatty], extract: anyExtract() });
+  await new Promise((r) => setTimeout(r, 1500));
+  assert.ok(typeof refused === "number" && refused <= 5, `refused at ${refused}`);
+  assert.ok(calls.filter((c) => c.url.includes("/chatty/")).length <= 5);
+});

@@ -114,11 +114,11 @@ test("zoowomaniacos: an archive.org media file is a direct embed, and the page m
   assert.deepEqual(e.map((x) => [x.lang, x.server, x.embedUrl]).at(-1), ["lat", "direct", "https://archive.org/download/x/Noche.mp4"]);
 });
 
-test("zoowomaniacos: a second title variant is searched when the first finds nothing; title and year must match", async () => {
+test("zoowomaniacos: one search, by the original title (the site takes ~4 s each); title and year must match", async () => {
   const seen = [];
   const f = fakeKino({ fetch: async (u, o) => { if (o.body) seen.push(o.body.form["search[value]"]); return { status: 200, body: JSON.stringify({ data: [{ a1: "1", a2: "Zombie Fight Club", a4: "2014" }, { a1: "2", a2: "Fight Club 2", a4: "1999" }] }) }; } });
   assert.deepEqual(await zoowomaniacos.list(FIGHT, ctx(f.kino)), []);
-  assert.deepEqual(seen, ["Fight Club", "El club de la pelea"]);
+  assert.deepEqual(seen, ["Fight Club"]);
   assert.deepEqual(await zoowomaniacos.list({ ...NOTLD, year: 2030 }, ctx(zoo().kino)), []);
   assert.deepEqual(await zoowomaniacos.list(BB, ctx(zoo().kino)), []);
 });

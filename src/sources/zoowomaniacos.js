@@ -12,7 +12,8 @@ const SITE = "https://proyectox.yoyatengoabuela.com";
 /** The site origin, for a "direct" embed's Referer. */
 export const ORIGIN = SITE;
 const AJAX = { Referer: SITE + "/", Origin: SITE, "X-Requested-With": "XMLHttpRequest" };
-const MAX_SEARCHES = 2;
+// One search: the site's server takes about 4 s per search, and its titles hold the original one ("La cosa - The Thing").
+const MAX_SEARCHES = 1;
 const THRESHOLD = 0.8;
 
 const tokens = (s) => String(s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^\p{L}\p{N}]+/gu, " ").trim().split(" ").filter(Boolean);

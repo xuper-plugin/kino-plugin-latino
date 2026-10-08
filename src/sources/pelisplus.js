@@ -48,6 +48,8 @@ export function rows(html) {
   return out;
 }
 
+const pageYear = (html) => yearIn((/<title>([^<]*)<\/title>/i.exec(html) || [])[1]);
+
 async function page(url, req) {
   const r = await req(url, { headers: HEADERS });
   return r.ok ? r.text() : null;
@@ -62,11 +64,11 @@ export async function list(title, { req }) {
       const html = await page(`${SITE}/search?s=${encodeURIComponent(term)}`, req);
       const found = html ? matches(results(html, title.kind), title).slice(0, MAX_PAGES) : [];
       for (const hit of found) {
-        const url = tv ? `${hit.url}/temporada/${Number(title.season)}/capitulo/${Number(title.episode)}` : hit.url;
-        const body = await page(url, req);
+        // The title's own page carries "(<year>)" in its <title>: it settles a remake, or two series, sharing a title.
+        const own = await page(hit.url, req);
+        if (!own || !yearMatches(pageYear(own), title.year)) continue;
+        const body = tv ? await page(`${hit.url}/temporada/${Number(title.season)}/capitulo/${Number(title.episode)}`, req) : own;
         if (!body) continue;
-        // A movie page's own year settles a remake that shares its title.
-        if (!tv && !yearMatches(yearIn((/<title>([^<]*)<\/title>/i.exec(body) || [])[1]), title.year)) continue;
         return toEmbeds(id, rows(body).filter((r) => normLang(r.lang)));
       }
     }

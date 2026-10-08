@@ -343,7 +343,7 @@ __export(streamwish_exports, {
 var kino_plugin_default = {
   id: "latino",
   name: "Latino",
-  version: "2.0.1",
+  version: "2.0.2",
   apiVersion: 9,
   panel: {
     label: "Latino",
@@ -1801,7 +1801,7 @@ var HOSTS16 = ["proyectox.yoyatengoabuela.com"];
 var SITE7 = "https://proyectox.yoyatengoabuela.com";
 var ORIGIN7 = SITE7;
 var AJAX = { Referer: SITE7 + "/", Origin: SITE7, "X-Requested-With": "XMLHttpRequest" };
-var MAX_SEARCHES = 2;
+var MAX_SEARCHES = 1;
 var THRESHOLD = 0.8;
 var tokens = (s) => String(s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^\p{L}\p{N}]+/gu, " ").trim().split(" ").filter(Boolean);
 function overlap(a, b) {
@@ -1966,6 +1966,7 @@ function rows2(html) {
   for (const m of html.matchAll(/<span\b[^>]*\blid="(\d+)"[^>]*\burl="(https?:\/\/[^"]+)"/g)) out.push({ url: m[2], lang: "Latino", server: names[m[1]] || "" });
   return out;
 }
+var pageYear2 = (html) => yearIn((/<title>([^<]*)<\/title>/i.exec(html) || [])[1]);
 async function page(url, req) {
   const r = await req(url, { headers: HEADERS3 });
   return r.ok ? r.text() : null;
@@ -1979,10 +1980,10 @@ async function list9(title, { req }) {
       const html = await page(`${SITE9}/search?s=${encodeURIComponent(term)}`, req);
       const found = html ? matches(results(html, title.kind), title).slice(0, MAX_PAGES) : [];
       for (const hit of found) {
-        const url = tv ? `${hit.url}/temporada/${Number(title.season)}/capitulo/${Number(title.episode)}` : hit.url;
-        const body = await page(url, req);
+        const own = await page(hit.url, req);
+        if (!own || !yearMatches(pageYear2(own), title.year)) continue;
+        const body = tv ? await page(`${hit.url}/temporada/${Number(title.season)}/capitulo/${Number(title.episode)}`, req) : own;
         if (!body) continue;
-        if (!tv && !yearMatches(yearIn((/<title>([^<]*)<\/title>/i.exec(body) || [])[1]), title.year)) continue;
         return toEmbeds(id9, rows2(body).filter((r) => normLang(r.lang)));
       }
     }
@@ -2684,6 +2685,7 @@ var BROWSER_CALL_MS = BROWSER_RESOLVE_MS - 1500;
 var MAX_COPIES = 8;
 var CALL_REQUESTS = 54;
 var PHASE_REQUESTS = 36;
+var PANEL_CALL_REQUESTS = 27;
 var EARLY = { ms: 2500, copies: 6 };
 var CACHE_TTL_MS = 18e5;
 function normalizeSettings(s = {}) {
@@ -2726,7 +2728,8 @@ async function askSource(kino, source, title, start, pools) {
 }
 async function collect(kino, title, { enabled, sources = SOURCES, phaseMs = PHASE_MS, fresh = false, skip = [], cachePrefix = "emb:", ttlMs, call = requestPool(CALL_REQUESTS), enough = null } = {}) {
   const start = Date.now();
-  const pools = [call, requestPool(PHASE_REQUESTS)];
+  const phase = requestPool(Math.min(PHASE_REQUESTS, call.left));
+  const pools = [call, phase];
   const active = sources.filter((s) => isOn(enabled, s.id) && (!s.kinds || s.kinds.includes(title.kind)));
   const key = cacheKey(title, cachePrefix);
   const cached = fresh ? null : readCache(kino, key);
@@ -2756,12 +2759,14 @@ async function collect(kino, title, { enabled, sources = SOURCES, phaseMs = PHAS
     const timeUp = waitFor(kino, Math.max(0, start + phaseMs - Date.now()), () => pending === 0 || (early = !!enough && Date.now() - start >= EARLY.ms && enough(sofar())));
     await Promise.race([allAnswered, timeUp.catch(() => {
     })]);
+    phase.left = 0;
     const cut2 = (s) => early && !answers.has(s.id);
     recordRun(kino, toAsk.filter((s) => !cut2(s)).map((s) => ({ id: s.id, ok: !!answers.get(s.id) && !answers.get(s.id).failed })));
     for (const s of toAsk) {
       const r = answers.get(s.id);
       if (cut2(s)) {
         down = false;
+        done.add(s.id);
         continue;
       }
       if (!r) {
@@ -2949,8 +2954,10 @@ async function resolveTitle(kino, title, settings, { sources = SOURCES, extract:
   const set = normalizeSettings(settings);
   const phase = Math.min(phaseMs, ms, Math.max(MIN_PHASE_MS, ms - 7e3));
   const call = requestPool(CALL_REQUESTS);
-  const accepts = extract9.accepts || (() => true);
-  const enough = (es) => new Set(es.filter(accepts).map((e) => e.embedUrl)).size >= EARLY.copies;
+  const sourceOf = (e) => sources.find((s) => s.id === e.source);
+  const profiled = (e) => !e.server.startsWith("direct-") || !!((sourceOf(e) || {}).DIRECT || {})[e.server.slice("direct-".length)];
+  const accepts = (e) => (extract9.accepts || (() => true))(e) && profiled(e);
+  const enough = (es) => new Set(es.filter((e) => e.lang === set.preferred && accepts(e)).map((e) => e.embedUrl)).size >= EARLY.copies;
   const { embeds, down, missing, cached, key } = await collect(kino, title, { enabled: set.enabled, sources, phaseMs: phase, call, enough });
   const playable = embeds.filter(accepts);
   const lang = pickLanguage(playable, set.preferred);
@@ -2963,7 +2970,6 @@ async function resolveTitle(kino, title, settings, { sources = SOURCES, extract:
     throw kino.error("not_found", `no playable embed (${embeds.length} listed)`, { userMessage: t("notFound", kino) });
   }
   const pool = rank(playable.filter((e) => e.lang === lang), { maxQuality: set.maxQuality, avoid: settings && settings.avoid });
-  const sourceOf = (e) => sources.find((s) => s.id === e.source);
   const nameOf = (e) => (sourceOf(e) || {}).name || e.source;
   const failed = /* @__PURE__ */ new Set();
   let main = null;
@@ -3613,7 +3619,7 @@ async function availTab(kino, ctx, { untilMs } = {}) {
   if (isMovie || season != null && episode != null) {
     if (!isMovie) elements.push({ type: "text", text: `T${season} \xB7 E${episode}`, textEn: `S${season} \xB7 E${episode}` });
     const phaseMs = Math.max(1e3, end - Date.now() - SETTLE_MS);
-    const { embeds, failed, answered } = await listEmbedsDetailed(kino, title, { enabled, phaseMs, cachePrefix: PANEL_EMB, ttlMs: PANEL_TTL_MS });
+    const { embeds, failed, answered } = await listEmbedsDetailed(kino, title, { enabled, phaseMs, cachePrefix: PANEL_EMB, ttlMs: PANEL_TTL_MS, call: requestPool(PANEL_CALL_REQUESTS) });
     if (failed.length) partial = true;
     const bySite = /* @__PURE__ */ new Map();
     for (const e of embeds) {
@@ -3797,7 +3803,7 @@ function lookup(kino, id13, season, episode, untilMs) {
     const run = (async () => {
       const title = await titleContext(kino, { kind: "tv", tmdbId: id13, season, episode }, { untilMs });
       const enabled = normalizeSettings({ enabled: readSettings(kino).enabled }).enabled;
-      return listEmbedsDetailed(kino, title, { enabled, phaseMs: PHASE_MS2, cachePrefix: PANEL_EMB, ttlMs: PANEL_TTL_MS });
+      return listEmbedsDetailed(kino, title, { enabled, phaseMs: PHASE_MS2, cachePrefix: PANEL_EMB, ttlMs: PANEL_TTL_MS, call: requestPool(PANEL_CALL_REQUESTS) });
     })().finally(() => inflight.delete(key));
     inflight.set(key, run);
   }
@@ -4096,8 +4102,7 @@ async function resolve(ref) {
   if (!title) throw notFound(kino, "not a playable ref");
   return resolveTitle(kino, title, readSettings(kino), { callMs: dl.left(), ref: r });
 }
-var TOGGLABLE_SOURCE_IDS = ["lamovie", "hackstore", "cinecalidad", "seriesmetro", "seriesflix", "embed69", "zoowomaniacos"];
-var PREFERENCE_KEYS = ["preferred", "maxQuality", "homeRows", ...TOGGLABLE_SOURCE_IDS.map((id13) => "src_" + id13)];
+var PREFERENCE_KEYS = kino_plugin_default.settings.filter((s) => !["section", "status", "action"].includes(s.type)).map((s) => s.key);
 var PROBE_TMDB_ID = 550;
 var fill = (text5, vars) => text5.replace(/\{(\w+)\}/g, (_, k) => String(vars[k]));
 async function settingsStatus() {

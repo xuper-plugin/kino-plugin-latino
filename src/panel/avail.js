@@ -3,7 +3,8 @@
 // never reported as lacking the title: it only turns on the "partial answer" status.
 
 import { both, t } from "../i18n.js";
-import { listEmbedsDetailed, normalizeSettings, LANGS } from "../resolver.js";
+import { listEmbedsDetailed, normalizeSettings, LANGS, PANEL_CALL_REQUESTS } from "../resolver.js";
+import { requestPool } from "../util/http.js";
 import { sourceById } from "../sources/index.js";
 import { readSettings } from "../settings.js";
 import { titleContext, episodeList } from "../tmdb.js";
@@ -42,7 +43,7 @@ export async function availTab(kino, ctx, { untilMs } = {}) {
   if (isMovie || (season != null && episode != null)) {
     if (!isMovie) elements.push({ type: "text", text: `T${season} · E${episode}`, textEn: `S${season} · E${episode}` });
     const phaseMs = Math.max(1000, end - Date.now() - SETTLE_MS);
-    const { embeds, failed, answered } = await listEmbedsDetailed(kino, title, { enabled, phaseMs, cachePrefix: PANEL_EMB, ttlMs: PANEL_TTL_MS });
+    const { embeds, failed, answered } = await listEmbedsDetailed(kino, title, { enabled, phaseMs, cachePrefix: PANEL_EMB, ttlMs: PANEL_TTL_MS, call: requestPool(PANEL_CALL_REQUESTS) });
     if (failed.length) partial = true;
     const bySite = new Map();
     for (const e of embeds) {

@@ -4,7 +4,8 @@
 // episode, so the 5 s refresh of "Esta copia" never starts a second one.
 
 import { both } from "../i18n.js";
-import { listEmbedsDetailed, normalizeSettings } from "../resolver.js";
+import { listEmbedsDetailed, normalizeSettings, PANEL_CALL_REQUESTS } from "../resolver.js";
+import { requestPool } from "../util/http.js";
 import { readSettings } from "../settings.js";
 import { tmdb, titleContext } from "../tmdb.js";
 import { within } from "../util/time.js";
@@ -51,7 +52,7 @@ function lookup(kino, id, season, episode, untilMs) {
     const run = (async () => {
       const title = await titleContext(kino, { kind: "tv", tmdbId: id, season, episode }, { untilMs });
       const enabled = normalizeSettings({ enabled: readSettings(kino).enabled }).enabled;
-      return listEmbedsDetailed(kino, title, { enabled, phaseMs: PHASE_MS, cachePrefix: PANEL_EMB, ttlMs: PANEL_TTL_MS });
+      return listEmbedsDetailed(kino, title, { enabled, phaseMs: PHASE_MS, cachePrefix: PANEL_EMB, ttlMs: PANEL_TTL_MS, call: requestPool(PANEL_CALL_REQUESTS) });
     })().finally(() => inflight.delete(key));
     inflight.set(key, run);
   }

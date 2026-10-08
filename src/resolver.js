@@ -50,6 +50,8 @@ const MAX_COPIES = 8;
 // copies may spend 36, so opening one always has room left.
 const CALL_REQUESTS = 54;
 const PHASE_REQUESTS = 36;
+/** The panel may run two lookups in one call (its tab and the "Siguiente" strip): each gets half of a call. */
+export const PANEL_CALL_REQUESTS = 27;
 // A resolve stops waiting for slow sources once it has this many playable copies, but never before EARLY_MS.
 const EARLY = { ms: 2500, copies: 6 };
 const CACHE_TTL_MS = 1800000;
@@ -113,7 +115,8 @@ async function askSource(kino, source, title, start, pools) {
  */
 async function collect(kino, title, { enabled, sources = SOURCES, phaseMs = PHASE_MS, fresh = false, skip = [], cachePrefix = "emb:", ttlMs, call = requestPool(CALL_REQUESTS), enough = null } = {}) {
   const start = Date.now();
-  const pools = [call, requestPool(PHASE_REQUESTS)];
+  const phase = requestPool(Math.min(PHASE_REQUESTS, call.left));
+  const pools = [call, phase];
   const active = sources.filter((s) => isOn(enabled, s.id) && (!s.kinds || s.kinds.includes(title.kind)));
   const key = cacheKey(title, cachePrefix);
   const cached = fresh ? null : readCache(kino, key);
@@ -139,12 +142,14 @@ async function collect(kino, title, { enabled, sources = SOURCES, phaseMs = PHAS
     let early = false;
     const timeUp = waitFor(kino, Math.max(0, start + phaseMs - Date.now()), () => pending === 0 || (early = !!enough && Date.now() - start >= EARLY.ms && enough(sofar())));
     await Promise.race([allAnswered, timeUp.catch(() => {})]);
-    // A source cut short by an early end is neither late nor failing: the next call asks it again.
+    phase.left = 0; // the wait is over: sources still asking stop at their next request and free Kino's fetch slots
+    // A source cut short by an early end is neither late nor failing; it counts as asked for this cache entry, so
+    // replaying the title within the cache's life does not wait for it again.
     const cut = (s) => early && !answers.has(s.id);
     recordRun(kino, toAsk.filter((s) => !cut(s)).map((s) => ({ id: s.id, ok: !!answers.get(s.id) && !answers.get(s.id).failed }))); // late counts as failed
     for (const s of toAsk) {
       const r = answers.get(s.id);
-      if (cut(s)) { down = false; continue; }
+      if (cut(s)) { down = false; done.add(s.id); continue; }
       if (!r) { kino.log("[latino]", s.id, "late"); failed.push(s.id); continue; }
       if (!r.failed || !NETWORK_CODES.has(r.failed)) down = false;
       if (r.failed) { failed.push(s.id); continue; }
@@ -384,8 +389,12 @@ export async function resolveTitle(kino, title, settings, { sources = SOURCES, e
   // A call that starts late (a slow TMDB before it) shortens phase 1 so a copy can still be opened.
   const phase = Math.min(phaseMs, ms, Math.max(MIN_PHASE_MS, ms - 7000));
   const call = requestPool(CALL_REQUESTS);
-  const accepts = extract.accepts || (() => true);
-  const enough = (es) => new Set(es.filter(accepts).map((e) => e.embedUrl)).size >= EARLY.copies;
+  const sourceOf = (e) => sources.find((s) => s.id === e.source);
+  // A "direct-<profile>" copy plays only when its source defines that profile.
+  const profiled = (e) => !e.server.startsWith("direct-") || !!((sourceOf(e) || {}).DIRECT || {})[e.server.slice("direct-".length)];
+  const accepts = (e) => (extract.accepts || (() => true))(e) && profiled(e);
+  // Ending phase 1 early needs plenty of copies in the language the person prefers, not just any language.
+  const enough = (es) => new Set(es.filter((e) => e.lang === set.preferred && accepts(e)).map((e) => e.embedUrl)).size >= EARLY.copies;
   const { embeds, down, missing, cached, key } = await collect(kino, title, { enabled: set.enabled, sources, phaseMs: phase, call, enough });
   const playable = embeds.filter(accepts);
   const lang = pickLanguage(playable, set.preferred);
@@ -399,7 +408,6 @@ export async function resolveTitle(kino, title, settings, { sources = SOURCES, e
   }
 
   const pool = rank(playable.filter((e) => e.lang === lang), { maxQuality: set.maxQuality, avoid: settings && settings.avoid });
-  const sourceOf = (e) => sources.find((s) => s.id === e.source);
   const nameOf = (e) => (sourceOf(e) || {}).name || e.source;
   const failed = new Set();
   let main = null; // { e, s }

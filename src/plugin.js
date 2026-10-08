@@ -21,6 +21,7 @@ import { t } from "./i18n.js";
 import { missingSeasons, markEpisodes } from "./availability.js";
 import { callDeadline } from "./util/time.js";
 import { clearPrefs } from "./panel/state.js";
+import manifest from "../kino-plugin.json" with { type: "json" };
 
 const getKino = () => globalThis.kino;
 
@@ -199,10 +200,8 @@ export async function resolve(ref) {
 
 // ---------- settings form ----------
 
-/** Source IDs that have an on/off toggle in the manifest (the 10 newer sources are always on). */
-const TOGGLABLE_SOURCE_IDS = ["lamovie", "hackstore", "cinecalidad", "seriesmetro", "seriesflix", "embed69", "zoowomaniacos"];
 /** The person's preferences: every value setting of the form (none is required, so clearSettings may name them all). */
-const PREFERENCE_KEYS = ["preferred", "maxQuality", "homeRows", ...TOGGLABLE_SOURCE_IDS.map((id) => "src_" + id)];
+const PREFERENCE_KEYS = manifest.settings.filter((s) => !["section", "status", "action"].includes(s.type)).map((s) => s.key);
 const PROBE_TMDB_ID = 550; // Fight Club: on every source
 const fill = (text, vars) => text.replace(/\{(\w+)\}/g, (_, k) => String(vars[k]));
 

@@ -73,12 +73,16 @@ test("pelisplus: a page whose year is not the movie's is passed over", async () 
   assert.deepEqual(await pelisplus.list(FIGHT, ctx(f.kino)), []);
 });
 
-test("pelisplus: an episode reads the #link_url spans, named by their li[data-id]", async () => {
+test("pelisplus: an episode reads the #link_url spans, named by their li[data-id], once the series' year matches", async () => {
   const ep = `<li role="presentation" data-id="1"><a href="#option1">Fastream</a></li><li role="presentation" data-id="2"><a href="#option2">DoodStream</a></li>
 <div id="link_url"><span lid="1" url="https://fastream.to/embed-abc.html"></span><span lid="2" url="https://dood.to/e/xyz"></span></div>`;
   const f = routes([[/\/search\?s=/, '<a href="/serie/breaking-bad" class="Posters-link" data-title="VER Breaking Bad Online Gratis HD">'],
+    [/\/serie\/breaking-bad$/, "<title>Ver Serie: Breaking Bad (2008) Online Latino HD - Pelisplus</title>"],
     [/\/serie\/breaking-bad\/temporada\/2\/capitulo\/3$/, ep]]);
   const e = await pelisplus.list(BB, ctx(f.kino));
+  const other = routes([[/\/search\?s=/, '<a href="/serie/breaking-bad" class="Posters-link" data-title="VER Breaking Bad Online Gratis HD">'],
+    [/\/serie\/breaking-bad$/, "<title>Ver Serie: Breaking Bad (2024) Online Latino HD - Pelisplus</title>"], [/\/capitulo\//, ep]]);
+  assert.deepEqual(await pelisplus.list(BB, ctx(other.kino)), [], "a same-title series of another year is passed over");
   assert.deepEqual(e.map((x) => [x.lang, x.server, x.embedUrl]), [["lat", "fastream", "https://fastream.to/embed-abc.html"], ["lat", "doodstream", "https://dood.to/e/xyz"]]);
 });
 

@@ -1,5 +1,18 @@
 # Changelog
 
+## 2.0.2
+
+- Fix (2.0.1): the early end of the copy search counted copies in any language, so six Subtitulado copies could cut
+  short the source holding the Latino one; it now counts only copies in the preferred language.
+  / Arreglo: la búsqueda podía dejar de esperar a la fuente con la copia en tu idioma.
+- Fix (2.0.1): replaying a title from the cache waited 2.5 s and asked the sources cut short again every time; they now
+  count as asked for that cache entry, and stop sending requests as soon as the wait ends.
+  / Arreglo: repetir un título ya no espera de nuevo.
+- The player panel's two lookups (its tab and the "Siguiente" strip) share one call's request limit.
+- PelisPlusHD checks a series' year on its page, so two series sharing a title are told apart.
+- Zoowomaniacos searches once (by the original title): its server takes about 4 s per search.
+- A "direct-<profile>" copy counts as playable only when its source defines that profile.
+
 ## 2.0.1
 
 - Sources that gave no playable copy are gone: XuPalace (now redirects to Embed69, which is already a source),
