@@ -53,8 +53,8 @@ test("hosts audit: the wildcard rule is exact (the apex is not covered by *.x)",
   assert.equal(covered("notarchive.org"), false);
 });
 
-test("manifest: fetchHosts any (Kino 0.9.54+ hand-written plugins), the explicit hosts list kept as the fallback", () => {
-  assert.equal(manifest.fetchHosts, "any");
+test("manifest: no fetchHosts any (at apiVersion 9 the kit would turn the grant on), the explicit hosts list is the rule", () => {
+  assert.equal(manifest.fetchHosts, undefined);
   assert.ok(manifest.apiVersion >= 8);
   assert.ok(hostEntries.length > 30);
 });

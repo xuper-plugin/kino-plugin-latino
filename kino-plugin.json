@@ -1,8 +1,9 @@
 {
   "id": "latino",
   "name": "Latino",
-  "version": "1.0.3",
-  "apiVersion": 8,
+  "version": "1.1.0",
+  "apiVersion": 9,
+  "panel": { "label": "Latino", "labelEn": "Latino", "icon": "language" },
   "entry": "plugin.js",
   "icon": "icon.png",
   "description": "Películas y series en español latino, castellano o subtituladas desde varias fuentes",
@@ -77,7 +78,6 @@
     "download"
   ],
   "streamHosts": "any",
-  "fetchHosts": "any",
   "categories": [
     "movies",
     "series"

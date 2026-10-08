@@ -257,3 +257,4 @@ export async function validateSettings(values) {
   const on = normalizeSettings({ enabled }).enabled;
   return SOURCES.some((s) => on[s.id] !== false) ? null : t("keepOneSource", kino);
 }
+export { panel, panelAction, playerEvent } from "./panel/index.js";

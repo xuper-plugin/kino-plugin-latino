@@ -318,8 +318,9 @@ __export(streamwish_exports, {
 var kino_plugin_default = {
   id: "latino",
   name: "Latino",
-  version: "1.0.3",
-  apiVersion: 8,
+  version: "1.1.0",
+  apiVersion: 9,
+  panel: { label: "Latino", labelEn: "Latino", icon: "language" },
   entry: "plugin.js",
   icon: "icon.png",
   description: "Pel\xEDculas y series en espa\xF1ol latino, castellano o subtituladas desde varias fuentes",
@@ -394,7 +395,6 @@ var kino_plugin_default = {
     "download"
   ],
   streamHosts: "any",
-  fetchHosts: "any",
   categories: [
     "movies",
     "series"
@@ -2766,6 +2766,17 @@ function markEpisodes(kino, out, missing) {
   return { ...out, episodes: out.episodes.map((e) => gone.has(e.season) ? { ...e, title: markTitle(e.title, kino) } : e) };
 }
 
+// src/panel/index.js
+async function panel(ctx) {
+  return { title: "Latino", titleEn: "Latino", elements: [{ type: "status", text: "Cargando...", textEn: "Loading..." }] };
+}
+async function panelAction() {
+  return null;
+}
+async function playerEvent() {
+  return null;
+}
+
 // src/plugin.js
 var getKino = () => globalThis.kino;
 var notFound = (kino, detail) => kino.error("not_found", detail, { userMessage: t("notFound", kino) });
@@ -2959,6 +2970,9 @@ export {
   details,
   episodes,
   home,
+  panel,
+  panelAction,
+  playerEvent,
   resolve,
   search2 as search,
   section,
