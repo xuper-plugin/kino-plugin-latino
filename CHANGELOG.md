@@ -16,6 +16,13 @@
 - A resolve stops waiting for slow sources once it has 6 playable copies (after 2.5 s): playback starts in about
   3 s instead of 9. / La reproducción arranca en unos 3 s en vez de 9.
 - Direct copies may carry their own headers ("direct-<profile>").
+- New source TioPlus (movies and series; its Earnvids player is VidHide on vidhideplus.com, which now redirects to
+  callistanise.com). Updating asks to approve three new hosts: tioplus.app, vidhideplus.com and callistanise.com.
+  / Nueva fuente TioPlus. Al actualizar, Kino pide aprobar tres hosts nuevos.
+- PelisSeriesHoy is gone: its site now answers only real browsers (obfuscated per-request tokens), so it never gave a copy.
+  It was the only source off by default. / Se retira PelisSeriesHoy, que ya no daba copias.
+- Every setting, option and the section have their English text (Kino 0.9.55 shows them when the app is in English).
+  / Todos los ajustes tienen su texto en inglés.
 
 ## 2.0.0
 

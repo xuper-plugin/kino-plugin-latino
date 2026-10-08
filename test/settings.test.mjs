@@ -78,13 +78,12 @@ test("settingsStatus: one line, every source as ok / falla / sin datos / apagada
   assert.match(health, /LaMovie ok/);
   assert.match(health, /HackStore falla/);
   assert.match(health, /CineCalidad sin datos/);
-  assert.match(health, /PelisSeriesHoy apagada/);
 });
 
-test("settingsStatus: in English, with a source turned on that is off by default", async () => {
+test("settingsStatus: in English, with a source turned off", async () => {
   const { kino } = install({ lang: "en-US" });
-  const line = healthLine(Object.freeze({ ...kino, config: { get: (k) => (k === "src_peliserieshoy" ? true : undefined) } }), {});
-  assert.match(line, /PelisSeriesHoy no data/);
+  const line = healthLine(Object.freeze({ ...kino, config: { get: (k) => (k === "src_cinecalidad" ? false : undefined) } }), {});
+  assert.match(line, /CineCalidad off/);
   assert.match(line, /LaMovie no data/);
 });
 
@@ -105,7 +104,6 @@ test("action probe: asks the sources for tmdb 550 fresh and stores the results",
   const h = readHealth(kino);
   assert.equal(h.lamovie.ok, false);
   assert.equal(h.hackstore.ok, true);
-  assert.equal("peliserieshoy" in h, false); // off by default: not asked
   assert.ok(seen.some((u) => /lamovie\.org/.test(u)), "the cache did not answer for it");
 });
 

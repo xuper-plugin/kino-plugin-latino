@@ -40,7 +40,7 @@ test("hosts audit: every hostname in src/ that can be fetched is declared", () =
   for (const h of EXTRACTOR_HOSTS) found.add(h);
   // Known redirect targets and hosts only reached through other pages.
   for (const h of ["nupload.my", "vibuxer.com", "morencius.com", "a.goodstream.one", "cdn.goodstream.one", "archive.org", "ia800000.us.archive.org",
-    "player.pelisserieshoy.com", "ok.ru", "m.ok.ru"]) found.add(h);
+    "ok.ru", "m.ok.ru"]) found.add(h);
   // VOE's and Nupload's rotating domains are never fetched: VOE goes through the hidden browser (or fetchAnyHost),
   // Nupload's is handed to the player.
   const missing = [...found].filter((h) => !NOT_FETCHED.has(h) && !covered(h));

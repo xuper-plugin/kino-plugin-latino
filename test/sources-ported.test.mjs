@@ -5,6 +5,7 @@ import { makeRequester } from "../src/util/http.js";
 import * as pelispanda from "../src/sources/pelispanda.js";
 import * as pelisplus from "../src/sources/pelisplus.js";
 import * as fuegocine from "../src/sources/fuegocine.js";
+import * as tioplus from "../src/sources/tioplus.js";
 
 // Shapes captured from the live sites on 2026-10-08.
 const FIGHT = { kind: "movie", tmdbId: 550, imdbId: "tt0137523", year: 1999, titles: { esMX: "El club de la pelea", esES: "El club de la lucha", original: "Fight Club", en: "Fight Club" } };
@@ -129,4 +130,36 @@ test("fuegocine: series are not asked (the site has movies only)", async () => {
   const f = routes([]);
   assert.deepEqual(await fuegocine.list(BB, ctx(f.kino)), []);
   assert.equal(f.calls.length, 0);
+});
+
+// ---------- TioPlus ----------
+
+const OPP = { kind: "movie", tmdbId: 872585, imdbId: "tt15398776", year: 2023, titles: { esMX: "Oppenheimer", original: "Oppenheimer" } };
+const TP_SEARCH = `<article class='item liste relative'> <a class='itemA' href="https://tioplus.app/pelicula/oppenheimer-2"> <h2>Oppenheimer (1980)</h2> </a> </article>
+<article class='item liste relative'> <a class='itemA' href="https://tioplus.app/pelicula/oppenheimer"> <picture></picture> <span class="typeItem movie">Pelicúla</span> <h2>Oppenheimer (2023)</h2> </a> </article>
+<article class='item liste relative'> <a class='itemA' href="https://tioplus.app/serie/oppenheimer"> <h2>Oppenheimer (2023)</h2> </a> </article>`;
+const tab = (lang, items) => `<button class='active button'><img class="tab-item-image" src="x.png" alt="${lang}">${lang}<svg width="15"></svg></button> <ul class='subselect'>${
+  items.map(([v, n]) => `<li role="presentation" data-server="${v}"><span>${n} - Opción 1</span> <span>Reproducir</span></li>`).join("")}</ul>`;
+const TP_MOVIE = `<title>Ver Oppenheimer (2023) Online Gratis Español - TioPlus</title>` +
+  tab("Español Latino", [["EV1", "Earnvids"], ["NT1", "Netu"], ["PL1", "Plus"]]) + tab("Subtitulado", [["EV2", "Earnvids"]]);
+const playerFor = (u) => `<script>location.href = '${u}';</script>`;
+
+test("tioplus: an exact title of the right year and kind, its tabs' languages, and only the players worth following", async () => {
+  const f = routes([[/\/search\/Oppenheimer$/, TP_SEARCH], [/\/pelicula\/oppenheimer$/, TP_MOVIE],
+    [new RegExp("/player/" + btoa("EV1") + "$"), playerFor("https://vidhideplus.com/v/8oqab7tbqjt8")],
+    [new RegExp("/player/" + btoa("EV2") + "$"), playerFor("https://vidhideplus.com/v/subcopy")]]);
+  const e = await tioplus.list(OPP, ctx(f.kino));
+  assert.deepEqual(e.map((x) => [x.lang, x.server, x.embedUrl]), [["lat", "vidhide", "https://vidhideplus.com/v/8oqab7tbqjt8"], ["sub", "vidhide", "https://vidhideplus.com/v/subcopy"]]);
+  assert.ok(!f.calls.some((c) => c.url.endsWith("/player/" + btoa("NT1")) || c.url.endsWith("/player/" + btoa("PL1"))), "Netu and Plus are never followed");
+  assert.equal(f.calls.find((c) => c.url.includes("/player/")).opts.headers.Referer, "https://tioplus.app/pelicula/oppenheimer");
+});
+
+test("tioplus: a page of another year is turned away; an episode is asked at season/<s>/episode/<e>", async () => {
+  const f = routes([[/\/search\//, TP_SEARCH], [/\/pelicula\/oppenheimer$/, TP_MOVIE.replace("(2023)", "(2011)")]]);
+  assert.deepEqual(await tioplus.list(OPP, ctx(f.kino)), []);
+  const g = routes([[/\/search\/Breaking%20Bad$/, `<a class='itemA' href="https://tioplus.app/serie/breaking-bad"><h2>Breaking Bad (2008)</h2></a>`],
+    [/\/serie\/breaking-bad\/season\/2\/episode\/3$/, `<title>Ver Breaking Bad (2008) Temporada 2 Capítulo 3 Online - TioPlus</title>` + tab("Español Latino", [["EV", "Earnvids"]])],
+    [/\/player\//, playerFor("https://voe.sx/e/abc")]]);
+  const e = await tioplus.list(BB, ctx(g.kino));
+  assert.deepEqual(e.map((x) => [x.lang, x.server]), [["lat", "voe"]]);
 });

@@ -366,7 +366,6 @@ var kino_plugin_default = {
     "seriesflixhd.best",
     "embed69.org",
     "mg.homelabx.qzz.io",
-    "player.pelisserieshoy.com",
     "proyectox.yoyatengoabuela.com",
     "goodstream.one",
     "*.goodstream.one",
@@ -418,7 +417,12 @@ var kino_plugin_default = {
     "pelisplushd.la",
     "www.fuegocine.com",
     "fuegocine.com",
-    "pelispanda.org"
+    "pelispanda.org",
+    "tioplus.app",
+    "vidhideplus.com",
+    "*.vidhideplus.com",
+    "callistanise.com",
+    "*.callistanise.com"
   ],
   capabilities: [
     "search",
@@ -436,7 +440,8 @@ var kino_plugin_default = {
   ],
   color: "#C62828",
   section: {
-    label: "Latino"
+    label: "Latino",
+    labelEn: "Latino"
   },
   theme: {
     accent: "#BA2D2A",
@@ -452,25 +457,31 @@ var kino_plugin_default = {
       key: "langSection",
       type: "section",
       label: "Idioma y calidad",
-      hint: "Qu\xE9 copia se abre primero cuando un t\xEDtulo tiene varias."
+      labelEn: "Language and quality",
+      hint: "Qu\xE9 copia se abre primero cuando un t\xEDtulo tiene varias.",
+      hintEn: "Which copy opens first when a title has several."
     },
     {
       key: "preferred",
       type: "select",
       label: "Idioma preferido",
+      labelEn: "Preferred language",
       default: "lat",
       options: [
         {
           value: "lat",
-          label: "Latino"
+          label: "Latino",
+          labelEn: "Latin Spanish"
         },
         {
           value: "esp",
-          label: "Castellano"
+          label: "Castellano",
+          labelEn: "Spain Spanish"
         },
         {
           value: "sub",
-          label: "Subtitulado"
+          label: "Subtitulado",
+          labelEn: "Subtitled"
         }
       ],
       hint: "Lo que cambies en el panel manda hasta que uses Restablecer all\xED.",
@@ -480,23 +491,28 @@ var kino_plugin_default = {
       key: "maxQuality",
       type: "select",
       label: "Calidad m\xE1xima",
+      labelEn: "Maximum quality",
       default: "auto",
       options: [
         {
           value: "auto",
-          label: "Autom\xE1tica"
+          label: "Autom\xE1tica",
+          labelEn: "Automatic"
         },
         {
           value: "1080p",
-          label: "Hasta 1080p"
+          label: "Hasta 1080p",
+          labelEn: "Up to 1080p"
         },
         {
           value: "720p",
-          label: "Hasta 720p"
+          label: "Hasta 720p",
+          labelEn: "Up to 720p"
         },
         {
           value: "480p",
-          label: "Hasta 480p (ahorra datos)"
+          label: "Hasta 480p (ahorra datos)",
+          labelEn: "Up to 480p (saves data)"
         }
       ],
       hint: "Lo que cambies en el panel manda hasta que uses Restablecer all\xED.",
@@ -506,94 +522,107 @@ var kino_plugin_default = {
       key: "srcSection",
       type: "section",
       label: "Fuentes",
-      hint: "Apaga una fuente si te da problemas. PelisSeriesHoy viene apagada: solo ofrece series y pel\xEDculas en pocos casos."
+      labelEn: "Sources",
+      hint: "Apaga una fuente si te da problemas.",
+      hintEn: "Turn a source off if it gives you trouble."
     },
     {
       key: "src_lamovie",
       type: "toggle",
       label: "LaMovie",
+      labelEn: "LaMovie",
       default: true
     },
     {
       key: "src_hackstore",
       type: "toggle",
       label: "HackStore",
+      labelEn: "HackStore",
       default: true
     },
     {
       key: "src_cinecalidad",
       type: "toggle",
       label: "CineCalidad",
+      labelEn: "CineCalidad",
       default: true
     },
     {
       key: "src_seriesmetro",
       type: "toggle",
       label: "SeriesMetro",
+      labelEn: "SeriesMetro",
       default: true
     },
     {
       key: "src_seriesflix",
       type: "toggle",
       label: "Seriesflix",
+      labelEn: "Seriesflix",
       default: true
     },
     {
       key: "src_embed69",
       type: "toggle",
       label: "Embed69",
+      labelEn: "Embed69",
       default: true
-    },
-    {
-      key: "src_peliserieshoy",
-      type: "toggle",
-      label: "PelisSeriesHoy",
-      default: false
     },
     {
       key: "src_zoowomaniacos",
       type: "toggle",
       label: "Zoowomaniacos",
+      labelEn: "Zoowomaniacos",
       default: true
     },
     {
       key: "homeSection",
       type: "section",
-      label: "Inicio"
+      label: "Inicio",
+      labelEn: "Home"
     },
     {
       key: "homeRows",
       type: "toggle",
       label: "Filas en Inicio",
+      labelEn: "Rows on Home",
       default: true,
-      hint: "Muestra los estrenos de Latino en el Inicio de Kino."
+      hint: "Muestra los estrenos de Latino en el Inicio de Kino.",
+      hintEn: "Shows Latino's new releases on Kino's Home."
     },
     {
       key: "toolsSection",
       type: "section",
       label: "Estado",
-      hint: "Cada fuente dice si respondi\xF3 en su \xFAltima consulta."
+      labelEn: "Status",
+      hint: "Cada fuente dice si respondi\xF3 en su \xFAltima consulta.",
+      hintEn: "Each source says whether it answered its last request."
     },
     {
       key: "health",
       type: "status",
-      label: "Fuentes"
+      label: "Fuentes",
+      labelEn: "Sources"
     },
     {
       key: "probe",
       type: "action",
-      label: "Probar fuentes ahora"
+      label: "Probar fuentes ahora",
+      labelEn: "Test the sources now"
     },
     {
       key: "clearCache",
       type: "action",
-      label: "Borrar cach\xE9"
+      label: "Borrar cach\xE9",
+      labelEn: "Clear cache"
     },
     {
       key: "resetPrefs",
       type: "action",
       label: "Restablecer preferencias",
-      confirm: "\xBFVolver a los valores de f\xE1brica de Latino?"
+      labelEn: "Reset preferences",
+      confirm: "\xBFVolver a los valores de f\xE1brica de Latino?",
+      confirmEn: "Go back to Latino's default settings?"
     }
   ]
 };
@@ -719,7 +748,7 @@ __export(vidhide_exports, {
   HOSTS: () => HOSTS4,
   extract: () => extract4
 });
-var HOSTS4 = ["vidhide.com", "vidhidepro.com", "dintezuvio.com", "minochinos.com", "filelions.to", "morencius.com"];
+var HOSTS4 = ["vidhide.com", "vidhidepro.com", "vidhideplus.com", "dintezuvio.com", "minochinos.com", "filelions.to", "morencius.com"];
 async function extract4(embedUrl, req, kino) {
   const u = new URL(embedUrl);
   const html = await pageText(req, embedUrl, { Referer: u.origin + "/" }, kino, "vidhide");
@@ -1075,35 +1104,35 @@ function siteRef(prefix, postId, kind, slug, year2) {
 var LANG_ORDER = ["lat", "esp", "sub"];
 var qualityRank = (q) => Number(/^(\d+)p$/.exec(q || "")?.[1] || 0);
 var namesQuality = (name13) => /\d|4k|uhd|full\s?hd|fhd/i.test(name13 || "") ? qualityOf(name13) : null;
-function toItem(post4, { prefix, base: base2, tables = {} }) {
-  const tv = post4.type === "tvshows" || post4.type === "animes";
+function toItem(post3, { prefix, base: base2, tables = {} }) {
+  const tv = post3.type === "tvshows" || post3.type === "animes";
   const kind = tv ? "tv" : "movie";
-  const y = /^\d{4}/.test(post4.release_date || "") ? post4.release_date.slice(0, 4) : "";
-  const title = cleanText(post4.title).replace(/\s*\(\d{4}\)\s*$/, "");
+  const y = /^\d{4}/.test(post3.release_date || "") ? post3.release_date.slice(0, 4) : "";
+  const title = cleanText(post3.title).replace(/\s*\(\d{4}\)\s*$/, "");
   const item3 = {
-    id: `${prefix}-${post4._id}`,
-    ref: siteRef(prefix, post4._id, kind, post4.slug, y),
+    id: `${prefix}-${post3._id}`,
+    ref: siteRef(prefix, post3._id, kind, post3.slug, y),
     title,
     kind: tv ? "series" : "movie",
     year: y,
-    overview: cleanText(post4.overview)
+    overview: cleanText(post3.overview)
   };
   const img2 = (p) => p ? /^https?:/.test(p) ? p : base2 + p : null;
-  const poster = img2(post4.images && post4.images.poster);
-  const backdrop = img2(post4.images && post4.images.backdrop);
+  const poster = img2(post3.images && post3.images.poster);
+  const backdrop = img2(post3.images && post3.images.backdrop);
   if (poster) item3.poster = poster;
   if (backdrop) item3.backdrop = backdrop;
-  const original = cleanText(post4.original_title);
+  const original = cleanText(post3.original_title);
   if (original && original !== title) item3.originalTitle = original;
-  const rating = Number(post4.rating);
+  const rating = Number(post3.rating);
   if (rating > 0 && rating <= 10) item3.rating = Math.round(rating * 10) / 10;
-  const minutes = Math.round(Number(post4.runtime));
+  const minutes = Math.round(Number(post3.runtime));
   if (!tv && minutes >= 1 && minutes <= 1e3) item3.runtimeMinutes = minutes;
   const ids = (v) => Array.isArray(v) ? v.map(String) : [];
-  item3.genreSlugs = [...new Set(ids(post4.genres).map((g) => (tables.genres || {})[g]).filter(Boolean))];
-  const langs = new Set(ids(post4.lang).map((l) => (tables.langs || {})[l]).filter(Boolean));
+  item3.genreSlugs = [...new Set(ids(post3.genres).map((g) => (tables.genres || {})[g]).filter(Boolean))];
+  const langs = new Set(ids(post3.lang).map((l) => (tables.langs || {})[l]).filter(Boolean));
   item3.langs = LANG_ORDER.filter((l) => langs.has(l));
-  const best = ids(post4.quality).map((q) => namesQuality((tables.qualities || {})[q])).filter(Boolean).sort((a, b) => qualityRank(b) - qualityRank(a))[0];
+  const best = ids(post3.quality).map((q) => namesQuality((tables.qualities || {})[q])).filter(Boolean).sort((a, b) => qualityRank(b) - qualityRank(a))[0];
   if (best) item3.quality = best;
   return item3;
 }
@@ -1254,10 +1283,10 @@ async function seasonList(title, { req }) {
   const seasons = j && j.data ? seasonNumbers(j.data.seasons) : null;
   return seasons && seasons.length ? { found: true, seasons } : null;
 }
-async function listing(kind, page2, extraFilter, { req }) {
+async function listing(kind, page3, extraFilter, { req }) {
   const type = postTypeOf(kind);
   const filter = encodeURIComponent(JSON.stringify(extraFilter));
-  const url = `${API}/listing/${type}?filter=${filter}&page=${page2 || 1}&orderBy=latest&order=desc&postType=${type}&postsPerPage=24`;
+  const url = `${API}/listing/${type}?filter=${filter}&page=${page3 || 1}&orderBy=latest&order=desc&postType=${type}&postsPerPage=24`;
   const j = await getJsonStrict(req, url);
   if (!j || !j.data) throw siteError("listing missing");
   return (j.data.posts || []).map(item);
@@ -1268,10 +1297,10 @@ async function post({ postId, kind, slug }, { req }) {
   const d = j && !j.error && j.data;
   return d && String(d._id) === String(postId) ? item(d) : null;
 }
-var latest = (kind, page2, ctx) => listing(kind, page2, {}, ctx);
-async function byGenre(genre, kind, page2, ctx) {
+var latest = (kind, page3, ctx) => listing(kind, page3, {}, ctx);
+async function byGenre(genre, kind, page3, ctx) {
   const gid = genreId(genre, GENRES);
-  return gid == null ? [] : listing(kind, page2, { genres: [gid] }, ctx);
+  return gid == null ? [] : listing(kind, page3, { genres: [gid] }, ctx);
 }
 async function search(q, { req }) {
   const j = await getJsonStrict(req, `${API}/search?postType=any&q=${encodeURIComponent(q)}&postsPerPage=12`);
@@ -1347,8 +1376,8 @@ async function list2(title, { req }) {
     return toEmbeds(id2, j && j.data);
   });
 }
-async function listing2(kind, page2, genre, { req }) {
-  let url = `${API2}/listing?post_type=${postTypeOf(kind)}&page=${page2 || 1}&order=latest`;
+async function listing2(kind, page3, genre, { req }) {
+  let url = `${API2}/listing?post_type=${postTypeOf(kind)}&page=${page3 || 1}&order=latest`;
   if (genre != null) url += `&genres=${genre}`;
   const j = await getJsonStrict(req, url);
   if (!j || !j.data) throw siteError("listing missing");
@@ -1360,10 +1389,10 @@ async function post2({ postId, kind, slug }, { req }) {
   const d = j && !j.error && j.data;
   return d && String(d._id) === String(postId) ? item2(d) : null;
 }
-var latest2 = (kind, page2, ctx) => listing2(kind, page2, null, ctx);
-async function byGenre2(genre, kind, page2, ctx) {
+var latest2 = (kind, page3, ctx) => listing2(kind, page3, null, ctx);
+async function byGenre2(genre, kind, page3, ctx) {
   const gid = genreId(genre, GENRES2);
-  return gid == null ? [] : listing2(kind, page2, gid, ctx);
+  return gid == null ? [] : listing2(kind, page3, gid, ctx);
 }
 
 // src/sources/cinecalidad.js
@@ -1502,8 +1531,8 @@ var splitLabel = (label3) => {
   const i = label3.lastIndexOf("-");
   return i < 0 ? { server: "", lang: label3 } : { server: label3.slice(0, i).trim(), lang: label3.slice(i + 1).trim() };
 };
-async function embedRows(page2, req) {
-  const opts = options2(page2).slice(0, MAX_OPTIONS);
+async function embedRows(page3, req) {
+  const opts = options2(page3).slice(0, MAX_OPTIONS);
   const failures = [];
   const one = async (o) => {
     try {
@@ -1536,12 +1565,12 @@ async function episodeHit(title, req, onMissing = () => {
   return firstHit(titleSlugs(title.titles, null), async (slug) => {
     const r = await req(`${SITE4}/serie/${slug}/`);
     if (!r.ok) return null;
-    const post4 = /data-post="(\d+)"/.exec(r.text());
-    if (!post4) return null;
+    const post3 = /data-post="(\d+)"/.exec(r.text());
+    if (!post3) return null;
     const list13 = await req(`${SITE4}/wp-admin/admin-ajax.php`, {
       method: "POST",
       headers: { Referer: `${SITE4}/serie/${slug}/` },
-      body: { form: { action: "action_select_season", season: String(title.season), post: post4[1] } }
+      body: { form: { action: "action_select_season", season: String(title.season), post: post3[1] } }
     });
     if (!list13.ok) return null;
     const wantS = Number(title.season), wantE = Number(title.episode);
@@ -1570,11 +1599,11 @@ async function list4(title, { req }) {
   const tv = title.kind === "tv";
   if (tv && (title.season == null || title.episode == null)) return [];
   let missing = null;
-  const page2 = await (tv ? episodeHit(title, req, (seasonFound) => {
+  const page3 = await (tv ? episodeHit(title, req, (seasonFound) => {
     if (!missing || seasonFound) missing = { seasonFound };
   }) : movieHit(title, req));
-  if (!page2) return missing ? episodeMissing(missing.seasonFound) : [];
-  return orEmpty(async () => toEmbeds(id4, await embedRows(page2, req)));
+  if (!page3) return missing ? episodeMissing(missing.seasonFound) : [];
+  return orEmpty(async () => toEmbeds(id4, await embedRows(page3, req)));
 }
 
 // src/sources/seriesflix.js
@@ -1629,10 +1658,10 @@ function rows(html) {
 async function episodePage(title, slug, season, episode, req) {
   const r = await req(`${SITE5}/episodio/${slug}-${season}x${episode}`);
   if (!r.ok) return null;
-  const page2 = r.text();
-  const y = /<span class="Date">(\d{4})<\/span>/.exec(page2);
+  const page3 = r.text();
+  const y = /<span class="Date">(\d{4})<\/span>/.exec(page3);
   if (!y && title.year) return null;
-  return !title.year || episodeYearOk(Number(y[1]), title) ? page2 : null;
+  return !title.year || episodeYearOk(Number(y[1]), title) ? page3 : null;
 }
 async function list5(title, { req }) {
   if (title.kind !== "tv" || title.season == null || title.episode == null) return [];
@@ -1752,93 +1781,26 @@ async function hasEpisode(title, season, episode, { req }) {
   return /^\s*\{\s*"error"\s*:/.test(html) ? false : null;
 }
 
-// src/sources/peliserieshoy.js
-var peliserieshoy_exports = {};
-__export(peliserieshoy_exports, {
+// src/sources/zoowomaniacos.js
+var zoowomaniacos_exports = {};
+__export(zoowomaniacos_exports, {
   HOSTS: () => HOSTS16,
   ORIGIN: () => ORIGIN7,
   id: () => id7,
   kinds: () => kinds7,
   list: () => list7,
-  name: () => name7
-});
-var id7 = "peliserieshoy";
-var name7 = "PelisSeriesHoy";
-var kinds7 = ["movie", "tv"];
-var HOSTS16 = ["player.pelisserieshoy.com"];
-var SITE7 = "https://player.pelisserieshoy.com";
-var ORIGIN7 = SITE7;
-var MAX_SERVERS = 8;
-async function post3(req, page2, form) {
-  const r = await req(`${SITE7}/s.php`, { method: "POST", headers: { Referer: page2 }, body: { form } });
-  if (!r.ok) return null;
-  try {
-    return JSON.parse(r.text());
-  } catch (_) {
-    return null;
-  }
-}
-async function list7(title, { req }) {
-  if (!title.imdbId) return [];
-  const tv = title.kind === "tv";
-  if (tv && (title.season == null || title.episode == null)) return [];
-  const path = tv ? `${title.imdbId}-${Number(title.season)}x${String(title.episode).padStart(2, "0")}` : title.imdbId;
-  const page2 = `${SITE7}/f/${path}`;
-  return orEmpty(async () => {
-    const r = await req(page2, { headers: { Referer: "https://sololatino.net/" } });
-    if (!r.ok) return [];
-    const tok = /const _t\s*=\s*'([^']+)'/.exec(r.text());
-    if (!tok) return [];
-    await post3(req, page2, { a: "click", tok: tok[1] });
-    const langs = (await post3(req, page2, { a: "1", tok: tok[1] }) || {}).langs_s;
-    if (!langs || typeof langs !== "object") return [];
-    const wanted = [];
-    for (const [key, servers] of Object.entries(langs)) {
-      const lang = normLang(key);
-      if (lang && Array.isArray(servers)) {
-        for (const s of servers) if (Array.isArray(s) && s[1]) wanted.push({ lang, v: s[1] });
-      }
-    }
-    const failures = [];
-    const rows3 = await Promise.all(wanted.slice(0, MAX_SERVERS).map(async ({ lang, v }) => {
-      try {
-        const d = await post3(req, page2, { a: "2", tok: tok[1], v });
-        if (!d || !d.u || !d.sig) return null;
-        const u = d.u.startsWith("/") ? SITE7 + d.u : d.u;
-        if (!/^https?:\/\//i.test(u)) return null;
-        return { source: id7, lang, server: "direct", embedUrl: `${SITE7}/p.php?url=${encodeURIComponent(u)}&sig=${encodeURIComponent(d.sig)}`, quality: qualityOf(d.quality || d.q) };
-      } catch (e) {
-        if (e && e.local) return null;
-        failures.push(e);
-        return null;
-      }
-    }));
-    const ok = rows3.filter(Boolean);
-    if (!ok.length && failures.length) throw failures[0];
-    return ok;
-  });
-}
-
-// src/sources/zoowomaniacos.js
-var zoowomaniacos_exports = {};
-__export(zoowomaniacos_exports, {
-  HOSTS: () => HOSTS17,
-  ORIGIN: () => ORIGIN8,
-  id: () => id8,
-  kinds: () => kinds8,
-  list: () => list8,
-  name: () => name8,
+  name: () => name7,
   overlap: () => overlap,
   pick: () => pick,
   playerRows: () => playerRows
 });
-var id8 = "zoowomaniacos";
-var name8 = "Zoowomaniacos";
-var kinds8 = ["movie"];
-var HOSTS17 = ["proyectox.yoyatengoabuela.com"];
-var SITE8 = "https://proyectox.yoyatengoabuela.com";
-var ORIGIN8 = SITE8;
-var AJAX = { Referer: SITE8 + "/", Origin: SITE8, "X-Requested-With": "XMLHttpRequest" };
+var id7 = "zoowomaniacos";
+var name7 = "Zoowomaniacos";
+var kinds7 = ["movie"];
+var HOSTS16 = ["proyectox.yoyatengoabuela.com"];
+var SITE7 = "https://proyectox.yoyatengoabuela.com";
+var ORIGIN7 = SITE7;
+var AJAX = { Referer: SITE7 + "/", Origin: SITE7, "X-Requested-With": "XMLHttpRequest" };
 var MAX_SEARCHES = 2;
 var THRESHOLD = 0.8;
 var tokens = (s) => String(s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^\p{L}\p{N}]+/gu, " ").trim().split(" ").filter(Boolean);
@@ -1865,10 +1827,10 @@ var MEDIA = /^https?:\/\/(?:www\.)?archive\.org\/.+\.(?:mp4|mkv|avi)(?:\?.*)?$/i
 function playerRows(html, lang) {
   const urls = [...new Set([...html.matchAll(/src=["'](https?:\/\/[^"']+)["']/g)].map((m) => m[1]))];
   const rows3 = urls.filter((u) => u.includes("ok.ru/videoembed/")).map((url) => ({ url, lang, server: "okru" }));
-  const direct = urls.filter((u) => MEDIA.test(u)).map((embedUrl) => ({ source: id8, lang: normLang(lang), server: "direct", embedUrl, quality: null }));
-  return { embeds: toEmbeds(id8, rows3), direct };
+  const direct = urls.filter((u) => MEDIA.test(u)).map((embedUrl) => ({ source: id7, lang: normLang(lang), server: "direct", embedUrl, quality: null }));
+  return { embeds: toEmbeds(id7, rows3), direct };
 }
-async function list8(title, { req }) {
+async function list7(title, { req }) {
   if (title.kind !== "movie") return [];
   const wanted = [], seen = /* @__PURE__ */ new Set();
   for (const t2 of [title.titles.original, title.titles.esMX, title.titles.en, title.titles.esES]) {
@@ -1881,7 +1843,7 @@ async function list8(title, { req }) {
   return orEmpty(async () => {
     let row = null;
     for (const q of wanted.slice(0, MAX_SEARCHES)) {
-      const r = await req(`${SITE8}/alternativo3/server.php`, {
+      const r = await req(`${SITE7}/alternativo3/server.php`, {
         method: "POST",
         headers: AJAX,
         body: { form: { start: "0", length: "20", metodo: "ObtenerListaTotal", "search[value]": q } }
@@ -1897,7 +1859,7 @@ async function list8(title, { req }) {
       if (row) break;
     }
     if (!row) return [];
-    const p = await req(`${SITE8}/testplayer.php?id=${encodeURIComponent(row.a1)}`, { headers: { Referer: SITE8 + "/" } });
+    const p = await req(`${SITE7}/testplayer.php?id=${encodeURIComponent(row.a1)}`, { headers: { Referer: SITE7 + "/" } });
     if (!p.ok) return [];
     const html = p.text();
     const lang = /castellano/i.test(html) ? "esp" : /latino/i.test(html) ? "lat" : "sub";
@@ -1909,20 +1871,20 @@ async function list8(title, { req }) {
 // src/sources/deepflix.js
 var deepflix_exports = {};
 __export(deepflix_exports, {
-  HOSTS: () => HOSTS18,
-  ORIGIN: () => ORIGIN9,
-  id: () => id9,
-  kinds: () => kinds9,
-  list: () => list9,
-  name: () => name9,
+  HOSTS: () => HOSTS17,
+  ORIGIN: () => ORIGIN8,
+  id: () => id8,
+  kinds: () => kinds8,
+  list: () => list8,
+  name: () => name8,
   streamPath: () => streamPath
 });
-var id9 = "deepflix";
-var name9 = "DeepFlix";
-var kinds9 = ["movie", "tv"];
-var HOSTS18 = ["mg.homelabx.qzz.io"];
-var SITE9 = "https://mg.homelabx.qzz.io";
-var ORIGIN9 = SITE9;
+var id8 = "deepflix";
+var name8 = "DeepFlix";
+var kinds8 = ["movie", "tv"];
+var HOSTS17 = ["mg.homelabx.qzz.io"];
+var SITE8 = "https://mg.homelabx.qzz.io";
+var ORIGIN8 = SITE8;
 function streamPath(title) {
   if (!title || !/^tt\d{5,12}$/.test(String(title.imdbId || ""))) return null;
   if (title.kind === "tv") {
@@ -1933,11 +1895,11 @@ function streamPath(title) {
   }
   return `movie/${title.imdbId}`;
 }
-async function list9(title, { req }) {
+async function list8(title, { req }) {
   const path = streamPath(title);
   if (!path) return [];
   return orEmpty(async () => {
-    const r = await req(`${SITE9}/stream/${path}.json`);
+    const r = await req(`${SITE8}/stream/${path}.json`);
     if (!r.ok) return [];
     let streams;
     try {
@@ -1949,9 +1911,9 @@ async function list9(title, { req }) {
     const out = [];
     for (const s of streams) {
       const url = s && s.url;
-      if (typeof url !== "string" || !url.startsWith(SITE9 + "/resolve/")) continue;
+      if (typeof url !== "string" || !url.startsWith(SITE8 + "/resolve/")) continue;
       if (out.some((e) => e.embedUrl === url)) continue;
-      out.push({ source: id9, lang: "lat", server: "direct", embedUrl: url, quality: null });
+      out.push({ source: id8, lang: "lat", server: "direct", embedUrl: url, quality: null });
     }
     return out;
   });
@@ -1960,23 +1922,23 @@ async function list9(title, { req }) {
 // src/sources/pelisplus.js
 var pelisplus_exports = {};
 __export(pelisplus_exports, {
-  HOSTS: () => HOSTS19,
-  ORIGIN: () => ORIGIN10,
-  id: () => id10,
-  kinds: () => kinds10,
-  list: () => list10,
+  HOSTS: () => HOSTS18,
+  ORIGIN: () => ORIGIN9,
+  id: () => id9,
+  kinds: () => kinds9,
+  list: () => list9,
   matches: () => matches,
-  name: () => name10,
+  name: () => name9,
   results: () => results,
   rows: () => rows2
 });
-var id10 = "pelisplus";
-var name10 = "PelisPlusHD";
-var kinds10 = ["movie", "tv"];
-var HOSTS19 = ["pelisplushd.la", "www.pelisplushd.la"];
-var SITE10 = "https://pelisplushd.la";
-var ORIGIN10 = SITE10;
-var HEADERS3 = { Referer: SITE10 + "/", "Accept-Language": "es-MX,es;q=0.9" };
+var id9 = "pelisplus";
+var name9 = "PelisPlusHD";
+var kinds9 = ["movie", "tv"];
+var HOSTS18 = ["pelisplushd.la", "www.pelisplushd.la"];
+var SITE9 = "https://pelisplushd.la";
+var ORIGIN9 = SITE9;
+var HEADERS3 = { Referer: SITE9 + "/", "Accept-Language": "es-MX,es;q=0.9" };
 var MAX_SEARCHES2 = 2;
 var MAX_PAGES = 2;
 var attr = (tag, name13) => (new RegExp(`\\b${name13}="([^"]*)"`, "i").exec(tag) || [])[1] || "";
@@ -1988,7 +1950,7 @@ function results(html, kind) {
     const href = attr(m[0], "href");
     if (!href.startsWith(dir)) continue;
     const t2 = resultTitle(attr(m[0], "data-title"));
-    out.push({ url: new URL(href, SITE10).href, title: t2.replace(/\s*\(\d{4}\)\s*$/, ""), year: yearIn(t2) });
+    out.push({ url: new URL(href, SITE9).href, title: t2.replace(/\s*\(\d{4}\)\s*$/, ""), year: yearIn(t2) });
   }
   return out;
 }
@@ -2008,20 +1970,20 @@ async function page(url, req) {
   const r = await req(url, { headers: HEADERS3 });
   return r.ok ? r.text() : null;
 }
-async function list10(title, { req }) {
+async function list9(title, { req }) {
   const tv = title.kind === "tv";
   if (tv && (title.season == null || title.episode == null)) return [];
   const terms = [...new Set([title.titles && title.titles.esMX, title.titles && title.titles.original].filter(Boolean))].slice(0, MAX_SEARCHES2);
   return orEmpty(async () => {
     for (const term of terms) {
-      const html = await page(`${SITE10}/search?s=${encodeURIComponent(term)}`, req);
+      const html = await page(`${SITE9}/search?s=${encodeURIComponent(term)}`, req);
       const found = html ? matches(results(html, title.kind), title).slice(0, MAX_PAGES) : [];
       for (const hit of found) {
         const url = tv ? `${hit.url}/temporada/${Number(title.season)}/capitulo/${Number(title.episode)}` : hit.url;
         const body = await page(url, req);
         if (!body) continue;
         if (!tv && !yearMatches(yearIn((/<title>([^<]*)<\/title>/i.exec(body) || [])[1]), title.year)) continue;
-        return toEmbeds(id10, rows2(body).filter((r) => normLang(r.lang)));
+        return toEmbeds(id9, rows2(body).filter((r) => normLang(r.lang)));
       }
     }
     return [];
@@ -2031,23 +1993,23 @@ async function list10(title, { req }) {
 // src/sources/fuegocine.js
 var fuegocine_exports = {};
 __export(fuegocine_exports, {
-  HOSTS: () => HOSTS20,
-  ORIGIN: () => ORIGIN11,
-  id: () => id11,
-  kinds: () => kinds11,
+  HOSTS: () => HOSTS19,
+  ORIGIN: () => ORIGIN10,
+  id: () => id10,
+  kinds: () => kinds10,
   links: () => links,
-  list: () => list11,
-  name: () => name11,
+  list: () => list10,
+  name: () => name10,
   pickEntry: () => pickEntry,
   unwrap: () => unwrap2
 });
-var id11 = "fuegocine";
-var name11 = "FuegoCine";
-var kinds11 = ["movie"];
-var HOSTS20 = ["www.fuegocine.com", "fuegocine.com"];
-var SITE11 = "https://www.fuegocine.com";
-var ORIGIN11 = SITE11;
-var HEADERS4 = { Referer: SITE11 + "/", "Accept-Language": "es-MX,es;q=0.9" };
+var id10 = "fuegocine";
+var name10 = "FuegoCine";
+var kinds10 = ["movie"];
+var HOSTS19 = ["www.fuegocine.com", "fuegocine.com"];
+var SITE10 = "https://www.fuegocine.com";
+var ORIGIN10 = SITE10;
+var HEADERS4 = { Referer: SITE10 + "/", "Accept-Language": "es-MX,es;q=0.9" };
 var MAX_LINKS = 8;
 var base = (t2) => slugify(String(t2 || "").split(/\s*[:(]/)[0]);
 function unwrap2(url) {
@@ -2084,13 +2046,13 @@ function pickEntry(entries, title) {
     return y != null && yearMatches(y, title.year) && wanted.has(base(t2));
   }) || null;
 }
-async function list11(title, { req }) {
+async function list10(title, { req }) {
   if (title.kind !== "movie") return [];
   const t2 = title.titles || {};
   const terms = [...new Set([t2.esMX, t2.original].map((x) => String(x || "").split(/\s*:/)[0].trim()).filter(Boolean))];
   return orEmpty(async () => {
     for (const q of terms) {
-      const r = await req(`${SITE11}/feeds/posts/default?alt=json&max-results=10&q=${encodeURIComponent(q)}`, { headers: HEADERS4 });
+      const r = await req(`${SITE10}/feeds/posts/default?alt=json&max-results=10&q=${encodeURIComponent(q)}`, { headers: HEADERS4 });
       if (!r.ok) continue;
       let feed;
       try {
@@ -2105,10 +2067,10 @@ async function list11(title, { req }) {
         const lang = normLang(l.lang);
         const url = unwrap2(l.url);
         if (!lang || !/^https?:\/\//i.test(url)) continue;
-        if (isFile(url)) direct.push({ source: id11, lang, server: "direct", embedUrl: url, quality: qualityOf(l.quality) });
+        if (isFile(url)) direct.push({ source: id10, lang, server: "direct", embedUrl: url, quality: qualityOf(l.quality) });
         else rows3.push({ url, lang: l.lang, server: l.name, quality: l.quality });
       }
-      return [...direct, ...toEmbeds(id11, rows3)];
+      return [...direct, ...toEmbeds(id10, rows3)];
     }
     return [];
   });
@@ -2117,23 +2079,23 @@ async function list11(title, { req }) {
 // src/sources/pelispanda.js
 var pelispanda_exports = {};
 __export(pelispanda_exports, {
-  HOSTS: () => HOSTS21,
-  ORIGIN: () => ORIGIN12,
-  id: () => id12,
-  kinds: () => kinds12,
-  list: () => list12,
-  name: () => name12,
+  HOSTS: () => HOSTS20,
+  ORIGIN: () => ORIGIN11,
+  id: () => id11,
+  kinds: () => kinds11,
+  list: () => list11,
+  name: () => name11,
   pick: () => pick2,
   queries: () => queries
 });
-var id12 = "pelispanda";
-var name12 = "PelisPanda";
-var kinds12 = ["movie", "tv"];
-var HOSTS21 = ["pelispanda.org"];
-var SITE12 = "https://pelispanda.org";
-var ORIGIN12 = SITE12;
-var API3 = SITE12 + "/wp-json/wpreact/v1";
-var HEADERS5 = { Referer: SITE12 + "/", "Accept-Language": "es-MX,es;q=0.9" };
+var id11 = "pelispanda";
+var name11 = "PelisPanda";
+var kinds11 = ["movie", "tv"];
+var HOSTS20 = ["pelispanda.org"];
+var SITE11 = "https://pelispanda.org";
+var ORIGIN11 = SITE11;
+var API3 = SITE11 + "/wp-json/wpreact/v1";
+var HEADERS5 = { Referer: SITE11 + "/", "Accept-Language": "es-MX,es;q=0.9" };
 var TYPES = { movie: ["pelicula"], tv: ["serie", "anime"] };
 function queries(titles) {
   const out = [];
@@ -2143,11 +2105,11 @@ function queries(titles) {
   }
   return out.slice(0, 2);
 }
-function pick2(results2, title) {
+function pick2(results3, title) {
   const types = TYPES[title.kind] || [];
-  return (Array.isArray(results2) ? results2 : []).find((r) => r && r.slug && String(r.tmdb_id) === String(title.tmdbId) && types.includes(r.type)) || null;
+  return (Array.isArray(results3) ? results3 : []).find((r) => r && r.slug && String(r.tmdb_id) === String(title.tmdbId) && types.includes(r.type)) || null;
 }
-async function list12(title, { req }) {
+async function list11(title, { req }) {
   const tv = title.kind === "tv";
   if (!title.tmdbId || tv && (title.season == null || title.episode == null)) return [];
   return orEmpty(async () => {
@@ -2161,12 +2123,99 @@ async function list12(title, { req }) {
     const data = await getJson(req, `${API3}/${tv ? "serie" : "movie"}/${encodeURIComponent(match.slug)}/related`);
     let embeds = data && Array.isArray(data.embeds) ? data.embeds : [];
     if (tv) embeds = embeds.filter((e) => e && Number(e.season) === Number(title.season) && Number(e.episode) === Number(title.episode));
-    return toEmbeds(id12, embeds.filter((e) => e && typeof e.url === "string").map((e) => ({ url: e.url, lang: e.lang || "Latino", quality: e.quality, server: "" })));
+    return toEmbeds(id11, embeds.filter((e) => e && typeof e.url === "string").map((e) => ({ url: e.url, lang: e.lang || "Latino", quality: e.quality, server: "" })));
+  });
+}
+
+// src/sources/tioplus.js
+var tioplus_exports = {};
+__export(tioplus_exports, {
+  HOSTS: () => HOSTS21,
+  ORIGIN: () => ORIGIN12,
+  id: () => id12,
+  kinds: () => kinds12,
+  list: () => list12,
+  matches: () => matches2,
+  name: () => name12,
+  players: () => players,
+  results: () => results2
+});
+var id12 = "tioplus";
+var name12 = "TioPlus";
+var kinds12 = ["movie", "tv"];
+var HOSTS21 = ["tioplus.app"];
+var SITE12 = "https://tioplus.app";
+var ORIGIN12 = SITE12;
+var HEADERS6 = { Referer: SITE12 + "/", "Accept-Language": "es-MX,es;q=0.9" };
+var SKIP = /^(netu|plus|vidg)\b/i;
+var MAX_PLAYERS = 3;
+var searchTerm = (t2) => String(t2 || "").split(/\s*[:(]/)[0].trim();
+function results2(html, kind) {
+  const dir = kind === "tv" ? "/serie/" : "/pelicula/";
+  const out = [];
+  for (const m of html.matchAll(/<a class='itemA' href="([^"]+)">([\s\S]*?)<\/a>/g)) {
+    if (!m[1].startsWith(SITE12 + dir)) continue;
+    const h2 = ((/<h2>([^<]*)<\/h2>/.exec(m[2]) || [])[1] || "").trim();
+    out.push({ url: m[1], title: h2.replace(/\s*\(\d{4}\)\s*$/, ""), year: yearIn(h2) });
+  }
+  return out;
+}
+function matches2(list13, title) {
+  const wanted = new Set(Object.values(title.titles || {}).map(slugify).filter(Boolean));
+  return list13.filter((r) => wanted.has(slugify(r.title)) && yearMatches(r.year, title.year));
+}
+function players(html) {
+  const out = [];
+  for (const tab of html.split(/<button\b[^>]*class='[^']*\bbutton\b[^']*'/).slice(1)) {
+    const lang = (/>([^<]{3,40})<svg/.exec(tab) || [])[1] || "";
+    for (const m of tab.matchAll(/<li\b[^>]*\bdata-server="([^"]+)"[^>]*>([\s\S]*?)<\/li>/g)) {
+      const label3 = m[2].replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+      out.push({ value: m[1], name: label3.split(/\s+-\s+/)[0].trim(), lang: lang.trim() });
+    }
+  }
+  return out;
+}
+async function page2(url, req, referer) {
+  const r = await req(url, { headers: referer ? { ...HEADERS6, Referer: referer } : HEADERS6 });
+  return r.ok ? r.text() : null;
+}
+async function list12(title, { req }) {
+  const tv = title.kind === "tv";
+  if (tv && (title.season == null || title.episode == null)) return [];
+  const t2 = title.titles || {};
+  const terms = [...new Set([t2.esMX, t2.original].map(searchTerm).filter(Boolean))];
+  return orEmpty(async () => {
+    let body = null, at = null;
+    for (const q of terms) {
+      const html = await page2(`${SITE12}/search/${encodeURIComponent(q)}`, req);
+      const hit = html && matches2(results2(html, title.kind), title)[0];
+      if (!hit) continue;
+      at = tv ? `${hit.url}/season/${Number(title.season)}/episode/${Number(title.episode)}` : hit.url;
+      body = await page2(at, req);
+      if (!body) continue;
+      const y = yearIn((/<title>([^<]*)<\/title>/i.exec(body) || [])[1]);
+      if (tv ? episodeYearOk(y, title) : yearMatches(y, title.year)) break;
+      body = null;
+    }
+    if (!body) return [];
+    const wanted = players(body).filter((p) => normLang(p.lang) && !SKIP.test(p.name)).slice(0, MAX_PLAYERS);
+    const rows3 = [];
+    for (const p of wanted) {
+      try {
+        const html = await page2(`${SITE12}/player/${btoa(p.value)}`, req, at);
+        const url = html && (/location\.href\s*=\s*['"](https?:\/\/[^'"]+)['"]/.exec(html) || [])[1];
+        if (url) rows3.push({ url, lang: p.lang, server: p.name });
+      } catch (e) {
+        if (!(e && e.local)) throw e;
+        break;
+      }
+    }
+    return toEmbeds(id12, rows3);
   });
 }
 
 // src/sources/index.js
-var SOURCES = [lamovie_exports, hackstore_exports, cinecalidad_exports, seriesmetro_exports, seriesflix_exports, embed69_exports, peliserieshoy_exports, zoowomaniacos_exports, deepflix_exports, pelisplus_exports, fuegocine_exports, pelispanda_exports];
+var SOURCES = [lamovie_exports, hackstore_exports, cinecalidad_exports, seriesmetro_exports, seriesflix_exports, embed69_exports, zoowomaniacos_exports, deepflix_exports, pelisplus_exports, fuegocine_exports, pelispanda_exports, tioplus_exports];
 var sourceById = (id13) => SOURCES.find((s) => s.id === id13) || null;
 
 // src/i18n.js
@@ -2579,11 +2628,11 @@ function readHealth(kino) {
     return {};
   }
 }
-function recordRun(kino, results2) {
+function recordRun(kino, results3) {
   try {
     const h = readHealth(kino);
     const at = Date.now();
-    for (const { id: id13, ok } of results2) {
+    for (const { id: id13, ok } of results3) {
       const fails = ok ? 0 : (h[id13] && Number.isFinite(h[id13].fails) ? h[id13].fails : 0) + 1;
       h[id13] = { ok: !!ok, fails, at };
       if (fails === DOWN_AFTER) {
@@ -2637,16 +2686,15 @@ var CALL_REQUESTS = 54;
 var PHASE_REQUESTS = 36;
 var EARLY = { ms: 2500, copies: 6 };
 var CACHE_TTL_MS = 18e5;
-var OFF_BY_DEFAULT = { peliserieshoy: false };
 function normalizeSettings(s = {}) {
   const v = s && typeof s === "object" ? s : {};
   return {
     preferred: LANGS.includes(v.preferred) ? v.preferred : "lat",
     maxQuality: QUALITIES.includes(v.maxQuality) ? v.maxQuality : "auto",
-    enabled: { ...OFF_BY_DEFAULT, ...v.enabled && typeof v.enabled === "object" ? v.enabled : {} }
+    enabled: { ...v.enabled && typeof v.enabled === "object" ? v.enabled : {} }
   };
 }
-var isOn = (enabled, id13) => ({ ...OFF_BY_DEFAULT, ...enabled || {} })[id13] !== false;
+var isOn = (enabled, id13) => (enabled || {})[id13] !== false;
 var cacheKey = (title, prefix = "emb:") => `${prefix}${title.kind}:${title.tmdbId}:${title.season ?? ""}:${title.episode ?? ""}`;
 var validEmbed = (e) => e && typeof e === "object" && typeof e.source === "string" && LANGS.includes(e.lang) && typeof e.server === "string" && typeof e.embedUrl === "string" && /^https?:\/\//i.test(e.embedUrl) && (e.quality == null || typeof e.quality === "string");
 function readCache(kino, key) {
@@ -2975,13 +3023,13 @@ var MAX_PAGE = 500;
 var memo = /* @__PURE__ */ new Map();
 var PAGE_MS = 1e4;
 var upTo = (cap, untilMs) => Math.min(cap, untilMs == null ? cap : untilMs - Date.now());
-async function listing3(kino, { site, kind, genre = null, page: page2 = 1, deadlineMs = PAGE_MS }) {
-  const key = `${site}:${kind}:${genre || ""}:${page2}`;
+async function listing3(kino, { site, kind, genre = null, page: page3 = 1, deadlineMs = PAGE_MS }) {
+  const key = `${site}:${kind}:${genre || ""}:${page3}`;
   const hit = memo.get(key);
   if (hit && Date.now() - hit.at < LIST_TTL_MS) return hit.items;
   const source = SITES[site];
   const req = makeRequester(kino, { budget: 3, deadline: Date.now() + deadlineMs });
-  const items = genre ? await source.byGenre(genre, kind, page2, { req }) : await source.latest(kind, page2, { req });
+  const items = genre ? await source.byGenre(genre, kind, page3, { req }) : await source.latest(kind, page3, { req });
   if (memo.size > 80) memo.clear();
   if (items.length) memo.set(key, { at: Date.now(), items });
   return items;
@@ -3037,16 +3085,16 @@ async function browsePage(kino, settings, ref, cursor, { untilMs } = {}) {
   if (!b) throw kino.error("not_found", "unknown browse ref");
   const site = siteFor(settings, b);
   if (!site) return { items: [] };
-  const page2 = pageOf(cursor);
+  const page3 = pageOf(cursor);
   let raw;
   try {
-    raw = await listing3(kino, { ...b, site, page: page2, deadlineMs: upTo(PAGE_MS, untilMs) });
+    raw = await listing3(kino, { ...b, site, page: page3, deadlineMs: upTo(PAGE_MS, untilMs) });
   } catch (e) {
     kino.log("[latino]", "browse", site, e && e.code || "error");
-    throw kino.error("unavailable", `listing failed: ${site} page ${page2}`, { userMessage: t("sourcesDown", kino) });
+    throw kino.error("unavailable", `listing failed: ${site} page ${page3}`, { userMessage: t("sourcesDown", kino) });
   }
   const items = dedup(raw.map((i) => dress(kino, i)));
-  return items.length && page2 < MAX_PAGE ? { items, next: String(page2 + 1) } : { items };
+  return items.length && page3 < MAX_PAGE ? { items, next: String(page3 + 1) } : { items };
 }
 var fold = (s) => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 var PAGES_PER_CALL = 4;
@@ -3061,7 +3109,7 @@ async function searchWithin(kino, settings, within2, q, cursor, { untilMs } = {}
   const pages = [];
   for (let p = start; p < start + PAGES_PER_CALL && p <= MAX_PAGE; p++) pages.push(p);
   const deadlineMs = upTo(SCOPED_DEADLINE_MS, untilMs);
-  const got = await Promise.all(pages.map((page2) => listing3(kino, { ...b, site, page: page2, deadlineMs }).catch(() => null)));
+  const got = await Promise.all(pages.map((page3) => listing3(kino, { ...b, site, page: page3, deadlineMs }).catch(() => null)));
   if (got.every((l) => l === null)) return null;
   const lists = got.map((l) => l || []);
   const hits = lists.flat().filter((i) => {
@@ -3238,14 +3286,14 @@ async function sitePostResult(kino, site, { untilMs } = {}) {
   }
 }
 var sitePost = async (kino, site, options3) => (await sitePostResult(kino, site, options3)).post;
-function pick3(results2, names, year2) {
+function pick3(results3, names, year2) {
   const wanted = new Set(names.map(slugify).filter(Boolean));
   const near = (r) => {
     const y = yearOf2(r.release_date || r.first_air_date);
     return !year2 || !y || Math.abs(y - year2) <= 1;
   };
   const namesOf = (r) => [r.title, r.name, r.original_title, r.original_name].map(slugify).filter(Boolean);
-  const list13 = (results2 || []).filter((r) => r && Number.isInteger(r.id) && near(r));
+  const list13 = (results3 || []).filter((r) => r && Number.isInteger(r.id) && near(r));
   const exact = [...new Set(list13.filter((r) => namesOf(r).some((n) => wanted.has(n))).map((r) => r.id))];
   if (exact.length > 1 && !year2) return null;
   if (exact.length) return exact[0];
@@ -3269,7 +3317,7 @@ async function searchTmdb(kino, kind, names, year2, untilMs) {
   return null;
 }
 var mapKey = (site) => `tmdb:${site.prefix}:${site.postId}`;
-async function tmdbIdFor(kino, site, { post: post4, postFailed = false, untilMs } = {}) {
+async function tmdbIdFor(kino, site, { post: post3, postFailed = false, untilMs } = {}) {
   const key = mapKey(site);
   let cached = null;
   try {
@@ -3289,7 +3337,7 @@ async function tmdbIdFor(kino, site, { post: post4, postFailed = false, untilMs 
     let id13 = guess.title ? await searchTmdb(kino, site.kind, [guess.title], guess.year, untilMs) : null;
     let failed = false;
     if (!id13) {
-      const r = post4 !== void 0 ? { post: post4, failed: postFailed } : await sitePostResult(kino, site, { untilMs });
+      const r = post3 !== void 0 ? { post: post3, failed: postFailed } : await sitePostResult(kino, site, { untilMs });
       failed = r.failed;
       if (r.post) id13 = await searchTmdb(kino, site.kind, [r.post.title, r.post.originalTitle].filter(Boolean), Number(r.post.year) || guess.year, untilMs);
     }
@@ -3300,16 +3348,16 @@ async function tmdbIdFor(kino, site, { post: post4, postFailed = false, untilMs 
     return null;
   }
 }
-function siteContext(site, post4, { season = null, episode = null } = {}) {
+function siteContext(site, post3, { season = null, episode = null } = {}) {
   const guess = guessFromRef(site);
-  const title = post4 && post4.title || guess.title;
-  const original = post4 && post4.originalTitle || title;
+  const title = post3 && post3.title || guess.title;
+  const original = post3 && post3.originalTitle || title;
   const tv = site.kind === "tv";
   return {
     kind: tv ? "tv" : "movie",
     tmdbId: `${site.prefix}${site.postId}`,
     imdbId: null,
-    year: post4 && Number(post4.year) || guess.year || null,
+    year: post3 && Number(post3.year) || guess.year || null,
     lastYear: null,
     titles: { esMX: title, esES: title, en: original, original },
     season: tv ? season : null,
@@ -4004,13 +4052,13 @@ async function details(ref) {
   const site = parseSiteRef(ref);
   if (!site) return null;
   const untilMs = callDeadline(kino, "details").end;
-  const { post: post4, failed } = await sitePostResult(kino, site, { untilMs });
+  const { post: post3, failed } = await sitePostResult(kino, site, { untilMs });
   const info = {};
-  if (post4) {
-    const item3 = dress(kino, post4);
+  if (post3) {
+    const item3 = dress(kino, post3);
     for (const k of DETAIL_FIELDS) if (item3[k] !== void 0 && item3[k] !== "") info[k] = item3[k];
   }
-  const tmdb2 = await tmdbIdFor(kino, site, { post: post4, postFailed: failed, untilMs });
+  const tmdb2 = await tmdbIdFor(kino, site, { post: post3, postFailed: failed, untilMs });
   if (tmdb2) info.ids = { tmdb: tmdb2 };
   return Object.keys(info).length ? info : null;
 }
@@ -4048,7 +4096,7 @@ async function resolve(ref) {
   if (!title) throw notFound(kino, "not a playable ref");
   return resolveTitle(kino, title, readSettings(kino), { callMs: dl.left(), ref: r });
 }
-var TOGGLABLE_SOURCE_IDS = ["lamovie", "hackstore", "cinecalidad", "seriesmetro", "seriesflix", "embed69", "peliserieshoy", "zoowomaniacos"];
+var TOGGLABLE_SOURCE_IDS = ["lamovie", "hackstore", "cinecalidad", "seriesmetro", "seriesflix", "embed69", "zoowomaniacos"];
 var PREFERENCE_KEYS = ["preferred", "maxQuality", "homeRows", ...TOGGLABLE_SOURCE_IDS.map((id13) => "src_" + id13)];
 var PROBE_TMDB_ID = 550;
 var fill = (text5, vars) => text5.replace(/\{(\w+)\}/g, (_, k) => String(vars[k]));

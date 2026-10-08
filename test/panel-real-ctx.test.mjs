@@ -15,7 +15,7 @@ const TMDB = {
   "/tv/4057/season/1?language=es-MX": JSON.parse(fixture("tmdb/mentes-s1.json")),
   "/tv/4057?append_to_response=external_ids%2Ctranslations&language=es-MX": JSON.parse(fixture("tmdb/mentes-tv.json")),
 };
-const ALL = ["lamovie", "hackstore", "cinecalidad", "seriesmetro", "seriesflix", "embed69", "peliserieshoy", "zoowomaniacos"];
+const ALL = ["lamovie", "hackstore", "cinecalidad", "seriesmetro", "seriesflix", "embed69", "zoowomaniacos"];
 const emb = (source, lang) => ({ source, lang, server: "vimeos", embedUrl: `https://vimeos.net/e/${source}${lang}`, quality: null });
 
 function setup(seed = {}) {

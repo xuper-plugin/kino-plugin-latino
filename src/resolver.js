@@ -53,7 +53,6 @@ const PHASE_REQUESTS = 36;
 // A resolve stops waiting for slow sources once it has this many playable copies, but never before EARLY_MS.
 const EARLY = { ms: 2500, copies: 6 };
 const CACHE_TTL_MS = 1800000;
-const OFF_BY_DEFAULT = { peliserieshoy: false }; // R14
 
 /** Settings with every default filled in: `{ preferred, maxQuality, enabled }`. */
 export function normalizeSettings(s = {}) {
@@ -61,11 +60,11 @@ export function normalizeSettings(s = {}) {
   return {
     preferred: LANGS.includes(v.preferred) ? v.preferred : "lat",
     maxQuality: QUALITIES.includes(v.maxQuality) ? v.maxQuality : "auto",
-    enabled: { ...OFF_BY_DEFAULT, ...(v.enabled && typeof v.enabled === "object" ? v.enabled : {}) },
+    enabled: { ...(v.enabled && typeof v.enabled === "object" ? v.enabled : {}) },
   };
 }
 
-const isOn = (enabled, id) => ({ ...OFF_BY_DEFAULT, ...(enabled || {}) })[id] !== false;
+const isOn = (enabled, id) => (enabled || {})[id] !== false;
 
 // ---------- phase 1: embeds ----------
 

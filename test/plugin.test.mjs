@@ -267,10 +267,9 @@ test("settings: defaults, and the person's choices read from kino.config", () =>
   assert.equal(d.maxQuality, "auto");
   assert.equal("includeSub" in d, false, "the no-op toggle is gone (M3)");
   assert.equal(d.homeRows, true);
-  assert.equal(d.enabled.peliserieshoy, false);
   assert.equal(d.enabled.lamovie, true); // the kit applies the manifest's explicit toggle default, as Kino does
-  const s = readSettings({ config: { get: (k) => ({ preferred: "esp", maxQuality: "720p", src_lamovie: false, src_peliserieshoy: true, homeRows: false })[k] } });
-  assert.deepEqual(s, { preferred: "esp", maxQuality: "720p", enabled: { lamovie: false, peliserieshoy: true }, homeRows: false, avoid: [] });
+  const s = readSettings({ config: { get: (k) => ({ preferred: "esp", maxQuality: "720p", src_lamovie: false, src_embed69: true, homeRows: false })[k] } });
+  assert.deepEqual(s, { preferred: "esp", maxQuality: "720p", enabled: { lamovie: false, embed69: true }, homeRows: false, avoid: [] });
 });
 
 test("t('notFound') is English when Kino speaks English", () => {

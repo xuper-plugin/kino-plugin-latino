@@ -38,7 +38,7 @@ export function recordRun(kino, results) {
   } catch (_) { /* full storage: the next run records again */ }
 }
 
-/** "LaMovie ok · HackStore falla · PelisSeriesHoy apagada ..." -- one line, every source, at most 200 characters. */
+/** "LaMovie ok · HackStore falla · CineCalidad apagada ..." -- one line, every source, at most 200 characters. */
 export function healthLine(kino, health = readHealth(kino)) {
   const settings = readSettings(kino);
   const parts = SOURCES.map((s) => {

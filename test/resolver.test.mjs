@@ -96,14 +96,14 @@ test("a source for another kind is not asked", async () => {
   assert.equal(tvOnly.calls, 0);
 });
 
-test("per-source toggles: off sources are not asked; peliserieshoy is off unless turned on", async () => {
+test("per-source toggles: an off source is not asked; every source is on unless turned off", async () => {
   const { kino } = fakeKino();
   const a = counted(src("a", [E("a", "lat", "vimeos", 1)]));
-  const p = counted(src("peliserieshoy", [E("peliserieshoy", "lat", "direct", 2)]));
-  assert.deepEqual((await listEmbeds(kino, T, { sources: [a, p], enabled: { a: false } })).length, 0);
-  assert.equal(a.calls + p.calls, 0);
+  const b = counted(src("b", [E("b", "lat", "vimeos", 2)]));
+  assert.deepEqual((await listEmbeds(kino, T, { sources: [a, b], enabled: { a: false } })).map((e) => e.source), ["b"]);
+  assert.equal(a.calls, 0);
   const { kino: k2 } = fakeKino();
-  assert.equal((await listEmbeds(k2, T, { sources: [a, p], enabled: { peliserieshoy: true } })).length, 2);
+  assert.equal((await listEmbeds(k2, T, { sources: [a, b] })).length, 2);
 });
 
 test("cache: the second call within 30 min asks no source; a corrupt entry is ignored", async () => {

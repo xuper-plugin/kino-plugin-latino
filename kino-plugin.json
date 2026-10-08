@@ -24,7 +24,6 @@
     "seriesflixhd.best",
     "embed69.org",
     "mg.homelabx.qzz.io",
-    "player.pelisserieshoy.com",
     "proyectox.yoyatengoabuela.com",
     "goodstream.one",
     "*.goodstream.one",
@@ -76,7 +75,12 @@
     "pelisplushd.la",
     "www.fuegocine.com",
     "fuegocine.com",
-    "pelispanda.org"
+    "pelispanda.org",
+    "tioplus.app",
+    "vidhideplus.com",
+    "*.vidhideplus.com",
+    "callistanise.com",
+    "*.callistanise.com"
   ],
   "capabilities": [
     "search",
@@ -94,7 +98,8 @@
   ],
   "color": "#C62828",
   "section": {
-    "label": "Latino"
+    "label": "Latino",
+    "labelEn": "Latino"
   },
   "theme": {
     "accent": "#BA2D2A",
@@ -110,25 +115,31 @@
       "key": "langSection",
       "type": "section",
       "label": "Idioma y calidad",
-      "hint": "Qué copia se abre primero cuando un título tiene varias."
+      "labelEn": "Language and quality",
+      "hint": "Qué copia se abre primero cuando un título tiene varias.",
+      "hintEn": "Which copy opens first when a title has several."
     },
     {
       "key": "preferred",
       "type": "select",
       "label": "Idioma preferido",
+      "labelEn": "Preferred language",
       "default": "lat",
       "options": [
         {
           "value": "lat",
-          "label": "Latino"
+          "label": "Latino",
+          "labelEn": "Latin Spanish"
         },
         {
           "value": "esp",
-          "label": "Castellano"
+          "label": "Castellano",
+          "labelEn": "Spain Spanish"
         },
         {
           "value": "sub",
-          "label": "Subtitulado"
+          "label": "Subtitulado",
+          "labelEn": "Subtitled"
         }
       ],
       "hint": "Lo que cambies en el panel manda hasta que uses Restablecer allí.",
@@ -138,23 +149,28 @@
       "key": "maxQuality",
       "type": "select",
       "label": "Calidad máxima",
+      "labelEn": "Maximum quality",
       "default": "auto",
       "options": [
         {
           "value": "auto",
-          "label": "Automática"
+          "label": "Automática",
+          "labelEn": "Automatic"
         },
         {
           "value": "1080p",
-          "label": "Hasta 1080p"
+          "label": "Hasta 1080p",
+          "labelEn": "Up to 1080p"
         },
         {
           "value": "720p",
-          "label": "Hasta 720p"
+          "label": "Hasta 720p",
+          "labelEn": "Up to 720p"
         },
         {
           "value": "480p",
-          "label": "Hasta 480p (ahorra datos)"
+          "label": "Hasta 480p (ahorra datos)",
+          "labelEn": "Up to 480p (saves data)"
         }
       ],
       "hint": "Lo que cambies en el panel manda hasta que uses Restablecer allí.",
@@ -164,94 +180,107 @@
       "key": "srcSection",
       "type": "section",
       "label": "Fuentes",
-      "hint": "Apaga una fuente si te da problemas. PelisSeriesHoy viene apagada: solo ofrece series y películas en pocos casos."
+      "labelEn": "Sources",
+      "hint": "Apaga una fuente si te da problemas.",
+      "hintEn": "Turn a source off if it gives you trouble."
     },
     {
       "key": "src_lamovie",
       "type": "toggle",
       "label": "LaMovie",
+      "labelEn": "LaMovie",
       "default": true
     },
     {
       "key": "src_hackstore",
       "type": "toggle",
       "label": "HackStore",
+      "labelEn": "HackStore",
       "default": true
     },
     {
       "key": "src_cinecalidad",
       "type": "toggle",
       "label": "CineCalidad",
+      "labelEn": "CineCalidad",
       "default": true
     },
     {
       "key": "src_seriesmetro",
       "type": "toggle",
       "label": "SeriesMetro",
+      "labelEn": "SeriesMetro",
       "default": true
     },
     {
       "key": "src_seriesflix",
       "type": "toggle",
       "label": "Seriesflix",
+      "labelEn": "Seriesflix",
       "default": true
     },
     {
       "key": "src_embed69",
       "type": "toggle",
       "label": "Embed69",
+      "labelEn": "Embed69",
       "default": true
-    },
-    {
-      "key": "src_peliserieshoy",
-      "type": "toggle",
-      "label": "PelisSeriesHoy",
-      "default": false
     },
     {
       "key": "src_zoowomaniacos",
       "type": "toggle",
       "label": "Zoowomaniacos",
+      "labelEn": "Zoowomaniacos",
       "default": true
     },
     {
       "key": "homeSection",
       "type": "section",
-      "label": "Inicio"
+      "label": "Inicio",
+      "labelEn": "Home"
     },
     {
       "key": "homeRows",
       "type": "toggle",
       "label": "Filas en Inicio",
+      "labelEn": "Rows on Home",
       "default": true,
-      "hint": "Muestra los estrenos de Latino en el Inicio de Kino."
+      "hint": "Muestra los estrenos de Latino en el Inicio de Kino.",
+      "hintEn": "Shows Latino's new releases on Kino's Home."
     },
     {
       "key": "toolsSection",
       "type": "section",
       "label": "Estado",
-      "hint": "Cada fuente dice si respondió en su última consulta."
+      "labelEn": "Status",
+      "hint": "Cada fuente dice si respondió en su última consulta.",
+      "hintEn": "Each source says whether it answered its last request."
     },
     {
       "key": "health",
       "type": "status",
-      "label": "Fuentes"
+      "label": "Fuentes",
+      "labelEn": "Sources"
     },
     {
       "key": "probe",
       "type": "action",
-      "label": "Probar fuentes ahora"
+      "label": "Probar fuentes ahora",
+      "labelEn": "Test the sources now"
     },
     {
       "key": "clearCache",
       "type": "action",
-      "label": "Borrar caché"
+      "label": "Borrar caché",
+      "labelEn": "Clear cache"
     },
     {
       "key": "resetPrefs",
       "type": "action",
       "label": "Restablecer preferencias",
-      "confirm": "¿Volver a los valores de fábrica de Latino?"
+      "labelEn": "Reset preferences",
+      "confirm": "¿Volver a los valores de fábrica de Latino?",
+      "confirmEn": "Go back to Latino's default settings?"
     }
   ]
 }

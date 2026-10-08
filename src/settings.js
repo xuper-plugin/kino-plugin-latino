@@ -31,5 +31,5 @@ export function readSettings(kino) {
   return { ...base, homeRows: bool(get("homeRows"), true), avoid: prefs.avoid };
 }
 
-/** Whether a source is on under these settings (PelisSeriesHoy is off unless turned on). */
+/** Whether a source is on under these settings (every source is on unless turned off). */
 export const sourceOn = (settings, id) => settings.enabled[id] !== false;

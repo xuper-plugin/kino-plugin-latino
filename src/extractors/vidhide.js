@@ -1,6 +1,6 @@
 import { miss, fileM3u8, hlsKey, findIn, pageText, pageExtras, HLS_MIME } from "./shared.js";
 
-export const HOSTS = ["vidhide.com", "vidhidepro.com", "dintezuvio.com", "minochinos.com", "filelions.to", "morencius.com"];
+export const HOSTS = ["vidhide.com", "vidhidepro.com", "vidhideplus.com", "dintezuvio.com", "minochinos.com", "filelions.to", "morencius.com"];
 
 // hls3 is a ".txt" playlist on these hosts, so only hls4 and hls2 are taken.
 export async function extract(embedUrl, req, kino) {

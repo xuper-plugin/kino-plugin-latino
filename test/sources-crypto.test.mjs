@@ -3,7 +3,6 @@ import assert from "node:assert/strict";
 import { fakeKino, fixture } from "./helpers/fakeKino.mjs";
 import { makeRequester } from "../src/util/http.js";
 import * as embed69 from "../src/sources/embed69.js";
-import * as peliserieshoy from "../src/sources/peliserieshoy.js";
 import * as zoowomaniacos from "../src/sources/zoowomaniacos.js";
 import { solvePow, decryptLink } from "../src/sources/embed69.js";
 import { overlap } from "../src/sources/zoowomaniacos.js";
@@ -84,55 +83,6 @@ test("embed69: no imdb id, a missing page, a page without the challenge or links
 test("embed69: network errors propagate, a spent budget gives []", async () => {
   await assert.rejects(embed69.list(FIGHT, ctx(down())));
   assert.deepEqual(await embed69.list(FIGHT, ctx(e69().kino, 0)), []);
-});
-
-// PelisSeriesHoy: the live site now answers non-browser clients "No hay servidores disponibles", so the flow is the one the
-// reference documents (langs_s, then a=2 with v), with synthesized answers.
-const PSH_LANGS = { type: "ok", langs_s: { LAT: [["Server 1", "v1"], ["Server 2", "v2"]], SUB: [["Server 3", "v3"]] } };
-const psh = () => fakeKino({ fetch: async (u, o) => {
-  if (/\/f\/tt0137523$/.test(u)) return { status: 200, body: fixture("peliserieshoy/page.html") };
-  const form = (o.body && o.body.form) || {};
-  if (form.a === "click") return { status: 200, body: "{}" };
-  if (form.a === "1") return { status: 200, body: JSON.stringify(PSH_LANGS) };
-  if (form.a === "2") {
-    if (form.v === "v2") return { status: 200, body: JSON.stringify({ type: "error" }) };
-    return { status: 200, body: JSON.stringify({ u: form.v === "v3" ? "/media/b.m3u8" : "https://cdn.example/a b.mp4", sig: "S" + form.v, q: form.v === "v1" ? "1080p" : "HD" }) };
-  }
-  return { status: 404, body: "" };
-} });
-
-test("peliserieshoy: servers become direct embeds on the site's p.php proxy, per language", async () => {
-  const f = psh();
-  const e = await peliserieshoy.list(FIGHT, ctx(f.kino));
-  assert.deepEqual(e.map((x) => [x.lang, x.server, x.quality]), [["lat", "direct", "1080p"], ["sub", "direct", "720p"]]);
-  assert.equal(e[0].embedUrl, "https://player.pelisserieshoy.com/p.php?url=https%3A%2F%2Fcdn.example%2Fa%20b.mp4&sig=Sv1");
-  assert.ok(e[1].embedUrl.includes("url=https%3A%2F%2Fplayer.pelisserieshoy.com%2Fmedia%2Fb.m3u8"));
-  const posts = f.calls.filter((c) => c.opts.method === "POST").map((c) => c.opts.body.form);
-  assert.deepEqual(posts.slice(0, 2), [{ a: "click", tok: "8c76aaada9d2585efbdf71355cef8ca5" }, { a: "1", tok: "8c76aaada9d2585efbdf71355cef8ca5" }]);
-  assert.deepEqual(posts[2], { a: "2", tok: "8c76aaada9d2585efbdf71355cef8ca5", v: "v1" });
-});
-
-test("peliserieshoy: no imdb id, no token, or the 'no servers' answer give []; network errors propagate", async () => {
-  assert.deepEqual(await peliserieshoy.list({ ...FIGHT, imdbId: null }, ctx(psh().kino)), []);
-  const none = fakeKino({ fetch: async (u, o) => /\/f\//.test(u) ? { status: 200, body: fixture("peliserieshoy/page.html") }
-    : { status: 200, body: JSON.stringify({ type: "error", msg: "No hay servidores disponibles en este momento." }) } });
-  assert.deepEqual(await peliserieshoy.list(FIGHT, ctx(none.kino)), []);
-  const notoken = fakeKino({ fetch: async () => ({ status: 200, body: "<html></html>" }) });
-  assert.deepEqual(await peliserieshoy.list(FIGHT, ctx(notoken.kino)), []);
-  await assert.rejects(peliserieshoy.list(FIGHT, ctx(down())));
-});
-
-test("peliserieshoy: an episode asks for /f/<imdb>-<s>x<ee>; at most 8 servers are resolved", async () => {
-  const many = { langs_s: { LAT: Array.from({ length: 12 }, (_, i) => [`S${i}`, `v${i}`]) } };
-  const f = fakeKino({ fetch: async (u, o) => {
-    if (/\/f\//.test(u)) return { status: 200, body: fixture("peliserieshoy/page.html") };
-    const form = o.body.form;
-    return { status: 200, body: form.a === "1" ? JSON.stringify(many) : JSON.stringify({ u: "https://c/x.mp4", sig: "s", q: "720p" }) };
-  } });
-  const e = await peliserieshoy.list(BB, ctx(f.kino));
-  assert.equal(f.calls[0].url, "https://player.pelisserieshoy.com/f/tt0903747-1x01");
-  assert.equal(e.length, 8);
-  assert.equal(f.calls.length, 11);
 });
 
 const zoo = (extra = {}) => fakeKino({ fetch: async (u, o) => {

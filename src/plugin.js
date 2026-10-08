@@ -200,7 +200,7 @@ export async function resolve(ref) {
 // ---------- settings form ----------
 
 /** Source IDs that have an on/off toggle in the manifest (the 10 newer sources are always on). */
-const TOGGLABLE_SOURCE_IDS = ["lamovie", "hackstore", "cinecalidad", "seriesmetro", "seriesflix", "embed69", "peliserieshoy", "zoowomaniacos"];
+const TOGGLABLE_SOURCE_IDS = ["lamovie", "hackstore", "cinecalidad", "seriesmetro", "seriesflix", "embed69", "zoowomaniacos"];
 /** The person's preferences: every value setting of the form (none is required, so clearSettings may name them all). */
 const PREFERENCE_KEYS = ["preferred", "maxQuality", "homeRows", ...TOGGLABLE_SOURCE_IDS.map((id) => "src_" + id)];
 const PROBE_TMDB_ID = 550; // Fight Club: on every source
