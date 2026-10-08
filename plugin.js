@@ -265,8 +265,8 @@ var LANG_CODES = [
   [/^(italiano|italian|ita|it)\b/i, "it"],
   [/^(deutsch|german|alem[aá]n|ger|deu|de)\b/i, "de"]
 ];
-function langCode(label2) {
-  const s = String(label2 || "").trim();
+function langCode(label3) {
+  const s = String(label3 || "").trim();
   for (const [re, code] of LANG_CODES) if (re.test(s)) return code;
   return null;
 }
@@ -280,11 +280,11 @@ function captionTracks(text4, base) {
     if (kind && kind !== "captions" && kind !== "subtitles") continue;
     const file = field("file");
     const format = (/\.(vtt|srt)(?:[?#]|$)/i.exec(file) || [])[1];
-    const label2 = field("label");
-    const lang = langCode(label2);
+    const label3 = field("label");
+    const lang = langCode(label3);
     const url = format && lang ? absolute(file, base) : null;
     if (!url || out.some((t2) => t2.url === url)) continue;
-    out.push({ lang, url, label: label2, format: format.toLowerCase() });
+    out.push({ lang, url, label: label3, format: format.toLowerCase() });
   }
   return out;
 }
@@ -1014,8 +1014,8 @@ function toEmbeds(source, rows2) {
     const lang = normLang(row.lang);
     if (!lang) continue;
     const known = extractorFor(embedUrl);
-    const label2 = String(row.server || "").trim().toLowerCase();
-    const server = known ? known.name : label2 && label2 !== "online" ? label2 : hostLabel(embedUrl);
+    const label3 = String(row.server || "").trim().toLowerCase();
+    const server = known ? known.name : label3 && label3 !== "online" ? label3 : hostLabel(embedUrl);
     out.push({ source, lang, server, embedUrl, quality: qualityOf(row.quality) });
   }
   return out;
@@ -1458,9 +1458,9 @@ function options2(html) {
   }
   return out;
 }
-var splitLabel = (label2) => {
-  const i = label2.lastIndexOf("-");
-  return i < 0 ? { server: "", lang: label2 } : { server: label2.slice(0, i).trim(), lang: label2.slice(i + 1).trim() };
+var splitLabel = (label3) => {
+  const i = label3.lastIndexOf("-");
+  return i < 0 ? { server: "", lang: label3 } : { server: label3.slice(0, i).trim(), lang: label3.slice(i + 1).trim() };
 };
 async function embedRows(page, req) {
   const opts = options2(page).slice(0, MAX_OPTIONS);
@@ -1924,6 +1924,20 @@ var WORDS = {
     availPartial: "Respuesta parcial: algunas fuentes no contestaron",
     availSeasons: "Temporadas sin versi\xF3n en espa\xF1ol: {v}",
     availNone: "Ninguna fuente contest\xF3 con copias de este t\xEDtulo",
+    prefPreferred: "Idioma preferido",
+    prefMaxQuality: "Calidad m\xE1xima",
+    langLat: "Latino",
+    langEsp: "Castellano",
+    langSub: "Subtitulado",
+    qAuto: "Autom\xE1tica",
+    qUpTo: "Hasta {v}",
+    qUpTo480: "Hasta 480p (ahorra datos)",
+    prefAvoid: "Evitar {v}",
+    prefAvoidHint: "Pasa al final de la lista, no se borra",
+    prefReset: "Volver a tus ajustes",
+    prefResetConfirm: "\xBFVolver a tus ajustes de siempre?",
+    prefApplies: "Se aplica al abrir la pr\xF3xima copia",
+    prefSaved: "Listo: se aplica en la pr\xF3xima copia",
     stallsHint: "Se ha cortado {n} veces: mira la pesta\xF1a Si falla",
     sumRating: "Calificaci\xF3n {v}",
     sumCast: "Reparto: {v}",
@@ -2008,6 +2022,20 @@ var WORDS = {
     availPartial: "Partial answer: some sources did not reply",
     availSeasons: "Seasons without a Spanish version: {v}",
     availNone: "No source answered with copies of this title",
+    prefPreferred: "Preferred language",
+    prefMaxQuality: "Maximum quality",
+    langLat: "Latin Spanish",
+    langEsp: "Castilian",
+    langSub: "Subtitled",
+    qAuto: "Automatic",
+    qUpTo: "Up to {v}",
+    qUpTo480: "Up to 480p (saves data)",
+    prefAvoid: "Avoid {v}",
+    prefAvoidHint: "Moves to the end of the list, never removed",
+    prefReset: "Back to your usual settings",
+    prefResetConfirm: "Go back to your usual settings?",
+    prefApplies: "Applies when the next copy opens",
+    prefSaved: "Done: applies on the next copy",
     stallsHint: 'Playback has stalled {n} times: see the "If it fails" tab',
     sumRating: "Rating {v}",
     sumCast: "Cast: {v}",
@@ -2088,6 +2116,17 @@ function readPrefs(kino) {
     out.avoid = [...new Set(p.avoid.filter((s) => isStr(s) && known.includes(s)))];
   }
   return out;
+}
+function writePrefs(kino, patch = {}) {
+  const next = { ...readPrefs(kino), ...patch && typeof patch === "object" ? patch : {} };
+  for (const k of Object.keys(next)) if (next[k] === null || next[k] === void 0) delete next[k];
+  writeJson(kino, PREFS_KEY, next);
+}
+function clearPrefs(kino) {
+  try {
+    kino.storage.remove(PREFS_KEY);
+  } catch (_) {
+  }
 }
 function writeLast(kino, ref, rec) {
   if (!isStr(ref) || !ref || !rec || typeof rec !== "object") return;
@@ -3024,6 +3063,106 @@ async function availTab(kino, ctx, { untilMs } = {}) {
   return { elements };
 }
 
+// src/panel/prefs.js
+var MAX_VALUE_CHARS = 500;
+var AVOID = "avoid.";
+var LANG_KEY = { lat: "langLat", esp: "langEsp", sub: "langSub" };
+var PANEL_QUALITIES = QUALITIES.filter((q) => q !== "2160p");
+var SIMPLE_KEYS = ["preferred", "maxQuality"];
+var serverIds2 = () => Object.keys(SERVER_LABEL);
+var allKeys = () => [...SIMPLE_KEYS, ...serverIds2().map((s) => AVOID + s)];
+var label2 = (m) => ({ label: m.es, labelEn: m.en });
+var bool2 = (v) => v === true || v === "true";
+function qualityLabel(q) {
+  if (q === "auto") return both("qAuto");
+  return q === "480p" ? both("qUpTo480") : both("qUpTo", { v: q });
+}
+function prefsTab(kino, ctx) {
+  const panelValues = ctx && ctx.values && ctx.values.plugin || {};
+  const current = readSettings(kino);
+  const elements = [
+    {
+      type: "select",
+      key: "preferred",
+      scope: "plugin",
+      autoSave: true,
+      ...label2(both("prefPreferred")),
+      value: LANGS.includes(panelValues.preferred) ? panelValues.preferred : current.preferred,
+      options: LANGS.map((l) => ({ value: l, ...label2(both(LANG_KEY[l])) }))
+    },
+    {
+      type: "select",
+      key: "maxQuality",
+      scope: "plugin",
+      autoSave: true,
+      ...label2(both("prefMaxQuality")),
+      value: PANEL_QUALITIES.includes(panelValues.maxQuality) ? panelValues.maxQuality : current.maxQuality,
+      options: PANEL_QUALITIES.map((q) => ({ value: q, ...label2(qualityLabel(q)) }))
+    }
+  ];
+  const hint = both("prefAvoidHint");
+  for (const id9 of serverIds2()) {
+    const key = AVOID + id9;
+    const on = key in panelValues ? bool2(panelValues[key]) : current.avoid.includes(id9);
+    elements.push({ type: "toggle", key, scope: "plugin", autoSave: true, value: on, ...label2(both("prefAvoid", { v: SERVER_LABEL[id9] })), hint: hint.es, hintEn: hint.en });
+  }
+  const confirm = both("prefResetConfirm");
+  elements.push({ type: "button", key: "reset", ...label2(both("prefReset")), confirm: confirm.es, confirmEn: confirm.en });
+  const note = both("prefApplies");
+  elements.push({ type: "status", text: note.es, textEn: note.en });
+  return { elements };
+}
+function patchOf(panelValues, stored) {
+  const patch = {};
+  if (LANGS.includes(panelValues.preferred)) patch.preferred = panelValues.preferred;
+  if (PANEL_QUALITIES.includes(panelValues.maxQuality)) patch.maxQuality = panelValues.maxQuality;
+  const avoid = new Set(stored.avoid);
+  let touched = false;
+  for (const id9 of serverIds2()) {
+    const key = AVOID + id9;
+    if (!(key in panelValues)) continue;
+    touched = true;
+    if (bool2(panelValues[key])) avoid.add(id9);
+    else avoid.delete(id9);
+  }
+  if (touched) patch.avoid = [...avoid];
+  return patch;
+}
+function reconcile(kino, ctx) {
+  try {
+    const panelValues = ctx && ctx.values && ctx.values.plugin;
+    if (!panelValues || typeof panelValues !== "object" || !allKeys().some((k) => k in panelValues)) return;
+    const stored = readPrefs(kino);
+    const patch = patchOf(panelValues, stored);
+    const differs = Object.keys(patch).some((k) => JSON.stringify(patch[k]) !== JSON.stringify(k === "avoid" ? stored.avoid : stored[k]));
+    if (differs) writePrefs(kino, patch);
+  } catch (_) {
+  }
+}
+function prefsAction(kino, ev, ctx) {
+  const key = ev && ev.key;
+  if (key === "reset" && ev.trigger === "press") {
+    clearPrefs(kino);
+    const values = Object.fromEntries(allKeys().map((k) => [k, null]));
+    return { values, save: allKeys() };
+  }
+  if (!ev || ev.trigger !== "change" || typeof key !== "string") return null;
+  const value = ev.value;
+  if (typeof value === "string" && value.length > MAX_VALUE_CHARS) return null;
+  let patch;
+  if (key === "preferred" && LANGS.includes(value)) patch = { preferred: value };
+  else if (key === "maxQuality" && PANEL_QUALITIES.includes(value)) patch = { maxQuality: value };
+  else if (key.startsWith(AVOID) && serverIds2().includes(key.slice(AVOID.length)) && (typeof value === "boolean" || value === "true" || value === "false")) {
+    const id9 = key.slice(AVOID.length);
+    const avoid = new Set(readPrefs(kino).avoid);
+    if (bool2(value)) avoid.add(id9);
+    else avoid.delete(id9);
+    patch = { avoid: [...avoid] };
+  } else return null;
+  writePrefs(kino, patch);
+  return { values: { [key]: value }, save: [key], message: t("prefSaved", { lang: ctx && typeof ctx.lang === "string" && ctx.lang.toLowerCase().startsWith("en") ? "en" : "es" }) };
+}
+
 // src/panel/index.js
 var TITLE_MAX = 60;
 var DEFAULT_TAB = "copy";
@@ -3031,13 +3170,14 @@ var TABS2 = [
   { id: "copy", label: "tabCopy", when: () => true, load: async (kino, ctx) => copyTab(kino, ctx) },
   { id: "summary", label: "tabSummary", when: (kino, ctx) => ctx.kind !== "live" && !!(ctx.ids && ctx.ids.tmdb) && typeof kino.tmdb === "function", load: (kino, ctx, dl) => summaryTab(kino, ctx, { untilMs: dl.end }) },
   { id: "avail", label: "tabAvail", when: (kino, ctx) => ctx.kind !== "live", load: (kino, ctx, dl) => availTab(kino, ctx, { untilMs: dl.end }) },
-  { id: "prefs", label: "tabPrefs", when: () => true, load: null },
+  { id: "prefs", label: "tabPrefs", when: () => true, load: (kino, ctx) => prefsTab(kino, ctx) },
   { id: "fail", label: "tabFail", when: () => true, load: null }
 ];
 async function panel(ctx) {
   const kino = globalThis.kino;
   ctx = ctx || {};
   const dl = callDeadline(kino, "panel");
+  reconcile(kino, ctx);
   const available = TABS2.filter((x) => x.when(kino, ctx));
   const active = available.find((x) => x.id === ctx.tab) || available.find((x) => x.id === DEFAULT_TAB);
   let body = null;
@@ -3065,8 +3205,12 @@ async function panel(ctx) {
   if (active.id === "copy" && body.refreshMs) out.refreshMs = body.refreshMs;
   return out;
 }
-async function panelAction() {
-  return null;
+async function panelAction(ev, ctx) {
+  try {
+    return prefsAction(globalThis.kino, ev, ctx);
+  } catch (_) {
+    return null;
+  }
 }
 async function playerEvent() {
   return null;

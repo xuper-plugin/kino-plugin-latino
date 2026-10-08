@@ -6,6 +6,7 @@ import { callDeadline } from "../util/time.js";
 import { copyTab } from "./copy.js";
 import { summaryTab } from "./summary.js";
 import { availTab } from "./avail.js";
+import { prefsTab, reconcile, prefsAction } from "./prefs.js";
 
 const TITLE_MAX = 60;
 const DEFAULT_TAB = "copy";
@@ -15,7 +16,7 @@ const TABS = [
   { id: "copy", label: "tabCopy", when: () => true, load: async (kino, ctx) => copyTab(kino, ctx) },
   { id: "summary", label: "tabSummary", when: (kino, ctx) => ctx.kind !== "live" && !!(ctx.ids && ctx.ids.tmdb) && typeof kino.tmdb === "function", load: (kino, ctx, dl) => summaryTab(kino, ctx, { untilMs: dl.end }) },
   { id: "avail", label: "tabAvail", when: (kino, ctx) => ctx.kind !== "live", load: (kino, ctx, dl) => availTab(kino, ctx, { untilMs: dl.end }) },
-  { id: "prefs", label: "tabPrefs", when: () => true, load: null },
+  { id: "prefs", label: "tabPrefs", when: () => true, load: (kino, ctx) => prefsTab(kino, ctx) },
   { id: "fail", label: "tabFail", when: () => true, load: null },
 ];
 
@@ -23,6 +24,7 @@ export async function panel(ctx) {
   const kino = globalThis.kino;
   ctx = ctx || {};
   const dl = callDeadline(kino, "panel");
+  reconcile(kino, ctx);
   const available = TABS.filter((x) => x.when(kino, ctx));
   const active = available.find((x) => x.id === ctx.tab) || available.find((x) => x.id === DEFAULT_TAB);
 
@@ -48,5 +50,11 @@ export async function panel(ctx) {
   if (active.id === "copy" && body.refreshMs) out.refreshMs = body.refreshMs;
   return out;
 }
-export async function panelAction() { return null; }
+export async function panelAction(ev, ctx) {
+  try {
+    return prefsAction(globalThis.kino, ev, ctx);
+  } catch (_) {
+    return null;
+  }
+}
 export async function playerEvent() { return null; }
