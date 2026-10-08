@@ -14,9 +14,10 @@ import { missingOf } from "./sources/wpapi.js";
 import { recordRun } from "./health.js";
 import { within, BROWSER_RESOLVE_MS } from "./util/time.js";
 import { canCapture } from "./extractors/voe.js";
+import { writeLast } from "./panel/state.js";
 
 export const LANGS = ["lat", "esp", "sub"];
-const QUALITIES = ["auto", "2160p", "1080p", "720p", "480p"];
+export const QUALITIES = ["auto", "2160p", "1080p", "720p", "480p"];
 const SERVER_TIER = { goodstream: 0, streamwish: 0, vimeos: 0, vidhide: 0, fastream: 0, nupload: 0, direct: 0, okru: 1, voe: 2 };
 const HEIGHT = (q) => { const m = /^(\d{3,4})p$/.exec(q || ""); return m ? Number(m[1]) : null; };
 /**
@@ -31,7 +32,7 @@ const qualityOrder = (q) => {
 };
 const MAX_REF = 512; // Kino drops a lazy copy whose ref is longer
 // Display names for the servers (labels only; ranking and refs use the ids).
-const SERVER_LABEL = { goodstream: "GoodStream", vimeos: "Vimeos", streamwish: "StreamWish", vidhide: "VidHide", fastream: "Fastream", voe: "VOE", okru: "OkRu", nupload: "Nupload" };
+export const SERVER_LABEL = { goodstream: "GoodStream", vimeos: "Vimeos", streamwish: "StreamWish", vidhide: "VidHide", fastream: "Fastream", voe: "VOE", okru: "OkRu", nupload: "Nupload" };
 // Every value qualityOf() can give; a ref's quality must be one of them.
 const KNOWN_QUALITIES = ["2160p", "1440p", "1080p", "720p", "576p", "480p", "360p", "240p"];
 const NETWORK_CODES = new Set(["network", "timeout", "unavailable", "rate_limited"]);
@@ -170,11 +171,13 @@ export function pickLanguage(embeds, preferred) {
 const serverOf = (e) => (e.server === "direct" ? "direct" : (extractorFor(e.embedUrl) || {}).name || e.server);
 
 /** Best first: copies above `maxQuality` last, then by server tier, then by quality (1080p first, 4K last). */
-export function rank(embeds, { maxQuality = "auto" } = {}) {
+export function rank(embeds, { maxQuality = "auto", avoid = [] } = {}) {
   const cap = HEIGHT(maxQuality);
+  const avoided = new Set(Array.isArray(avoid) ? avoid : []);
+  // Avoided servers (the panel's "evitar") go after everything else but are never removed.
   const key = (e) => {
     const h = HEIGHT(e.quality);
-    return [cap && h && h > cap ? 1 : 0, SERVER_TIER[serverOf(e)] ?? 3, qualityOrder(e.quality)];
+    return [avoided.has(serverOf(e)) ? 2 : cap && h && h > cap ? 1 : 0, SERVER_TIER[serverOf(e)] ?? 3, qualityOrder(e.quality)];
   };
   return (embeds || [])
     .map((e, i) => ({ e, i, k: key(e) }))
@@ -313,7 +316,7 @@ export async function resolveLazy(kino, ref, { sources = SOURCES, extract = defa
  * The Stream for a title: one extracted copy in the chosen language, its other copies of that language
  * as lazy alternatives (at most 8, best first).
  */
-export async function resolveTitle(kino, title, settings, { sources = SOURCES, extract = defaultExtract, phaseMs = PHASE_MS, callMs } = {}) {
+export async function resolveTitle(kino, title, settings, { sources = SOURCES, extract = defaultExtract, phaseMs = PHASE_MS, callMs, ref } = {}) {
   const ms = Math.min(callMs ?? Infinity, callLimitMs(kino));
   const until = Date.now() + ms;
   const set = normalizeSettings(settings);
@@ -332,7 +335,7 @@ export async function resolveTitle(kino, title, settings, { sources = SOURCES, e
     throw kino.error("not_found", `no playable embed (${embeds.length} listed)`, { userMessage: t("notFound", kino) });
   }
 
-  const pool = rank(playable.filter((e) => e.lang === lang), { maxQuality: set.maxQuality });
+  const pool = rank(playable.filter((e) => e.lang === lang), { maxQuality: set.maxQuality, avoid: settings && settings.avoid });
   const sourceOf = (e) => sources.find((s) => s.id === e.source);
   const nameOf = (e) => (sourceOf(e) || {}).name || e.source;
   const failed = new Set();
@@ -353,12 +356,22 @@ export async function resolveTitle(kino, title, settings, { sources = SOURCES, e
     // Extracted here, not through its ref: a copy whose ref is too long for Kino can still be the main one.
     const first = rest.shift();
     const s = first && until - Date.now() >= 1500 ? await attempt(kino, extract, first, sourceOf(first), until) : null;
-    if (s) return withCopies(kino, toStream(kino, s, first, nameOf(first)), rest, nameOf);
+    if (s) {
+      noteChoice(kino, ref, { total: pool.length, order: set.preferred, chosen: label(kino, first, nameOf(first)), rest: rest.map((e) => label(kino, e, nameOf(e))) });
+      return withCopies(kino, toStream(kino, s, first, nameOf(first)), rest, nameOf);
+    }
     // Nothing opened: embeds from the cache may be stale, so the next call asks the sources again.
     if (cached) { try { kino.storage.remove(key); } catch (_) { /* no cache to drop */ } }
     throw kino.error("not_found", `no copy opened (${tries + (first ? 1 : 0)} tried)`, { userMessage: t("noPlayable", kino) });
   }
+  noteChoice(kino, ref, { total: pool.length, order: set.preferred, chosen: label(kino, main.e, nameOf(main.e)), rest: rest.map((e) => label(kino, e, nameOf(e))) });
   return withCopies(kino, toStream(kino, main.s, main.e, nameOf(main.e)), rest, nameOf);
+}
+
+/** The panel's "how this copy was chosen" record; optional, so a failure here never touches playback. */
+function noteChoice(kino, ref, { total, order, chosen, rest }) {
+  if (!ref) return;
+  try { writeLast(kino, ref, { at: Date.now(), total, order, chosen, alternatives: rest.slice(0, 5) }); } catch (_) { /* the record is optional */ }
 }
 
 /** "Latino doesn't have season N (episode E) of <title> yet", in the person's language and with the title's name in it. */

@@ -193,7 +193,7 @@ export async function resolve(ref) {
   const dl = callDeadline(kino, "resolve");
   const title = await contextFor(kino, r, dl.end - RESOLVE_RESERVE_MS);
   if (!title) throw notFound(kino, "not a playable ref");
-  return resolveTitle(kino, title, readSettings(kino), { callMs: dl.left() });
+  return resolveTitle(kino, title, readSettings(kino), { callMs: dl.left(), ref: r });
 }
 
 // ---------- settings form ----------

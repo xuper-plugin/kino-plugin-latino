@@ -1976,6 +1976,48 @@ function tf(key, vars, kino = globalThis.kino) {
 var has = (key) => Object.prototype.hasOwnProperty.call(WORDS.es, key);
 var KEYS = { es: Object.keys(WORDS.es), en: Object.keys(WORDS.en) };
 
+// src/panel/state.js
+var PREFS_KEY = "pp:prefs";
+var LAST_PREFIX = "pp:last:";
+var LAST_TTL_MS = 6 * 3600 * 1e3;
+var EVENTS_TTL_MS = 12 * 3600 * 1e3;
+var MAX_ALTERNATIVES = 5;
+function readJson(kino, key) {
+  try {
+    const v = JSON.parse(kino.storage.get(key) || "null");
+    return v && typeof v === "object" && v.v === 1 ? v : null;
+  } catch (_) {
+    return null;
+  }
+}
+function writeJson(kino, key, value, ttlMs) {
+  try {
+    kino.storage.set(key, JSON.stringify({ v: 1, ...value }), ttlMs ? { ttlMs } : void 0);
+  } catch (_) {
+  }
+}
+var serverIds = () => Object.keys(SERVER_LABEL);
+var isStr = (x) => typeof x === "string";
+function readPrefs(kino) {
+  const p = readJson(kino, PREFS_KEY);
+  const out = { avoid: [] };
+  if (!p) return out;
+  if (LANGS.includes(p.preferred)) out.preferred = p.preferred;
+  if (QUALITIES.includes(p.maxQuality)) out.maxQuality = p.maxQuality;
+  if (Array.isArray(p.avoid)) out.avoid = [...new Set(p.avoid.filter((s) => isStr(s) && serverIds().includes(s)))];
+  return out;
+}
+function writeLast(kino, ref, rec) {
+  if (!isStr(ref) || !ref || !rec || typeof rec !== "object") return;
+  writeJson(kino, LAST_PREFIX + ref, {
+    at: Number(rec.at) || 0,
+    total: Number(rec.total) || 0,
+    order: isStr(rec.order) ? rec.order : "",
+    chosen: isStr(rec.chosen) ? rec.chosen : "",
+    alternatives: Array.isArray(rec.alternatives) ? rec.alternatives.filter(isStr).slice(0, MAX_ALTERNATIVES) : []
+  }, LAST_TTL_MS);
+}
+
 // src/settings.js
 function bool(v, fallback) {
   if (v === true || v === "true") return true;
@@ -1995,8 +2037,9 @@ function readSettings(kino) {
     const v = bool(get("src_" + s.id), void 0);
     if (v !== void 0) enabled[s.id] = v;
   }
-  const base = normalizeSettings({ preferred: get("preferred"), maxQuality: get("maxQuality"), enabled });
-  return { ...base, homeRows: bool(get("homeRows"), true) };
+  const prefs = readPrefs(kino);
+  const base = normalizeSettings({ preferred: prefs.preferred ?? get("preferred"), maxQuality: prefs.maxQuality ?? get("maxQuality"), enabled });
+  return { ...base, homeRows: bool(get("homeRows"), true), avoid: prefs.avoid };
 }
 var sourceOn = (settings, id9) => settings.enabled[id9] !== false;
 
@@ -2162,11 +2205,12 @@ function pickLanguage(embeds, preferred) {
   return null;
 }
 var serverOf = (e) => e.server === "direct" ? "direct" : (extractorFor(e.embedUrl) || {}).name || e.server;
-function rank(embeds, { maxQuality = "auto" } = {}) {
+function rank(embeds, { maxQuality = "auto", avoid = [] } = {}) {
   const cap = HEIGHT(maxQuality);
+  const avoided = new Set(Array.isArray(avoid) ? avoid : []);
   const key = (e) => {
     const h = HEIGHT(e.quality);
-    return [cap && h && h > cap ? 1 : 0, SERVER_TIER[serverOf(e)] ?? 3, qualityOrder(e.quality)];
+    return [avoided.has(serverOf(e)) ? 2 : cap && h && h > cap ? 1 : 0, SERVER_TIER[serverOf(e)] ?? 3, qualityOrder(e.quality)];
   };
   return (embeds || []).map((e, i) => ({ e, i, k: key(e) })).sort((a, b) => a.k[0] - b.k[0] || a.k[1] - b.k[1] || a.k[2] - b.k[2] || a.i - b.i).map((x) => x.e);
 }
@@ -2269,7 +2313,7 @@ async function resolveLazy(kino, ref, { sources = SOURCES, extract: extract9 = d
   if (!s) throw fail("copy did not open: " + e.source + "/" + serverOf(e));
   return toStream(kino, s, e, source ? source.name : e.source);
 }
-async function resolveTitle(kino, title, settings, { sources = SOURCES, extract: extract9 = defaultExtract, phaseMs = PHASE_MS, callMs } = {}) {
+async function resolveTitle(kino, title, settings, { sources = SOURCES, extract: extract9 = defaultExtract, phaseMs = PHASE_MS, callMs, ref } = {}) {
   const ms = Math.min(callMs ?? Infinity, callLimitMs(kino));
   const until = Date.now() + ms;
   const set = normalizeSettings(settings);
@@ -2286,7 +2330,7 @@ async function resolveTitle(kino, title, settings, { sources = SOURCES, extract:
     }
     throw kino.error("not_found", `no playable embed (${embeds.length} listed)`, { userMessage: t("notFound", kino) });
   }
-  const pool = rank(playable.filter((e) => e.lang === lang), { maxQuality: set.maxQuality });
+  const pool = rank(playable.filter((e) => e.lang === lang), { maxQuality: set.maxQuality, avoid: settings && settings.avoid });
   const sourceOf = (e) => sources.find((s) => s.id === e.source);
   const nameOf = (e) => (sourceOf(e) || {}).name || e.source;
   const failed = /* @__PURE__ */ new Set();
@@ -2307,7 +2351,10 @@ async function resolveTitle(kino, title, settings, { sources = SOURCES, extract:
   if (!main) {
     const first = rest.shift();
     const s = first && until - Date.now() >= 1500 ? await attempt(kino, extract9, first, sourceOf(first), until) : null;
-    if (s) return withCopies(kino, toStream(kino, s, first, nameOf(first)), rest, nameOf);
+    if (s) {
+      noteChoice(kino, ref, { total: pool.length, order: set.preferred, chosen: label(kino, first, nameOf(first)), rest: rest.map((e) => label(kino, e, nameOf(e))) });
+      return withCopies(kino, toStream(kino, s, first, nameOf(first)), rest, nameOf);
+    }
     if (cached) {
       try {
         kino.storage.remove(key);
@@ -2316,7 +2363,15 @@ async function resolveTitle(kino, title, settings, { sources = SOURCES, extract:
     }
     throw kino.error("not_found", `no copy opened (${tries + (first ? 1 : 0)} tried)`, { userMessage: t("noPlayable", kino) });
   }
+  noteChoice(kino, ref, { total: pool.length, order: set.preferred, chosen: label(kino, main.e, nameOf(main.e)), rest: rest.map((e) => label(kino, e, nameOf(e))) });
   return withCopies(kino, toStream(kino, main.s, main.e, nameOf(main.e)), rest, nameOf);
+}
+function noteChoice(kino, ref, { total, order: order2, chosen, rest }) {
+  if (!ref) return;
+  try {
+    writeLast(kino, ref, { at: Date.now(), total, order: order2, chosen, alternatives: rest.slice(0, 5) });
+  } catch (_) {
+  }
 }
 function missingMessage(kino, title, missing) {
   const names = title.titles || {};
@@ -2910,7 +2965,7 @@ async function resolve(ref) {
   const dl = callDeadline(kino, "resolve");
   const title = await contextFor(kino, r, dl.end - RESOLVE_RESERVE_MS);
   if (!title) throw notFound(kino, "not a playable ref");
-  return resolveTitle(kino, title, readSettings(kino), { callMs: dl.left() });
+  return resolveTitle(kino, title, readSettings(kino), { callMs: dl.left(), ref: r });
 }
 var PREFERENCE_KEYS = ["preferred", "maxQuality", "homeRows", ...SOURCES.map((s) => "src_" + s.id)];
 var PROBE_TMDB_ID = 550;
