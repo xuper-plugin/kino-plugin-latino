@@ -67,7 +67,9 @@
     "*.nupload.me",
     "nupload.my",
     "*.nupload.my",
-    "xupalace.org"
+    "xupalace.org",
+    "www.pelisplushd.la",
+    "pelisplushd.la"
   ],
   "capabilities": [
     "search",
@@ -212,6 +214,12 @@
       "key": "src_xupalace",
       "type": "toggle",
       "label": "XuPalace",
+      "default": true
+    },
+    {
+      "key": "src_pelisplus",
+      "type": "toggle",
+      "label": "PelisPlusHD",
       "default": true
     },
     {
