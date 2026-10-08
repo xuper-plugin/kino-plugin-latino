@@ -69,7 +69,10 @@
     "*.nupload.my",
     "xupalace.org",
     "www.pelisplushd.la",
-    "pelisplushd.la"
+    "pelisplushd.la",
+    "www.fuegocine.com",
+    "fuegocine.com",
+    "drive.usercontent.google.com"
   ],
   "capabilities": [
     "search",
@@ -220,6 +223,12 @@
       "key": "src_pelisplus",
       "type": "toggle",
       "label": "PelisPlusHD",
+      "default": true
+    },
+    {
+      "key": "src_fuegocine",
+      "type": "toggle",
+      "label": "FuegoCine",
       "default": true
     },
     {
