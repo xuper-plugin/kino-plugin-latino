@@ -89,7 +89,7 @@ test("manifest: telemetry on, browser on, debug left off, section and theme kept
 test("settings form: limits, explicit toggle defaults that match readSettings, keys that match the sources", () => {
   const s = manifest.settings;
   const valued = s.filter((x) => !["section", "status", "action"].includes(x.type));
-  assert.ok(valued.length <= 16);
+  assert.ok(valued.length <= 17);
   assert.ok(s.length - valued.length <= 16);
   assert.equal(new Set(s.map((x) => x.key)).size, s.length);
   for (const x of s) {
