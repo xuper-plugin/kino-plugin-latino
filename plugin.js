@@ -227,13 +227,13 @@ function unpack(source) {
 
 // src/extractors/shared.js
 var HLS_MIME = "application/vnd.apple.mpegurl";
-function fileM3u8(text4, base) {
-  const m = /\bfile\s*:\s*["']([^"']+\.m3u8[^"']*)["']/.exec(text4 || "");
+function fileM3u8(text5, base) {
+  const m = /\bfile\s*:\s*["']([^"']+\.m3u8[^"']*)["']/.exec(text5 || "");
   return m ? absolute(m[1], base) : null;
 }
-function hlsKey(text4, keys, base) {
+function hlsKey(text5, keys, base) {
   for (const k of keys) {
-    const m = new RegExp(`["']${k}["']\\s*:\\s*["']([^"']+)["']`).exec(text4 || "");
+    const m = new RegExp(`["']${k}["']\\s*:\\s*["']([^"']+)["']`).exec(text5 || "");
     if (m) return absolute(m[1].replace(/\\\//g, "/"), base);
   }
   return null;
@@ -270,8 +270,8 @@ function langCode(label3) {
   for (const [re, code] of LANG_CODES) if (re.test(s)) return code;
   return null;
 }
-function captionTracks(text4, base) {
-  const m = /["']?\btracks["']?\s*:\s*\[([\s\S]*?)\]/.exec(text4 || "");
+function captionTracks(text5, base) {
+  const m = /["']?\btracks["']?\s*:\s*\[([\s\S]*?)\]/.exec(text5 || "");
   if (!m) return [];
   const out = [];
   for (const [obj] of m[1].matchAll(/\{[^{}]*\}/g)) {
@@ -288,9 +288,9 @@ function captionTracks(text4, base) {
   }
   return out;
 }
-function durationMsOf(text4) {
+function durationMsOf(text5) {
   const re = /(?<![-\w])duration["']?\s*:\s*["']?(\d+(?:\.\d+)?)(?![\d.])(?!\s*m?s\b)/g;
-  for (const m of String(text4 || "").matchAll(re)) {
+  for (const m of String(text5 || "").matchAll(re)) {
     const ms = Math.round(Number(m[1]) * 1e3);
     if (ms >= 6e4) return ms;
   }
@@ -821,9 +821,9 @@ function unescapeAttr(value) {
     return ENTITIES[code.toLowerCase()] ?? all;
   });
 }
-var parse = (text4) => {
+var parse = (text5) => {
   try {
-    return JSON.parse(text4);
+    return JSON.parse(text5);
   } catch (_) {
     return null;
   }
@@ -909,8 +909,8 @@ function slugify(title) {
 }
 
 // src/util/lang.js
-function normLang(text4) {
-  const s = String(text4 || "").toLowerCase();
+function normLang(text5) {
+  const s = String(text5 || "").toLowerCase();
   if (/\b(sub|subs|vose|subtitulado|subtitulada)\b/.test(s)) return "sub";
   if (/\b(lat|latino|latam|mx|es-mx)\b/.test(s)) return "lat";
   if (/\b(cast|castellano|esp|español|espanol|es-es|spain)\b/.test(s)) return "esp";
@@ -919,8 +919,8 @@ function normLang(text4) {
 }
 
 // src/util/quality.js
-function qualityOf(text4) {
-  const s = String(text4 || "").toLowerCase();
+function qualityOf(text5) {
+  const s = String(text5 || "").toLowerCase();
   const p = /(?<!\d)(2160|1440|1080|720|576|480|360|240)p/.exec(s);
   if (p) return p[1] + "p";
   if (/\b(4k|uhd)\b/.test(s)) return "2160p";
@@ -962,8 +962,8 @@ function episodeYearOk(found, title) {
   const y = Number(found);
   return y >= first - 1 && y <= Math.max(first, last) + 1;
 }
-var yearIn = (text4) => {
-  const m = /\((\d{4})\)/.exec(String(text4 || ""));
+var yearIn = (text5) => {
+  const m = /\((\d{4})\)/.exec(String(text5 || ""));
   return m ? Number(m[1]) : null;
 };
 async function firstHit(candidates, probe2, max = MAX_PROBES) {
@@ -1025,8 +1025,8 @@ var postTypeOf = (kind) => tvKind(kind) ? "tvshows" : "movies";
 var PLACEHOLDER = /a[uú]n no hemos a[ñn]adido/i;
 var ENTITIES2 = { amp: "&", quot: '"', "#039": "'", apos: "'", lt: "<", gt: ">", nbsp: " " };
 function cleanText(s) {
-  const text4 = String(s || "").replace(/<[^>]*>/g, " ").replace(/&(amp|quot|#039|apos|lt|gt|nbsp);/g, (_, e) => ENTITIES2[e]).replace(/\s+/g, " ").trim();
-  return PLACEHOLDER.test(text4) ? "" : text4;
+  const text5 = String(s || "").replace(/<[^>]*>/g, " ").replace(/&(amp|quot|#039|apos|lt|gt|nbsp);/g, (_, e) => ENTITIES2[e]).replace(/\s+/g, " ").trim();
+  return PLACEHOLDER.test(text5) ? "" : text5;
 }
 function siteRef(prefix, postId, kind, slug, year2) {
   const clean = String(slug || "").toLowerCase().replace(/[^a-z0-9-]/g, "").slice(0, 200);
@@ -1938,6 +1938,19 @@ var WORDS = {
     prefResetConfirm: "\xBFVolver a tus ajustes de siempre?",
     prefApplies: "Se aplica al abrir la pr\xF3xima copia",
     prefSaved: "Listo: se aplica en la pr\xF3xima copia",
+    failAllGood: "Todo bien: en esta sesi\xF3n no ha fallado ninguna copia",
+    failTimeout: "El servidor tard\xF3 en contestar",
+    failNetwork: "No hubo conexi\xF3n con el servidor",
+    failNotFound: "El servidor ya no tiene esta copia",
+    failUnavailable: "El servidor no est\xE1 disponible ahora",
+    failGeneric: "La copia no abri\xF3",
+    failTried: "Copias probadas: {v}",
+    failHowTo: "Abre el men\xFA Servidor del reproductor para elegir otra copia",
+    failReport: "Avisar de esta copia",
+    failReportConfirm: "Se enviar\xE1 un aviso t\xE9cnico sin datos personales",
+    failReported: "Listo: avis\xE9 del problema, gracias",
+    failAlready: "Ya avis\xE9 de esto en esta sesi\xF3n",
+    failReportOff: "El aviso no est\xE1 activo en Ajustes",
     stallsHint: "Se ha cortado {n} veces: mira la pesta\xF1a Si falla",
     sumRating: "Calificaci\xF3n {v}",
     sumCast: "Reparto: {v}",
@@ -2036,6 +2049,19 @@ var WORDS = {
     prefResetConfirm: "Go back to your usual settings?",
     prefApplies: "Applies when the next copy opens",
     prefSaved: "Done: applies on the next copy",
+    failAllGood: "All good: no copy has failed in this session",
+    failTimeout: "The server took too long to answer",
+    failNetwork: "There was no connection to the server",
+    failNotFound: "The server no longer has this copy",
+    failUnavailable: "The server isn't available right now",
+    failGeneric: "The copy didn't open",
+    failTried: "Copies tried: {v}",
+    failHowTo: "Open the player's Server menu to pick another copy",
+    failReport: "Report this copy",
+    failReportConfirm: "A technical notice with no personal data will be sent",
+    failReported: "Done: I reported the problem, thanks",
+    failAlready: "I already reported this in this session",
+    failReportOff: "Reporting isn't turned on in Settings",
     stallsHint: 'Playback has stalled {n} times: see the "If it fails" tab',
     sumRating: "Rating {v}",
     sumCast: "Cast: {v}",
@@ -2086,8 +2112,10 @@ var KEYS = { es: Object.keys(WORDS.es), en: Object.keys(WORDS.en) };
 // src/panel/state.js
 var PREFS_KEY = "pp:prefs";
 var LAST_PREFIX = "pp:last:";
+var EVENTS_KEY = "pp:ev";
 var LAST_TTL_MS = 6 * 3600 * 1e3;
 var EVENTS_TTL_MS = 12 * 3600 * 1e3;
+var MAX_EVENTS = 20;
 var MAX_ALTERNATIVES = 5;
 function readJson(kino, key) {
   try {
@@ -2143,6 +2171,18 @@ function readLast(kino, ref) {
   const r = readJson(kino, LAST_PREFIX + ref);
   if (!r || !isStr(r.chosen) || !Array.isArray(r.alternatives)) return null;
   return { at: Number(r.at) || 0, total: Number(r.total) || 0, order: isStr(r.order) ? r.order : "", chosen: r.chosen, alternatives: r.alternatives.filter(isStr) };
+}
+function pushEvent(kino, ev) {
+  if (!ev || typeof ev !== "object" || !isStr(ev.type)) return;
+  const rec = { t: Number(ev.t) || Date.now(), type: ev.type };
+  if (isStr(ev.kind)) rec.kind = ev.kind;
+  if (isStr(ev.label)) rec.label = ev.label;
+  writeJson(kino, EVENTS_KEY, { events: [...readEvents(kino), rec].slice(-MAX_EVENTS) }, EVENTS_TTL_MS);
+}
+function readEvents(kino) {
+  const r = readJson(kino, EVENTS_KEY);
+  if (!r || !Array.isArray(r.events)) return [];
+  return r.events.filter((e) => e && isStr(e.type) && Number.isFinite(e.t)).slice(-MAX_EVENTS);
 }
 
 // src/settings.js
@@ -2404,8 +2444,8 @@ function toStream(kino, s, e, sourceName) {
   return out;
 }
 var hasSubs = (s) => Array.isArray(s.subtitles) && s.subtitles.length > 0;
-function b64url(text4) {
-  const bytes = new TextEncoder().encode(text4);
+function b64url(text5) {
+  const bytes = new TextEncoder().encode(text5);
   let bin = "";
   for (const b of bytes) bin += String.fromCharCode(b);
   return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
@@ -2617,8 +2657,8 @@ async function searchWithin(kino, settings, within2, q, cursor, { untilMs } = {}
   if (got.every((l) => l === null)) return null;
   const lists = got.map((l) => l || []);
   const hits = lists.flat().filter((i) => {
-    const text4 = fold(i.title + " " + (i.originalTitle || ""));
-    return words.every((w) => text4.includes(w));
+    const text5 = fold(i.title + " " + (i.originalTitle || ""));
+    return words.every((w) => text5.includes(w));
   });
   const items = dedup(hits.map((i) => dress(kino, i)));
   const more = lists[lists.length - 1].length > 0 && start + PAGES_PER_CALL <= MAX_PAGE;
@@ -3163,6 +3203,53 @@ function prefsAction(kino, ev, ctx) {
   return { values: { [key]: value }, save: [key], message: t("prefSaved", { lang: ctx && typeof ctx.lang === "string" && ctx.lang.toLowerCase().startsWith("en") ? "en" : "es" }) };
 }
 
+// src/panel/fail.js
+var AREA = "panel_bad_copy";
+var KIND_KEY = { timeout: "failTimeout", network: "failNetwork", not_found: "failNotFound", unavailable: "failUnavailable" };
+var MAX_TRIED = 5;
+var text4 = (m) => ({ type: "text", text: m.es, textEn: m.en });
+var status2 = (m) => ({ type: "status", text: m.es, textEn: m.en });
+function recordPlayerEvent(kino, ev) {
+  try {
+    if (!ev || ev.type !== "failed" && ev.type !== "copyChanged") return;
+    pushEvent(kino, { t: Date.now(), type: ev.type, kind: ev.kind, label: ev.label });
+  } catch (_) {
+  }
+}
+function failTab(kino) {
+  const events = readEvents(kino);
+  const failures = events.filter((e) => e.type === "failed");
+  const last = failures[failures.length - 1];
+  if (!last) return { elements: [status2(both("failAllGood"))] };
+  const sentence = both(KIND_KEY[last.kind] || "failGeneric");
+  const tried = [...new Set(events.filter((e) => e.type !== "reported" && e.label).map((e) => e.label))].slice(-MAX_TRIED);
+  const elements = [text4(sentence)];
+  if (tried.length) elements.push({ type: "text", text: both("failTried", { v: tried.join(", ") }).es, textEn: both("failTried", { v: tried.join(", ") }).en });
+  elements.push(text4(both("failHowTo")));
+  const confirm = both("failReportConfirm");
+  const label3 = both("failReport");
+  elements.push({ type: "button", key: "report", label: label3.es, labelEn: label3.en, confirm: confirm.es, confirmEn: confirm.en });
+  return { elements };
+}
+function failAction(kino, ev, ctx) {
+  if (!ev || ev.key !== "report" || ev.trigger !== "press") return null;
+  const lang = ctx && typeof ctx.lang === "string" && ctx.lang.toLowerCase().startsWith("en") ? "en" : "es";
+  const say = (key) => ({ message: both(key)[lang] });
+  const report = kino && kino.log && kino.log.report;
+  if (typeof report !== "function") return say("failReportOff");
+  const events = readEvents(kino);
+  if (events.some((e) => e.type === "reported")) return say("failAlready");
+  const failures = events.filter((e) => e.type === "failed");
+  const kind = (failures[failures.length - 1] || {}).kind;
+  try {
+    report(AREA, typeof kind === "string" ? kind : "unknown");
+  } catch (_) {
+    return say("failReportOff");
+  }
+  pushEvent(kino, { t: Date.now(), type: "reported" });
+  return say("failReported");
+}
+
 // src/panel/index.js
 var TITLE_MAX = 60;
 var DEFAULT_TAB = "copy";
@@ -3171,7 +3258,7 @@ var TABS2 = [
   { id: "summary", label: "tabSummary", when: (kino, ctx) => ctx.kind !== "live" && !!(ctx.ids && ctx.ids.tmdb) && typeof kino.tmdb === "function", load: (kino, ctx, dl) => summaryTab(kino, ctx, { untilMs: dl.end }) },
   { id: "avail", label: "tabAvail", when: (kino, ctx) => ctx.kind !== "live", load: (kino, ctx, dl) => availTab(kino, ctx, { untilMs: dl.end }) },
   { id: "prefs", label: "tabPrefs", when: () => true, load: (kino, ctx) => prefsTab(kino, ctx) },
-  { id: "fail", label: "tabFail", when: () => true, load: null }
+  { id: "fail", label: "tabFail", when: () => true, load: (kino) => failTab(kino) }
 ];
 async function panel(ctx) {
   const kino = globalThis.kino;
@@ -3207,12 +3294,14 @@ async function panel(ctx) {
 }
 async function panelAction(ev, ctx) {
   try {
-    return prefsAction(globalThis.kino, ev, ctx);
+    const kino = globalThis.kino;
+    return prefsAction(kino, ev, ctx) || failAction(kino, ev, ctx);
   } catch (_) {
     return null;
   }
 }
-async function playerEvent() {
+async function playerEvent(ev) {
+  recordPlayerEvent(globalThis.kino, ev);
   return null;
 }
 
@@ -3353,7 +3442,7 @@ async function resolve(ref) {
 }
 var PREFERENCE_KEYS = ["preferred", "maxQuality", "homeRows", ...SOURCES.map((s) => "src_" + s.id)];
 var PROBE_TMDB_ID = 550;
-var fill = (text4, vars) => text4.replace(/\{(\w+)\}/g, (_, k) => String(vars[k]));
+var fill = (text5, vars) => text5.replace(/\{(\w+)\}/g, (_, k) => String(vars[k]));
 async function settingsStatus() {
   const kino = getKino();
   return { health: healthLine(kino, readHealth(kino)) };

@@ -7,6 +7,7 @@ import { copyTab } from "./copy.js";
 import { summaryTab } from "./summary.js";
 import { availTab } from "./avail.js";
 import { prefsTab, reconcile, prefsAction } from "./prefs.js";
+import { failTab, failAction, recordPlayerEvent } from "./fail.js";
 
 const TITLE_MAX = 60;
 const DEFAULT_TAB = "copy";
@@ -17,7 +18,7 @@ const TABS = [
   { id: "summary", label: "tabSummary", when: (kino, ctx) => ctx.kind !== "live" && !!(ctx.ids && ctx.ids.tmdb) && typeof kino.tmdb === "function", load: (kino, ctx, dl) => summaryTab(kino, ctx, { untilMs: dl.end }) },
   { id: "avail", label: "tabAvail", when: (kino, ctx) => ctx.kind !== "live", load: (kino, ctx, dl) => availTab(kino, ctx, { untilMs: dl.end }) },
   { id: "prefs", label: "tabPrefs", when: () => true, load: (kino, ctx) => prefsTab(kino, ctx) },
-  { id: "fail", label: "tabFail", when: () => true, load: null },
+  { id: "fail", label: "tabFail", when: () => true, load: (kino) => failTab(kino) },
 ];
 
 export async function panel(ctx) {
@@ -52,9 +53,13 @@ export async function panel(ctx) {
 }
 export async function panelAction(ev, ctx) {
   try {
-    return prefsAction(globalThis.kino, ev, ctx);
+    const kino = globalThis.kino;
+    return prefsAction(kino, ev, ctx) || failAction(kino, ev, ctx);
   } catch (_) {
     return null;
   }
 }
-export async function playerEvent() { return null; }
+export async function playerEvent(ev) {
+  recordPlayerEvent(globalThis.kino, ev);
+  return null;
+}
