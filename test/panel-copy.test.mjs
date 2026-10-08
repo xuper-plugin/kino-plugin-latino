@@ -61,3 +61,11 @@ test("plugin-provided free text is capped to the panel limits", () => {
   const r = copyTab(kino, { ...base(), playing: { label: "x".repeat(5000) } });
   for (const e of flat(r.elements)) if (e.text) assert.ok(e.text.length <= 200 && e.textEn.length <= 200);
 });
+
+test("copy tab does not print an unknown or oversized language word", () => {
+  const { kino } = fakeKino();
+  const b = base();
+  const r = copyTab(kino, { ...b, playing: { ...b.playing, lang: "x".repeat(300) } });
+  assert.ok(!all(r).includes("xxx"));
+  assert.ok(!all(r).split("\n").some((l) => l.startsWith("Idioma")));
+});

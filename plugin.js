@@ -467,8 +467,8 @@ var kino_plugin_default = {
           label: "Subtitulado"
         }
       ],
-      hint: "Si lo cambias en el panel del reproductor, ese valor manda hasta restablecer.",
-      hintEn: "Changed in the player panel, that value wins until you reset it."
+      hint: "Lo que cambies en el panel manda hasta Volver a tus ajustes o Restablecer.",
+      hintEn: "Set in the player panel, it wins until Back to your usual settings or Reset."
     },
     {
       key: "maxQuality",
@@ -493,8 +493,8 @@ var kino_plugin_default = {
           label: "Hasta 480p (ahorra datos)"
         }
       ],
-      hint: "Si lo cambias en el panel del reproductor, ese valor manda hasta restablecer.",
-      hintEn: "Changed in the player panel, that value wins until you reset it."
+      hint: "Lo que cambies en el panel manda hasta Volver a tus ajustes o Restablecer.",
+      hintEn: "Set in the player panel, it wins until Back to your usual settings or Reset."
     },
     {
       key: "srcSection",
@@ -1967,8 +1967,8 @@ var WORDS = {
     failHowTo: "Abre el men\xFA Servidor del reproductor para elegir otra copia",
     failReport: "Avisar de esta copia",
     failReportConfirm: "Se enviar\xE1 un aviso t\xE9cnico sin datos personales",
-    failReported: "Listo: avis\xE9 del problema, gracias",
-    failAlready: "Ya avis\xE9 de esto en esta sesi\xF3n",
+    failReported: "Listo: se env\xEDa el aviso si tienes los reportes activados",
+    failAlready: "Ya avis\xE9 de esta copia en las \xFAltimas 12 horas",
     failReportOff: "El aviso no est\xE1 activo en Ajustes",
     stallsHint: "Se ha cortado {n} veces: mira la pesta\xF1a Si falla",
     sumRating: "Calificaci\xF3n {v}",
@@ -2080,8 +2080,8 @@ var WORDS = {
     failHowTo: "Open the player's Server menu to pick another copy",
     failReport: "Report this copy",
     failReportConfirm: "A technical notice with no personal data will be sent",
-    failReported: "Done: I reported the problem, thanks",
-    failAlready: "I already reported this in this session",
+    failReported: "Done: the notice is sent if you have reports turned on",
+    failAlready: "I already reported this copy in the last 12 hours",
     failReportOff: "Reporting isn't turned on in Settings",
     stallsHint: 'Playback has stalled {n} times: see the "If it fails" tab',
     sumRating: "Rating {v}",
@@ -3076,7 +3076,7 @@ function copyTab(kino, ctx) {
     const l = String(playing.label).slice(0, LABEL_MAX);
     lines.push({ type: "text", text: l, textEn: l });
   }
-  if (playing.lang) lines.push(text(both("copyLang", { v: (l) => t(String(playing.lang), { lang: l }) })));
+  if (LANGS.includes(playing.lang)) lines.push(text(both("copyLang", { v: (l) => t(playing.lang, { lang: l }) })));
   if (playing.quality) lines.push(text(both("copyQuality", { v: String(playing.quality).slice(0, LABEL_MAX) })));
   if (playing.server) lines.push(text(both("copyServer", { v: String(SERVER_LABEL[playing.server] || playing.server).slice(0, LABEL_MAX) })));
   const last = ctx && ctx.ref ? readLast(kino, ctx.ref) : null;
@@ -3376,6 +3376,10 @@ async function panelAction(ev, ctx) {
   }
 }
 async function playerEvent(ev, ctx) {
+  try {
+    reconcile(globalThis.kino, ctx);
+  } catch (_) {
+  }
   recordPlayerEvent(globalThis.kino, ev, ctx);
   return null;
 }
@@ -3542,7 +3546,7 @@ async function probe(kino) {
 function clearCache(kino) {
   let n = 0;
   for (const key of kino.storage.keys()) {
-    if (key.startsWith("emb:") || key.startsWith("tmdb:") || key.startsWith("avail:")) {
+    if (["emb:", "embn:", "tmdb:", "avail:", "pp:last:"].some((p) => key.startsWith(p))) {
       kino.storage.remove(key);
       n++;
     }
@@ -3553,7 +3557,10 @@ async function action(key) {
   const kino = getKino();
   if (key === "probe") return probe(kino);
   if (key === "clearCache") return clearCache(kino);
-  if (key === "resetPrefs") return { message: t("prefsReset", kino), clearSettings: PREFERENCE_KEYS };
+  if (key === "resetPrefs") {
+    clearPrefs(kino);
+    return { message: t("prefsReset", kino), clearSettings: PREFERENCE_KEYS };
+  }
   return null;
 }
 async function validateSettings(values) {

@@ -61,6 +61,7 @@ export async function panelAction(ev, ctx) {
   }
 }
 export async function playerEvent(ev, ctx) {
+  try { reconcile(globalThis.kino, ctx); } catch (_) { /* the panel never breaks playback */ }
   recordPlayerEvent(globalThis.kino, ev, ctx);
   return null;
 }

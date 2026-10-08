@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { fakeKino } from "./helpers/fakeKino.mjs";
 import { failTab } from "../src/panel/fail.js";
 import { panelAction, playerEvent } from "../src/panel/index.js";
-import { readEvents } from "../src/panel/state.js";
+import { readEvents, readPrefs } from "../src/panel/state.js";
 import { answerOutput, panelOutput } from "../sdk/panel.mjs";
 
 const flat = (els) => els.flatMap((e) => (e.children ? flat(e.children) : [e]));
@@ -71,7 +71,7 @@ test("report: one call to kino.log.report per session, the second press is ignor
     assert.equal(reports.length, 1);
     assert.match(reports[0][0], /^(?=[a-z0-9_:]*[_:])[a-z0-9_:]{1,24}$/);
     assert.equal(reports[0][0], "panel_bad_copy");
-    assert.equal(answerOutput(first, { log: (l) => assert.fail(l) }).message, "Listo: avisé del problema, gracias");
+    assert.equal(answerOutput(first, { log: (l) => assert.fail(l) }).message, "Listo: se envía el aviso si tienes los reportes activados");
     const second = await panelAction(press, {});
     assert.equal(reports.length, 1);
     assert.ok(second && second.message);
@@ -115,5 +115,28 @@ test("an unknown failure kind is reported as 'unknown'", async () => {
     await playerEvent({ type: "failed", kind: "https://secret.example/x?token=1" }, { ref: "m:1" });
     await panelAction(press, { ref: "m:1" });
     assert.deepEqual(reports[0], ["panel_bad_copy", "unknown"]);
+  } finally { done(); }
+});
+
+test("playerEvent applies the panel's saved prefs without opening the panel, and never throws", async () => {
+  const { kino } = install();
+  try {
+    await playerEvent({ type: "started" }, { ref: "m:1", values: { video: {}, plugin: { preferred: "sub", "avoid.voe": true } } });
+    const p = readPrefs(kino);
+    assert.equal(p.preferred, "sub");
+    assert.deepEqual(p.avoid, ["voe"]);
+    assert.equal(await playerEvent({ type: "started" }, { values: { plugin: 5 } }), null);
+  } finally { done(); }
+});
+
+test("the report answer does not claim a delivery it cannot know about", async () => {
+  const { reports } = install();
+  try {
+    await playerEvent({ type: "failed", kind: "timeout", label: "x" }, { ref: "m:1" });
+    const a = answerOutput(await panelAction(press, { ref: "m:1" }), { log: (l) => assert.fail(l) });
+    assert.equal(reports.length, 1);
+    assert.equal(a.message, "Listo: se envía el aviso si tienes los reportes activados");
+    const again = answerOutput(await panelAction(press, { ref: "m:1" }), { log: (l) => assert.fail(l) });
+    assert.equal(again.message, "Ya avisé de esta copia en las últimas 12 horas");
   } finally { done(); }
 });

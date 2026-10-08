@@ -2,7 +2,7 @@
 // gave (`ctx.playing`, `ctx.stats`) and the per-ref record resolve left; never the network.
 
 import { both, t } from "../i18n.js";
-import { SERVER_LABEL } from "../resolver.js";
+import { LANGS, SERVER_LABEL } from "../resolver.js";
 import { readLast } from "./state.js";
 
 const STALLS_HINT_AT = 3;
@@ -17,7 +17,7 @@ export function copyTab(kino, ctx) {
   const stats = (ctx && ctx.stats) || {};
   const lines = [];
   if (playing.label) { const l = String(playing.label).slice(0, LABEL_MAX); lines.push({ type: "text", text: l, textEn: l }); }
-  if (playing.lang) lines.push(text(both("copyLang", { v: (l) => t(String(playing.lang), { lang: l }) })));
+  if (LANGS.includes(playing.lang)) lines.push(text(both("copyLang", { v: (l) => t(playing.lang, { lang: l }) })));
   if (playing.quality) lines.push(text(both("copyQuality", { v: String(playing.quality).slice(0, LABEL_MAX) })));
   if (playing.server) lines.push(text(both("copyServer", { v: String(SERVER_LABEL[playing.server] || playing.server).slice(0, LABEL_MAX) })));
   const last = ctx && ctx.ref ? readLast(kino, ctx.ref) : null;

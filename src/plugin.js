@@ -20,6 +20,7 @@ import { parseSiteRef, tmdbIdFor, sitePost, sitePostResult, siteContext } from "
 import { t } from "./i18n.js";
 import { missingSeasons, markEpisodes } from "./availability.js";
 import { callDeadline } from "./util/time.js";
+import { clearPrefs } from "./panel/state.js";
 
 const getKino = () => globalThis.kino;
 
@@ -228,11 +229,11 @@ async function probe(kino) {
   return { message: fill(t("probeDone", kino), { ok: asked.length - fail, fail }) };
 }
 
-/** Removes only what can be fetched again: the embed lists (emb:*), the site-to-TMDB matches (tmdb:*) and season availability (avail:*). */
+/** Removes only what can be fetched again: the embed lists (emb:*, embn:*), the site-to-TMDB matches (tmdb:*), season availability (avail:*) and the panel's per-copy records (pp:last:*). */
 function clearCache(kino) {
   let n = 0;
   for (const key of kino.storage.keys()) {
-    if (key.startsWith("emb:") || key.startsWith("tmdb:") || key.startsWith("avail:")) { kino.storage.remove(key); n++; }
+    if (["emb:", "embn:", "tmdb:", "avail:", "pp:last:"].some((p) => key.startsWith(p))) { kino.storage.remove(key); n++; }
   }
   return { message: n === 1 ? t("cacheClearedOne", kino) : fill(t("cacheCleared", kino), { n }) };
 }
@@ -242,7 +243,7 @@ export async function action(key) {
   const kino = getKino();
   if (key === "probe") return probe(kino);
   if (key === "clearCache") return clearCache(kino);
-  if (key === "resetPrefs") return { message: t("prefsReset", kino), clearSettings: PREFERENCE_KEYS };
+  if (key === "resetPrefs") { clearPrefs(kino); return { message: t("prefsReset", kino), clearSettings: PREFERENCE_KEYS }; }
   return null;
 }
 

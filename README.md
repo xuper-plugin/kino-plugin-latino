@@ -44,15 +44,16 @@ Desde 1.1.0, mientras ves un título, el botón Latino del reproductor abre un p
   plugin hasta que lo restablezcas.
 - **Si falla**: pistas cuando la copia no carga y un aviso para reportar una copia mala.
 
-**Requiere Kino 0.9.55 o más reciente** (apiVersion 9). Si tienes Kino 0.9.54 o anterior, te quedas en la
-versión 1.0.3 del plugin.
+**Requiere Kino 0.9.55 o más reciente** (apiVersion 9). Con Kino 0.9.54 o anterior, una instalación nueva de la 1.1.0 es rechazada; solo quien ya lo tenía
+instalado se queda en la versión 1.0.3. En Preferencias también hay interruptores "Evitar <servidor>":
+pasan ese servidor al final de la lista, sin borrarlo.
 
 ### Player panel (English)
 
 Since 1.1.0 the player's Latino button opens a panel with five tabs: This copy, Summary, Availability,
 Preferences and If it fails. Preferences changed in the panel are stored by the plugin and win over the
-plugin settings until reset. **It needs Kino 0.9.55 or newer** (apiVersion 9); Kino 0.9.54 or older
-stays on version 1.0.3.
+plugin settings until reset. **It needs Kino 0.9.55 or newer** (apiVersion 9); On Kino 0.9.54 or older a fresh install of 1.1.0 is refused; only existing installs stay on 1.0.3.
+Preferences also has "Avoid <server>" toggles that move a server to the end of the list.
 
 ## Desarrollo
 

@@ -110,7 +110,8 @@ test("the tab says values set here win over Ajustes until reset, and so do the s
   const manifest = JSON.parse((await import("node:fs")).readFileSync(new URL("../kino-plugin.json", import.meta.url), "utf8"));
   for (const k of ["preferred", "maxQuality"]) {
     const f = manifest.settings.find((x) => x.key === k);
-    assert.match(f.hint, /panel del reproductor/);
+    assert.match(f.hint, /panel/);
+    assert.match(f.hint, /Restablecer/);
     assert.ok(f.hintEn);
   }
 });

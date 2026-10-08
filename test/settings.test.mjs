@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { fakeKino, fixture } from "./helpers/fakeKino.mjs";
 import * as plugin from "../src/plugin.js";
 import { SOURCES } from "../src/sources/index.js";
+import { readSettings } from "../src/settings.js";
 import { listEmbeds } from "../src/resolver.js";
 import { recordRun, readHealth, healthLine } from "../src/health.js";
 import { forgetListings } from "../src/catalog.js";
@@ -151,4 +152,20 @@ test("validateSettings: the sentence follows kino.lang", async () => {
   install({ lang: "en-US" });
   const off = Object.fromEntries(SOURCES.map((s) => ["src_" + s.id, false]));
   assert.equal(await plugin.validateSettings(off), "Keep at least one source on.");
+});
+
+test("action clearCache: also clears the negative embed cache and the panel's per-copy records", async () => {
+  const { kino } = install();
+  for (const k of ["embn:movie:1::", "pp:last:m:1", "pp:prefs", "health"]) kino.storage.set(k, "x");
+  await plugin.action("clearCache");
+  assert.deepEqual(kino.storage.keys().sort(), ["health", "pp:prefs"]);
+});
+
+test("action resetPrefs: also clears the panel's override, so the next resolve ignores it", async () => {
+  const { kino } = install();
+  kino.storage.set("pp:prefs", JSON.stringify({ v: 1, preferred: "esp", avoid: ["voe"] }));
+  assert.equal(readSettings(kino).avoid[0], "voe");
+  await plugin.action("resetPrefs");
+  assert.equal(kino.storage.get("pp:prefs"), null);
+  assert.deepEqual(readSettings(kino).avoid, []);
 });
