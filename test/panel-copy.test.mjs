@@ -26,7 +26,7 @@ test("copy tab shows the copy, stats and the pointer to Si falla", () => {
 
 test("copy tab reports how many copies the chosen one was picked from", () => {
   const { kino } = fakeKino();
-  writeLast(kino, "m:550", { at: 1, total: 7, order: "lat", chosen: "a", alternatives: ["b"] });
+  writeLast(kino, "m:550", { at: 1, total: 7, order: "lat", chosen: "Latino · LaMovie · GoodStream 1080p", alternatives: ["b"] });
   assert.ok(all(copyTab(kino, base())).includes("Elegida entre 7 copias"));
   assert.ok(all(copyTab(kino, base()), "textEn").includes("Chosen from 7 copies"));
 });
@@ -42,7 +42,7 @@ test("copy tab with nothing known still returns elements, and no hint under 3 st
 
 test("the copy count is singular for one copy", () => {
   const { kino } = fakeKino();
-  writeLast(kino, "m:550", { at: 1, total: 1, order: "lat", chosen: "a", alternatives: [] });
+  writeLast(kino, "m:550", { at: 1, total: 1, order: "lat", chosen: "Latino · LaMovie · GoodStream 1080p", alternatives: [] });
   const r = copyTab(kino, base());
   assert.ok(all(r).split("\n").includes("Elegida entre 1 copia"));
   assert.ok(all(r, "textEn").split("\n").includes("Chosen among 1 copy"));
@@ -68,4 +68,23 @@ test("copy tab does not print an unknown or oversized language word", () => {
   const r = copyTab(kino, { ...b, playing: { ...b.playing, lang: "x".repeat(300) } });
   assert.ok(!all(r).includes("xxx"));
   assert.ok(!all(r).split("\n").some((l) => l.startsWith("Idioma")));
+});
+
+test("a playing label alone (what Kino really sends) becomes separate Idioma / Fuente / Servidor / Calidad rows", () => {
+  const { kino } = fakeKino();
+  const r = copyTab(kino, { kind: "episode", ref: "e:1:1:1", playing: { label: "Latino · LaMovie · Vimeos 1080p" }, stats: {} });
+  const lines = all(r).split("\n");
+  for (const w of ["Idioma: Latino", "Fuente: LaMovie", "Servidor: Vimeos", "Calidad: 1080p"]) assert.ok(lines.includes(w), w);
+  assert.ok(!lines.includes("Latino · LaMovie · Vimeos 1080p"));
+  assert.ok(all(r, "textEn").split("\n").includes("Language: Latin Spanish"));
+});
+
+test("with no record under the panel's ref the latest chosen-copy record is used, and a copy switched by hand says so", () => {
+  const { kino } = fakeKino();
+  writeLast(kino, "e:9:1:1", { at: Date.now(), total: 4, order: "lat", chosen: "Latino · LaMovie · Vimeos 1080p", alternatives: [] });
+  const same = copyTab(kino, { kind: "episode", ref: "other", playing: { label: "Latino · LaMovie · Vimeos 1080p" }, stats: {} });
+  assert.ok(all(same).includes("Elegida entre 4 copias"));
+  const manual = copyTab(kino, { kind: "episode", ref: "other", playing: { label: "Latino · Hackstore · VOE" }, stats: {} });
+  assert.ok(all(manual).includes("Cambiaste de copia"));
+  assert.ok(!all(manual).includes("Elegida entre"));
 });

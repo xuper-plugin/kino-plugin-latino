@@ -24,12 +24,15 @@ export function failTab(kino, ctx) {
   const events = readEvents(kino, ctx && ctx.ref);
   const failures = events.filter((e) => e.type === "failed");
   const last = failures[failures.length - 1];
-  if (!last) return { elements: [status(both("failAllGood"))] };
-
-  const sentence = both(KIND_KEY[last.kind] || "failGeneric");
-  const tried = [...new Set(events.filter((e) => e.label).map((e) => e.label))].slice(-MAX_TRIED);
-  const elements = [text(sentence)];
-  if (tried.length) elements.push({ type: "text", text: both("failTried", { v: tried.join(", ") }).es, textEn: both("failTried", { v: tried.join(", ") }).en });
+  const elements = [];
+  if (last) {
+    elements.push(text(both(KIND_KEY[last.kind] || "failGeneric")));
+    const tried = [...new Set(events.filter((e) => e.label).map((e) => e.label))].slice(-MAX_TRIED);
+    if (tried.length) elements.push(text(both("failTried", { v: tried.join(", ") })));
+  } else {
+    elements.push(status(both("failAllGood")));
+  }
+  elements.push(text(both("failTips")));
   elements.push(text(both("failHowTo")));
   const confirm = both("failReportConfirm");
   const label = both("failReport");

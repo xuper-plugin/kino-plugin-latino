@@ -233,7 +233,7 @@ async function probe(kino) {
 function clearCache(kino) {
   let n = 0;
   for (const key of kino.storage.keys()) {
-    if (["emb:", "embn:", "tmdb:", "avail:", "pp:last:"].some((p) => key.startsWith(p))) { kino.storage.remove(key); n++; }
+    if (["emb:", "embn:", "tmdb:", "avail:", "pp:last:", "pp:latest"].some((p) => key.startsWith(p))) { kino.storage.remove(key); n++; }
   }
   return { message: n === 1 ? t("cacheClearedOne", kino) : fill(t("cacheCleared", kino), { n }) };
 }

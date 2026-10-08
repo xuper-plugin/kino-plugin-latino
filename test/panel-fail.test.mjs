@@ -34,13 +34,12 @@ test("events are recorded, capped at 20, and playerEvent answers null", async ()
   } finally { done(); }
 });
 
-test("no failure gives a friendly all-good status and no report button", () => {
+test("no failure gives a friendly all-good status first", () => {
   const { kino } = install();
   try {
     const r = failTab(kino, {});
     assert.equal(r.elements[0].type, "status");
     assert.match(r.elements[0].text, /todo bien/i);
-    assert.ok(!flat(r.elements).some((e) => e.type === "button"));
   } finally { done(); }
 });
 
@@ -138,5 +137,25 @@ test("the report answer does not claim a delivery it cannot know about", async (
     assert.equal(a.message, "Listo: se envía el aviso si tienes los reportes activados");
     const again = answerOutput(await panelAction(press, { ref: "m:1" }), { log: (l) => assert.fail(l) });
     assert.equal(again.message, "Ya avisé de esta copia en las últimas 12 horas");
+  } finally { done(); }
+});
+
+test("with no failure the tab still gives the standing tips, the Servidor pointer and the report button", () => {
+  const { kino } = install();
+  try {
+    const r = failTab(kino, {});
+    const t = texts(r);
+    assert.ok(t.some((x) => /Wi-Fi/.test(x)));
+    assert.ok(t.includes("Abre el menú Servidor del reproductor para elegir otra copia"));
+    assert.ok(flat(r.elements).some((e) => e.type === "button" && e.key === "report"));
+    panelOutput({ title: "x", elements: r.elements }, { log: (l) => assert.fail(l) });
+  } finally { done(); }
+});
+
+test("reporting with no failure sends the neutral kind once", async () => {
+  const { reports } = install();
+  try {
+    await panelAction(press, { ref: "m:7" });
+    assert.deepEqual(reports, [["panel_bad_copy", "unknown"]]);
   } finally { done(); }
 });

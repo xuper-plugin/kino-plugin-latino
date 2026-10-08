@@ -1928,6 +1928,8 @@ var WORDS = {
     copyLang: "Idioma: {v}",
     copyQuality: "Calidad: {v}",
     copyServer: "Servidor: {v}",
+    copySite: "Fuente: {v}",
+    copyManual: "Cambiaste de copia: la elegida sola era {v}",
     copyChosen: "Elegida entre {n} copias",
     copyChosenOne: "Elegida entre 1 copia",
     copyNoInfo: "Todav\xEDa no s\xE9 qu\xE9 copia suena.",
@@ -1956,6 +1958,15 @@ var WORDS = {
     prefResetConfirm: "\xBFVolver a tus ajustes de siempre?",
     prefApplies: "Se aplica al abrir la pr\xF3xima copia",
     prefSaved: "Listo: se aplica en la pr\xF3xima copia",
+    prefNow: "Ahora: {v}",
+    prefFirst: "{v} primero",
+    prefUpTo: "hasta {v}",
+    prefAutoQ: "calidad autom\xE1tica",
+    prefAvoidList: "evitar: {v}",
+    failTips: "Si una copia no abre: prueba otra desde el men\xFA Servidor, revisa tu Wi-Fi o int\xE9ntalo m\xE1s tarde.",
+    availNoEpisode: "sin este cap\xEDtulo",
+    availNoTitle: "sin esta pel\xEDcula",
+    availSeasonGone: "Esta temporada no tiene versi\xF3n en espa\xF1ol",
     prefWins: "Lo que cambies aqu\xED tiene prioridad sobre Ajustes hasta que pulses Volver a tus ajustes",
     failAllGood: "Todo bien: en esta sesi\xF3n no ha fallado ninguna copia",
     failTimeout: "El servidor tard\xF3 en contestar",
@@ -2041,6 +2052,8 @@ var WORDS = {
     copyLang: "Language: {v}",
     copyQuality: "Quality: {v}",
     copyServer: "Server: {v}",
+    copySite: "Source: {v}",
+    copyManual: "You switched copies: the automatic pick was {v}",
     copyChosen: "Chosen from {n} copies",
     copyChosenOne: "Chosen among 1 copy",
     copyNoInfo: "I don't know yet which copy is playing.",
@@ -2069,6 +2082,15 @@ var WORDS = {
     prefResetConfirm: "Go back to your usual settings?",
     prefApplies: "Applies when the next copy opens",
     prefSaved: "Done: applies on the next copy",
+    prefNow: "Now: {v}",
+    prefFirst: "{v} first",
+    prefUpTo: "up to {v}",
+    prefAutoQ: "automatic quality",
+    prefAvoidList: "avoid: {v}",
+    failTips: "If a copy won't open: try another from the Server menu, check your Wi-Fi or try again later.",
+    availNoEpisode: "no copy of this episode",
+    availNoTitle: "no copy of this film",
+    availSeasonGone: "This season has no Spanish version",
     prefWins: "What you change here takes priority over Settings until you press Back to your usual settings",
     failAllGood: "All good: no copy has failed in this session",
     failTimeout: "The server took too long to answer",
@@ -2136,6 +2158,7 @@ var KEYS = { es: Object.keys(WORDS.es), en: Object.keys(WORDS.en) };
 // src/panel/state.js
 var PREFS_KEY = "pp:prefs";
 var LAST_PREFIX = "pp:last:";
+var LATEST_KEY = "pp:latest";
 var EVENTS_KEY = "pp:ev";
 var LAST_TTL_MS = 6 * 3600 * 1e3;
 var EVENTS_TTL_MS = 12 * 3600 * 1e3;
@@ -2182,6 +2205,7 @@ function clearPrefs(kino) {
 }
 function writeLast(kino, ref, rec) {
   if (!isStr(ref) || !ref || !rec || typeof rec !== "object") return;
+  writeJson(kino, LATEST_KEY, { ref }, LAST_TTL_MS);
   writeJson(kino, LAST_PREFIX + ref, {
     at: Number(rec.at) || 0,
     total: Number(rec.total) || 0,
@@ -2189,6 +2213,10 @@ function writeLast(kino, ref, rec) {
     chosen: isStr(rec.chosen) ? rec.chosen : "",
     alternatives: Array.isArray(rec.alternatives) ? rec.alternatives.filter(isStr).slice(0, MAX_ALTERNATIVES) : []
   }, LAST_TTL_MS);
+}
+function readLatest(kino) {
+  const l = readJson(kino, LATEST_KEY);
+  return l && isStr(l.ref) ? readLast(kino, l.ref) : null;
 }
 function readLast(kino, ref) {
   if (!isStr(ref) || !ref) return null;
@@ -2400,7 +2428,7 @@ async function collect(kino, title, { enabled, sources = SOURCES, phaseMs = PHAS
   if (toAsk.length && unique.length) writeCache(kino, key, [...done], unique);
   const on = new Set(active.map((s) => s.id));
   const embeds = unique.filter((e) => on.has(e.source));
-  return { embeds, down: down && embeds.length === 0, missing: embeds.length ? null : missing, failed, cached: !!cached, key, asked: toAsk.map((s) => s.id), contributed: new Set(unique.map((e) => e.source)) };
+  return { embeds, down: down && embeds.length === 0, missing: embeds.length ? null : missing, failed, cached: !!cached, key, answered: active.filter((s) => done.has(s.id) && !failed.includes(s.id)).map((s) => s.id), asked: toAsk.map((s) => s.id), contributed: new Set(unique.map((e) => e.source)) };
 }
 async function listEmbeds(kino, title, options3 = {}) {
   return (await collect(kino, title, options3)).embeds;
@@ -2428,7 +2456,7 @@ async function listEmbedsDetailed(kino, title, options3 = {}) {
     } catch (_) {
     }
   }
-  return { embeds: r.embeds, failed };
+  return { embeds: r.embeds, failed, answered: r.answered };
 }
 function pickLanguage(embeds, preferred) {
   const have = new Set((embeds || []).map((e) => e.lang));
@@ -3068,19 +3096,33 @@ var NETWORK_KEY = { wifi: "netWifi", ethernet: "netEthernet", cellular: "netCell
 var text = (p) => ({ type: "text", text: p.es, textEn: p.en });
 var LABEL_MAX = 200;
 var isNum = (n) => typeof n === "number" && Number.isFinite(n);
+function fromLabel(label3) {
+  const parts2 = typeof label3 === "string" ? label3.split(" \xB7 ") : [];
+  if (parts2.length < 2 || parts2.length > 3) return {};
+  const lang = LANGS.find((id9) => t(id9, { lang: "es" }) === parts2[0] || t(id9, { lang: "en" }) === parts2[0]);
+  if (!lang) return {};
+  const tail = parts2[parts2.length - 1].split(" ");
+  const quality = /^\d{3,4}p$/.test(tail[tail.length - 1]) ? tail.pop() : null;
+  return { parsed: true, lang, site: parts2.length === 3 ? parts2[1] : null, server: tail.join(" ") || null, quality };
+}
 function copyTab(kino, ctx) {
   const playing = ctx && ctx.playing || {};
   const stats = ctx && ctx.stats || {};
   const lines = [];
-  if (playing.label) {
+  const rows2 = playing.lang || playing.server || playing.quality ? playing : fromLabel(playing.label);
+  if (!rows2.parsed && playing.label) {
     const l = String(playing.label).slice(0, LABEL_MAX);
     lines.push({ type: "text", text: l, textEn: l });
   }
-  if (LANGS.includes(playing.lang)) lines.push(text(both("copyLang", { v: (l) => t(playing.lang, { lang: l }) })));
-  if (playing.quality) lines.push(text(both("copyQuality", { v: String(playing.quality).slice(0, LABEL_MAX) })));
-  if (playing.server) lines.push(text(both("copyServer", { v: String(SERVER_LABEL[playing.server] || playing.server).slice(0, LABEL_MAX) })));
-  const last = ctx && ctx.ref ? readLast(kino, ctx.ref) : null;
-  if (last && last.total > 0) lines.push(text(last.total === 1 ? both("copyChosenOne") : both("copyChosen", { n: last.total })));
+  if (LANGS.includes(rows2.lang)) lines.push(text(both("copyLang", { v: (l) => t(rows2.lang, { lang: l }) })));
+  if (rows2.site) lines.push(text(both("copySite", { v: String(rows2.site).slice(0, LABEL_MAX) })));
+  if (rows2.server) lines.push(text(both("copyServer", { v: String(SERVER_LABEL[rows2.server] || rows2.server).slice(0, LABEL_MAX) })));
+  if (rows2.quality) lines.push(text(both("copyQuality", { v: String(rows2.quality).slice(0, LABEL_MAX) })));
+  const last = (ctx && ctx.ref ? readLast(kino, ctx.ref) : null) || readLatest(kino);
+  if (last && last.total > 0) {
+    if (playing.label && last.chosen && last.chosen !== String(playing.label)) lines.push(text(both("copyManual", { v: last.chosen.slice(0, 100) })));
+    else lines.push(text(last.total === 1 ? both("copyChosenOne") : both("copyChosen", { n: last.total })));
+  }
   if (!lines.length) lines.push(text(both("copyNoInfo")));
   const elements = [{ type: "card", title: t("nowPlaying", { lang: "es" }), titleEn: t("nowPlaying", { lang: "en" }), children: lines }];
   const statLines = [];
@@ -3099,7 +3141,7 @@ function copyTab(kino, ctx) {
 }
 
 // src/panel/summary.js
-var MAX_OVERVIEW = 240;
+var MAX_OVERVIEW = 150;
 var cut = (s) => s.length <= MAX_OVERVIEW ? s : s.slice(0, MAX_OVERVIEW - 1).trimEnd() + "\u2026";
 var text2 = (p) => ({ type: "text", text: p.es, textEn: p.en });
 async function summaryTab(kino, ctx, { untilMs } = {}) {
@@ -3114,11 +3156,8 @@ async function summaryTab(kino, ctx, { untilMs } = {}) {
   if (head.length) col.push(text2({ es: head.map((h) => h.es).join(" \xB7 "), en: head.map((h) => h.en).join(" \xB7 ") }));
   if (s.overview) col.push({ type: "text", text: cut(s.overview) });
   if (s.cast.length) col.push(text2(both("sumCast", { v: s.cast.join(", ") })));
-  if (!col.length && !s.poster) return null;
-  const children = [];
-  if (s.poster) children.push({ type: "image", url: s.poster, aspect: "2:3", alt: String(ctx.title || "").slice(0, 200) });
-  if (col.length) children.push({ type: "col", children: col });
-  return { elements: [{ type: "row", children }] };
+  if (!col.length) return null;
+  return { elements: col };
 }
 
 // src/panel/avail.js
@@ -3140,7 +3179,7 @@ async function availTab(kino, ctx, { untilMs } = {}) {
   const elements = [];
   if (isMovie || ctx.season != null && ctx.episode != null) {
     const phaseMs = Math.max(1e3, end - Date.now() - SETTLE_MS);
-    const { embeds, failed } = await listEmbedsDetailed(kino, title, { enabled, phaseMs });
+    const { embeds, failed, answered } = await listEmbedsDetailed(kino, title, { enabled, phaseMs });
     if (failed.length) partial = true;
     const bySite = /* @__PURE__ */ new Map();
     for (const e of embeds) {
@@ -3151,6 +3190,9 @@ async function availTab(kino, ctx, { untilMs } = {}) {
       const ordered = LANGS.filter((l) => langs.has(l));
       elements.push(text3(pair((l) => `${siteLabel(id9)}: ${ordered.map((x) => t(x, { lang: l })).join(", ")}`)));
     }
+    for (const id9 of answered) {
+      if (!bySite.has(id9)) elements.push(text3(pair((l) => `${siteLabel(id9)}: ${t(isMovie ? "availNoTitle" : "availNoEpisode", { lang: l })}`)));
+    }
     if (!bySite.size && !partial) elements.push(text3(both("availNone")));
   }
   if (!isMovie) {
@@ -3159,6 +3201,7 @@ async function availTab(kino, ctx, { untilMs } = {}) {
       const seasons = [...new Set(episodes2.map((e) => e.season))];
       const gone = await missingSeasons(kino, title, seasons, { enabled, untilMs: end });
       if (gone.length) elements.push(text3(both("availSeasons", { v: gone.join(", ") })));
+      if (ctx.season != null && gone.includes(ctx.season)) elements.push(text3(both("availSeasonGone")));
     } catch (e) {
       partial = true;
       try {
@@ -3189,7 +3232,17 @@ function qualityLabel(q) {
 function prefsTab(kino, ctx) {
   const panelValues = ctx && ctx.values && ctx.values.plugin || {};
   const current = readSettings(kino);
+  const quality = current.maxQuality === "auto" ? both("prefAutoQ") : both("prefUpTo", { v: current.maxQuality });
+  const parts2 = [
+    both("prefFirst", { v: (l) => t(LANG_KEY[current.preferred], { lang: l }) }),
+    quality
+  ];
+  if (current.avoid.length) parts2.push(both("prefAvoidList", { v: current.avoid.map((id9) => SERVER_LABEL[id9] || id9).join(", ") }));
+  const now = both("prefNow", { v: (l) => parts2.map((p) => p[l]).join(" \xB7 ") });
+  const wins = both("prefWins");
   const elements = [
+    { type: "text", text: now.es, textEn: now.en },
+    { type: "text", text: wins.es, textEn: wins.en },
     {
       type: "select",
       key: "preferred",
@@ -3218,8 +3271,7 @@ function prefsTab(kino, ctx) {
   const confirm = both("prefResetConfirm");
   elements.push({ type: "button", key: "reset", ...label2(both("prefReset")), confirm: confirm.es, confirmEn: confirm.en });
   const note = both("prefApplies");
-  const wins = both("prefWins");
-  elements.push({ type: "status", text: `${note.es}. ${wins.es}`, textEn: `${note.en}. ${wins.en}` });
+  elements.push({ type: "status", text: note.es, textEn: note.en });
   return { elements };
 }
 function patchOf(panelValues, stored) {
@@ -3294,11 +3346,15 @@ function failTab(kino, ctx) {
   const events = readEvents(kino, ctx && ctx.ref);
   const failures = events.filter((e) => e.type === "failed");
   const last = failures[failures.length - 1];
-  if (!last) return { elements: [status2(both("failAllGood"))] };
-  const sentence = both(KIND_KEY[last.kind] || "failGeneric");
-  const tried = [...new Set(events.filter((e) => e.label).map((e) => e.label))].slice(-MAX_TRIED);
-  const elements = [text4(sentence)];
-  if (tried.length) elements.push({ type: "text", text: both("failTried", { v: tried.join(", ") }).es, textEn: both("failTried", { v: tried.join(", ") }).en });
+  const elements = [];
+  if (last) {
+    elements.push(text4(both(KIND_KEY[last.kind] || "failGeneric")));
+    const tried = [...new Set(events.filter((e) => e.label).map((e) => e.label))].slice(-MAX_TRIED);
+    if (tried.length) elements.push(text4(both("failTried", { v: tried.join(", ") })));
+  } else {
+    elements.push(status2(both("failAllGood")));
+  }
+  elements.push(text4(both("failTips")));
   elements.push(text4(both("failHowTo")));
   const confirm = both("failReportConfirm");
   const label3 = both("failReport");
@@ -3546,7 +3602,7 @@ async function probe(kino) {
 function clearCache(kino) {
   let n = 0;
   for (const key of kino.storage.keys()) {
-    if (["emb:", "embn:", "tmdb:", "avail:", "pp:last:"].some((p) => key.startsWith(p))) {
+    if (["emb:", "embn:", "tmdb:", "avail:", "pp:last:", "pp:latest"].some((p) => key.startsWith(p))) {
       kino.storage.remove(key);
       n++;
     }

@@ -149,7 +149,7 @@ async function collect(kino, title, { enabled, sources = SOURCES, phaseMs = PHAS
 
   const on = new Set(active.map((s) => s.id));
   const embeds = unique.filter((e) => on.has(e.source));
-  return { embeds, down: down && embeds.length === 0, missing: embeds.length ? null : missing, failed, cached: !!cached, key, asked: toAsk.map((s) => s.id), contributed: new Set(unique.map((e) => e.source)) };
+  return { embeds, down: down && embeds.length === 0, missing: embeds.length ? null : missing, failed, cached: !!cached, key, answered: active.filter((s) => done.has(s.id) && !failed.includes(s.id)).map((s) => s.id), asked: toAsk.map((s) => s.id), contributed: new Set(unique.map((e) => e.source)) };
 }
 
 /** Phase 1: every enabled source's embeds for the title, deduplicated by URL in source priority order. */
@@ -184,7 +184,7 @@ export async function listEmbedsDetailed(kino, title, options = {}) {
     const skip = [...new Set([...(neg ? neg.skip : []), ...quiet])];
     try { kino.storage.set(key, JSON.stringify({ v: 1, skip, failed }), { ttlMs: NEG_TTL_MS }); } catch (_) { /* no negative cache */ }
   }
-  return { embeds: r.embeds, failed };
+  return { embeds: r.embeds, failed, answered: r.answered };
 }
 
 // ---------- choosing ----------

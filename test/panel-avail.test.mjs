@@ -108,3 +108,15 @@ test("availability: every site answering HTTP 500 is a partial answer, never 'no
   assert.ok(t.includes("Respuesta parcial: algunas fuentes no contestaron"), t.join("|"));
   assert.ok(!t.includes("Ninguna fuente contestó con copias de este título"));
 });
+
+test("availability: sites that answered with nothing for this episode say so; failing ones stay silent", async () => {
+  const { kino } = setup({ tmdb: bb, seed: {
+    "emb:tv:1396:1:1": { v: 1, done: ["lamovie", "hackstore", "seriesflix"], embeds: [emb("lamovie", "lat", 1)] },
+    [cacheKeyOf(1396, ["lamovie", "seriesflix", "embed69"])]: { v: 1, missing: [1] },
+  } });
+  const t = texts(await availTab(kino, episode, untilMs()));
+  assert.ok(t.includes("LaMovie: Latino"));
+  assert.ok(t.some((x) => x.startsWith("Seriesflix") && /sin este capítulo/.test(x)), t.join("|"));
+  assert.ok(!t.some((x) => /^CineCalidad/.test(x)), "a site that did not answer is not listed as lacking it");
+  assert.ok(t.includes("Esta temporada no tiene versión en español"), t.join("|"));
+});

@@ -104,7 +104,7 @@ test("reconcile: no values at all in the context leaves the override alone", () 
 test("the tab says values set here win over Ajustes until reset, and so do the settings hints", async () => {
   const { kino } = fakeKino();
   const r = prefsTab(kino, ctxOf());
-  const status = flat(r.elements).filter((e) => e.type === "status").map((e) => e.text).join("|");
+  const status = flat(r.elements).filter((e) => e.type === "text").map((e) => e.text).join("|");
   assert.match(status, /tiene prioridad sobre Ajustes/);
   assert.match(status, /Volver a tus ajustes/);
   const manifest = JSON.parse((await import("node:fs")).readFileSync(new URL("../kino-plugin.json", import.meta.url), "utf8"));
@@ -114,4 +114,19 @@ test("the tab says values set here win over Ajustes until reset, and so do the s
     assert.match(f.hint, /Restablecer/);
     assert.ok(f.hintEn);
   }
+});
+
+test("the tab opens with the effective settings and an always-visible precedence line", () => {
+  const { kino } = fakeKino({ config: { preferred: "esp", maxQuality: "720p" } });
+  kino.storage.set("pp:prefs", JSON.stringify({ v: 1, avoid: ["voe", "okru"] }));
+  const r = prefsTab(kino, ctxOf());
+  const first = flat(r.elements)[0];
+  assert.equal(first.type, "text");
+  assert.equal(first.text, "Ahora: Castellano primero · hasta 720p · evitar: VOE, OkRu");
+  assert.ok(first.textEn.startsWith("Now: "));
+  const second = flat(r.elements)[1];
+  assert.equal(second.type, "text");
+  assert.match(second.text, /tiene prioridad sobre Ajustes/);
+  const plain = prefsTab(fakeKino().kino, ctxOf());
+  assert.equal(flat(plain.elements)[0].text, "Ahora: Latino primero · calidad automática");
 });

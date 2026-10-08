@@ -10,6 +10,7 @@ import { LANGS, QUALITIES, SERVER_LABEL } from "../resolver.js";
 
 const PREFS_KEY = "pp:prefs";
 const LAST_PREFIX = "pp:last:";
+const LATEST_KEY = "pp:latest"; // the ref of the newest record: the panel's ref may not be the one resolve got
 const EVENTS_KEY = "pp:ev";
 const LAST_TTL_MS = 6 * 3600 * 1000;
 const EVENTS_TTL_MS = 12 * 3600 * 1000;
@@ -60,6 +61,7 @@ export function clearPrefs(kino) {
 /** Remembers how resolve chose a copy for `ref`: `{ at, total, order, chosen, alternatives }`. */
 export function writeLast(kino, ref, rec) {
   if (!isStr(ref) || !ref || !rec || typeof rec !== "object") return;
+  writeJson(kino, LATEST_KEY, { ref }, LAST_TTL_MS);
   writeJson(kino, LAST_PREFIX + ref, {
     at: Number(rec.at) || 0,
     total: Number(rec.total) || 0,
@@ -67,6 +69,12 @@ export function writeLast(kino, ref, rec) {
     chosen: isStr(rec.chosen) ? rec.chosen : "",
     alternatives: Array.isArray(rec.alternatives) ? rec.alternatives.filter(isStr).slice(0, MAX_ALTERNATIVES) : [],
   }, LAST_TTL_MS);
+}
+
+/** The newest chosen-copy record whatever its ref, or null. */
+export function readLatest(kino) {
+  const l = readJson(kino, LATEST_KEY);
+  return l && isStr(l.ref) ? readLast(kino, l.ref) : null;
 }
 
 /** `{ at, total, order, chosen, alternatives } | null`. */

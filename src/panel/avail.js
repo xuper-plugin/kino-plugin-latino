@@ -34,7 +34,7 @@ export async function availTab(kino, ctx, { untilMs } = {}) {
 
   if (isMovie || (ctx.season != null && ctx.episode != null)) {
     const phaseMs = Math.max(1000, end - Date.now() - SETTLE_MS);
-    const { embeds, failed } = await listEmbedsDetailed(kino, title, { enabled, phaseMs });
+    const { embeds, failed, answered } = await listEmbedsDetailed(kino, title, { enabled, phaseMs });
     if (failed.length) partial = true;
     const bySite = new Map();
     for (const e of embeds) {
@@ -45,6 +45,10 @@ export async function availTab(kino, ctx, { untilMs } = {}) {
       const ordered = LANGS.filter((l) => langs.has(l));
       elements.push(text(pair((l) => `${siteLabel(id)}: ${ordered.map((x) => t(x, { lang: l })).join(", ")}`)));
     }
+    // A site that really answered with nothing for this exact title/episode says so; one that failed stays silent.
+    for (const id of answered) {
+      if (!bySite.has(id)) elements.push(text(pair((l) => `${siteLabel(id)}: ${t(isMovie ? "availNoTitle" : "availNoEpisode", { lang: l })}`)));
+    }
     if (!bySite.size && !partial) elements.push(text(both("availNone")));
   }
 
@@ -54,6 +58,7 @@ export async function availTab(kino, ctx, { untilMs } = {}) {
       const seasons = [...new Set(episodes.map((e) => e.season))];
       const gone = await missingSeasons(kino, title, seasons, { enabled, untilMs: end });
       if (gone.length) elements.push(text(both("availSeasons", { v: gone.join(", ") })));
+      if (ctx.season != null && gone.includes(ctx.season)) elements.push(text(both("availSeasonGone")));
     } catch (e) {
       partial = true;
       try { kino.log("[latino]", "panel avail", (e && e.code) || "error"); } catch (_) { /* logging is optional */ }

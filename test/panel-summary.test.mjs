@@ -10,19 +10,15 @@ const flat = (els) => els.flatMap((e) => (e.children ? flat(e.children) : [e]));
 const fake = (tmdb) => fakeKino({ extra: { tmdb } }).kino;
 const untilMs = () => ({ untilMs: Date.now() + 10000 });
 
-test("summary tab: poster, rating, genres, short synopsis, five cast names", async () => {
+test("summary tab: rating, genres, short synopsis, five cast names", async () => {
   const calls = [];
   const kino = fake(async (p, q) => { calls.push([p, q]); return data; });
   const r = await summaryTab(kino, ctx, untilMs());
   assert.deepEqual(calls, [["/movie/550", { language: "es-MX", append_to_response: "credits" }]]);
   const leaves = flat(r.elements);
-  const imgs = leaves.filter((e) => e.type === "image");
-  assert.equal(imgs.length, 1);
-  assert.ok(imgs[0].url.startsWith("https://image.tmdb.org/t/p/w342"));
-  assert.equal(imgs[0].aspect, "2:3");
   const texts = leaves.filter((e) => e.type === "text").map((e) => e.text);
   assert.ok(texts.some((x) => x.includes("8.4") && x.includes("Drama") && x.includes("Suspense")));
-  assert.ok(texts.every((x) => x.length <= 240));
+  assert.ok(texts.every((x) => x.length <= 150));
   assert.ok(texts.some((x) => x.length > 100 && x.endsWith("…")));
   const cast = texts.find((x) => x.startsWith("Reparto:"));
   assert.equal(cast.slice(9).split(", ").length, 5);
@@ -52,4 +48,16 @@ test("an episode asks for the SERIES id read from its ref, not the episode's own
   assert.deepEqual(calls, ["/tv/1396"]);
   await summaryTab(kino, { kind: "episode", ref: "e:1396:2:5", title: "x", ids: {} }, untilMs());
   assert.deepEqual(calls, ["/tv/1396", "/tv/1396"]);
+});
+
+test("the summary is a compact text card: no poster, text first, synopsis within ~150 characters", async () => {
+  const kino = fake(async () => data);
+  const r = await summaryTab(kino, ctx, untilMs());
+  const leaves = flat(r.elements);
+  assert.equal(leaves.filter((e) => e.type === "image").length, 0);
+  assert.equal(leaves[0].type, "text");
+  assert.ok(leaves[0].text.includes("8.4"));
+  const synopsis = leaves.find((e) => e.type === "text" && e.text.endsWith("…"));
+  assert.ok(synopsis && synopsis.text.length <= 150);
+  assert.ok(leaves.length <= 4);
 });

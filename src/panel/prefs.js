@@ -27,7 +27,17 @@ function qualityLabel(q) {
 export function prefsTab(kino, ctx) {
   const panelValues = (ctx && ctx.values && ctx.values.plugin) || {};
   const current = readSettings(kino);
+  const quality = current.maxQuality === "auto" ? both("prefAutoQ") : both("prefUpTo", { v: current.maxQuality });
+  const parts = [
+    both("prefFirst", { v: (l) => t(LANG_KEY[current.preferred], { lang: l }) }),
+    quality,
+  ];
+  if (current.avoid.length) parts.push(both("prefAvoidList", { v: current.avoid.map((id) => SERVER_LABEL[id] || id).join(", ") }));
+  const now = both("prefNow", { v: (l) => parts.map((p) => p[l]).join(" · ") });
+  const wins = both("prefWins");
   const elements = [
+    { type: "text", text: now.es, textEn: now.en },
+    { type: "text", text: wins.es, textEn: wins.en },
     {
       type: "select", key: "preferred", scope: "plugin", autoSave: true, ...label(both("prefPreferred")),
       value: LANGS.includes(panelValues.preferred) ? panelValues.preferred : current.preferred,
@@ -48,8 +58,7 @@ export function prefsTab(kino, ctx) {
   const confirm = both("prefResetConfirm");
   elements.push({ type: "button", key: "reset", ...label(both("prefReset")), confirm: confirm.es, confirmEn: confirm.en });
   const note = both("prefApplies");
-  const wins = both("prefWins");
-  elements.push({ type: "status", text: `${note.es}. ${wins.es}`, textEn: `${note.en}. ${wins.en}` });
+  elements.push({ type: "status", text: note.es, textEn: note.en });
   return { elements };
 }
 
