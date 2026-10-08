@@ -11,8 +11,19 @@ const RETRY_STATUS = new Set([408, 425, 429, 500, 502, 503, 504, 520, 521, 522, 
  */
 export const fetchAllowed = (kino, url) => (kino && kino.fetchAnyHost === true) || urlDeclared(url);
 
-export function makeRequester(kino, { budget = 12, deadline = Date.now() + 8000 } = {}) {
+/** A request allowance several requesters spend together (one Kino call allows 60 requests in all). */
+export const requestPool = (n) => ({ left: n });
+
+/**
+ * [pools]: shared allowances every request also spends; [concurrency]: most requests of this requester in flight at
+ * once (Kino runs 6 of the plugin's at a time, so one slow source must not hold them all).
+ */
+export function makeRequester(kino, { budget = 12, deadline = Date.now() + 8000, pools = [], concurrency = Infinity } = {}) {
   let used = 0;
+  let active = 0;
+  const waiting = [];
+  const acquire = () => (active < concurrency ? (active++, Promise.resolve()) : new Promise((r) => waiting.push(r)));
+  const release = () => { const next = waiting.shift(); if (next) next(); else active--; };
 
   function makeLocalError(code, message) {
     const e = kino.error(code, message);
@@ -23,23 +34,31 @@ export function makeRequester(kino, { budget = 12, deadline = Date.now() + 8000 
   async function once(url, opts) {
     // An undeclared host would pause playback on a host question: refused here, never asked.
     if (!fetchAllowed(kino, url)) throw makeLocalError("host_not_allowed", "host not declared: " + hostOf(url));
-    if (used >= budget) throw makeLocalError("unavailable", "budget spent at " + url);
-    const left = deadline - Date.now();
-    if (left <= 0) throw makeLocalError("unavailable", "deadline before " + url);
-    used++;
-    const headers = { "User-Agent": UA, ...(opts.headers || {}) };
-    const { retry, ...rest } = opts; // `retry` is ours, never Kino's
-    return kino.fetch(url, { ...rest, headers, timeoutMs: Math.min(8000, left) });
+    await acquire();
+    try {
+      if (used >= budget) throw makeLocalError("unavailable", "budget spent at " + url);
+      if (pools.some((p) => p.left <= 0)) throw makeLocalError("unavailable", "call allowance spent at " + url);
+      const left = deadline - Date.now();
+      if (left <= 0) throw makeLocalError("unavailable", "deadline before " + url);
+      used++;
+      for (const p of pools) p.left--;
+      const headers = { "User-Agent": UA, ...(opts.headers || {}) };
+      const { retry, ...rest } = opts; // `retry` is ours, never Kino's
+      return await kino.fetch(url, { ...rest, headers, timeoutMs: Math.min(8000, left) });
+    } finally {
+      release();
+    }
   }
 
   let degraded = false;
+  const roomToRetry = () => used < budget && !pools.some((p) => p.left <= 0) && deadline - Date.now() > 600;
 
   async function send(url, opts = {}) {
     try {
       const r = await once(url, opts);
       if (opts.retry === false || !RETRY_STATUS.has(r.status)) return r;
       // Retryable status; check if there is room for retry
-      if (used < budget && deadline - Date.now() > 600) {
+      if (roomToRetry()) {
         await kino.sleep(600);
         return once(url, opts);
       }
@@ -49,7 +68,7 @@ export function makeRequester(kino, { budget = 12, deadline = Date.now() + 8000 
       // A local budget error and a host the manifest does not declare are permanent: a second try cannot change them.
       if (opts.retry === false || (e && (e.local || e.code === "host_not_allowed"))) throw e;
       // Thrown fetch; check if there is room for retry
-      if (used < budget && deadline - Date.now() > 600) {
+      if (roomToRetry()) {
         await kino.sleep(600);
         return once(url, opts);
       }
@@ -69,7 +88,7 @@ export function makeRequester(kino, { budget = 12, deadline = Date.now() + 8000 
   req.degraded = () => degraded;
   req.used = () => used;
   /** Whether this requester can send nothing more (budget spent or deadline passed): a "not found" may be a cut. */
-  req.exhausted = () => used >= budget || deadline - Date.now() <= 0;
+  req.exhausted = () => used >= budget || deadline - Date.now() <= 0 || pools.some((p) => p.left <= 0);
   /** Milliseconds left before this requester's deadline (0 when past it). */
   req.left = () => Math.max(0, deadline - Date.now());
   return req;

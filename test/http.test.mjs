@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { fakeKino } from "./helpers/fakeKino.mjs";
-import { makeRequester, fetchAllowed, UA } from "../src/util/http.js";
+import { makeRequester, requestPool, fetchAllowed, UA } from "../src/util/http.js";
 import { hostMatcher } from "../src/util/hosts.js";
 
 const far = () => Date.now() + 60_000;
@@ -136,4 +136,25 @@ test("req.left() counts down to the deadline", () => {
   const req = makeRequester(kino, { budget: 1, deadline: Date.now() + 5000 });
   assert.ok(req.left() > 4000 && req.left() <= 5000);
   assert.equal(makeRequester(kino, { deadline: Date.now() - 10 }).left(), 0);
+});
+
+test("a shared allowance stops every requester that spends it, without a retry past it", async () => {
+  const { kino } = fakeKino({ fetch: async () => ({ status: 503, body: "" }) });
+  const pool = requestPool(3);
+  const a = makeRequester(kino, { budget: 10, deadline: far(), pools: [pool] });
+  const b = makeRequester(kino, { budget: 10, deadline: far(), pools: [pool] });
+  await a("https://lamovie.org/1"); // 503, retried: 2 of the 3
+  await b("https://lamovie.org/2"); // the last one, no room to retry
+  assert.equal(pool.left, 0);
+  await assert.rejects(b("https://lamovie.org/3"), (e) => e.local && e.code === "unavailable");
+  assert.equal(b.exhausted(), true);
+});
+
+test("concurrency: at most N requests of one requester are in flight at once", async () => {
+  let inFlight = 0, peak = 0;
+  const { kino } = fakeKino({ fetch: async () => { peak = Math.max(peak, ++inFlight); await new Promise((r) => setTimeout(r, 20)); inFlight--; return { status: 200, body: "" }; } });
+  const req = makeRequester(kino, { budget: 10, deadline: far(), concurrency: 2 });
+  await Promise.all([1, 2, 3, 4, 5].map((n) => req("https://lamovie.org/" + n)));
+  assert.equal(peak, 2);
+  assert.equal(req.used(), 5);
 });

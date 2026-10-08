@@ -1,7 +1,7 @@
 {
   "id": "latino",
   "name": "Latino",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "apiVersion": 9,
   "panel": {
     "label": "Latino",
@@ -72,21 +72,11 @@
     "*.nupload.me",
     "nupload.my",
     "*.nupload.my",
-    "xupalace.org",
     "www.pelisplushd.la",
     "pelisplushd.la",
     "www.fuegocine.com",
     "fuegocine.com",
-    "drive.usercontent.google.com",
-    "pelisgo.online",
-    "pelispanda.org",
-    "api.videasy.net",
-    "api2.videasy.net",
-    "enc-dec.app",
-    "cuevana.unbuendato.com",
-    "www.playhubmax.com",
-    "api.playhubmax.com",
-    "cinemacity.cc"
+    "pelispanda.org"
   ],
   "capabilities": [
     "search",

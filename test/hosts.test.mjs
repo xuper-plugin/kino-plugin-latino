@@ -16,7 +16,7 @@ const covered = hostDeclared;
 
 // Named in the code but never fetched: image URLs are not checked against `hosts` (contract.md, images), and
 // sololatino.net is only a Referer header value.
-const NOT_FETCHED = new Set(["image.tmdb.org", "sololatino.net", "cineby.sc"]);
+const NOT_FETCHED = new Set(["image.tmdb.org", "sololatino.net"]);
 
 function walk(dir) {
   return readdirSync(dir).flatMap((n) => {

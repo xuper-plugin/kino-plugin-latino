@@ -1,5 +1,28 @@
 # Changelog
 
+## 2.0.1
+
+- Sources that gave no playable copy are gone: XuPalace (now redirects to Embed69, which is already a source),
+  Cuevana UBD and PlayHubMax (their domains no longer resolve), VidEasy (its API never answers), CinemaCity (behind a
+  Cloudflare challenge) and PelisGo (only servers no extractor can open).
+  / Se retiran las fuentes que no daban ninguna copia reproducible.
+- PelisPanda, PelisPlusHD and FuegoCine find the right title: only an exact TMDB id (PelisPanda) or an exact title
+  with its year (PelisPlusHD, FuegoCine), never the first search result. FuegoCine hands its files over as direct
+  copies and reads them from the feed itself (one request); PelisPlusHD follows its relative links and reads episodes.
+  / PelisPanda, PelisPlusHD y FuegoCine encuentran el título correcto y ya dan copias.
+- A resolve stays inside Kino's 60 requests per call: finding copies may spend 36, so opening one always has room;
+  one source has at most 2 requests in flight, so a slow site no longer holds Kino's 6.
+  / La búsqueda de copias ya no se come el cupo de peticiones que necesita la reproducción.
+- A resolve stops waiting for slow sources once it has 6 playable copies (after 2.5 s): playback starts in about
+  3 s instead of 9. / La reproducción arranca en unos 3 s en vez de 9.
+- Direct copies may carry their own headers ("direct-<profile>").
+
+## 2.0.0
+
+Player panel (1.1.0) together with the sources added in 1.1.0–1.9.0 (DeepFlix and nine more). Kino allows 12
+valued settings per plugin, so only the first eight sources keep their on/off toggle.
+/ El panel del reproductor junto con las fuentes nuevas; solo las ocho primeras conservan su interruptor.
+
 ## 1.1.0
 
 **Requires Kino 0.9.55 or newer** (apiVersion 9). Fresh installs of 1.1.0 on Kino 0.9.54 or older are refused; only existing installs stay on 1.0.3.

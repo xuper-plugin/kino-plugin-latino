@@ -8,11 +8,11 @@
 import { SOURCES } from "./sources/index.js";
 import { extractorFor } from "./extractors/index.js";
 import { HLS_MIME } from "./extractors/shared.js";
-import { makeRequester, UA } from "./util/http.js";
+import { makeRequester, requestPool, UA } from "./util/http.js";
 import { t, tf, langOf } from "./i18n.js";
 import { missingOf } from "./sources/wpapi.js";
 import { recordRun } from "./health.js";
-import { within, BROWSER_RESOLVE_MS } from "./util/time.js";
+import { within, waitFor, BROWSER_RESOLVE_MS } from "./util/time.js";
 import { canCapture } from "./extractors/voe.js";
 import { writeLast } from "./panel/state.js";
 
@@ -38,7 +38,7 @@ const KNOWN_QUALITIES = ["2160p", "1440p", "1080p", "720p", "576p", "480p", "360
 const NETWORK_CODES = new Set(["network", "timeout", "unavailable", "rate_limited"]);
 
 const PHASE_MS = 9000;
-const SOURCE = { budget: 12, deadlineMs: 8000 };
+const SOURCE = { budget: 12, deadlineMs: 8000, concurrency: 2 };
 const EXTRACT = { budget: 6, deadlineMs: 6000, tries: 2 };
 const VOE_ATTEMPT_MS = 14000; // the redirect page plus a capture of at most 12 s
 const MIN_PHASE_MS = 3000;
@@ -46,6 +46,12 @@ const CALL_MS = 18500; // Kino gives resolve 20 s; every wait is capped at this,
 // With the hidden browser approved resolve has 75 s: room for VOE's longer attempts, still well under the limit.
 const BROWSER_CALL_MS = BROWSER_RESOLVE_MS - 1500;
 const MAX_COPIES = 8;
+// Kino allows 60 requests per call, redirect hops included, which the plugin cannot see: 6 are kept for those. Finding
+// copies may spend 36, so opening one always has room left.
+const CALL_REQUESTS = 54;
+const PHASE_REQUESTS = 36;
+// A resolve stops waiting for slow sources once it has this many playable copies, but never before EARLY_MS.
+const EARLY = { ms: 2500, copies: 6 };
 const CACHE_TTL_MS = 1800000;
 const OFF_BY_DEFAULT = { peliserieshoy: false }; // R14
 
@@ -87,9 +93,9 @@ function writeCache(kino, key, done, embeds, ttlMs = CACHE_TTL_MS) {
  * One source's list, never throwing: `{ embeds, failed: null | code, missing }`, `missing` the source's note that it
  * has the series but not the episode (`{ seasonFound }`, see episodeMissing) or null.
  */
-async function askSource(kino, source, title, start) {
+async function askSource(kino, source, title, start, pools) {
   try {
-    const req = makeRequester(kino, { budget: SOURCE.budget, deadline: start + SOURCE.deadlineMs });
+    const req = makeRequester(kino, { budget: SOURCE.budget, deadline: start + SOURCE.deadlineMs, pools, concurrency: SOURCE.concurrency });
     const out = await source.list(title, { kino, req });
     const embeds = (Array.isArray(out) ? out : []).filter(validEmbed);
     return { embeds, failed: null, degraded: req.degraded(), missing: embeds.length ? null : missingOf(out) };
@@ -106,8 +112,9 @@ async function askSource(kino, source, title, start) {
  * has the series but none had the episode -- `seasonFound` true when one of them has that season. The cache keeps which sources answered, so
  * a source turned on later is asked on its own and merged in.
  */
-async function collect(kino, title, { enabled, sources = SOURCES, phaseMs = PHASE_MS, fresh = false, skip = [], cachePrefix = "emb:", ttlMs } = {}) {
+async function collect(kino, title, { enabled, sources = SOURCES, phaseMs = PHASE_MS, fresh = false, skip = [], cachePrefix = "emb:", ttlMs, call = requestPool(CALL_REQUESTS), enough = null } = {}) {
   const start = Date.now();
+  const pools = [call, requestPool(PHASE_REQUESTS)];
   const active = sources.filter((s) => isOn(enabled, s.id) && (!s.kinds || s.kinds.includes(title.kind)));
   const key = cacheKey(title, cachePrefix);
   const cached = fresh ? null : readCache(kino, key);
@@ -124,11 +131,21 @@ async function collect(kino, title, { enabled, sources = SOURCES, phaseMs = PHAS
   const failed = []; // sources asked just now that failed or were late: their silence says nothing about the title
   if (toAsk.length) {
     const answers = new Map();
-    const all = Promise.all(toAsk.map((s) => askSource(kino, s, title, start).then((r) => { answers.set(s.id, r); })));
-    await within(kino, all, Math.max(0, start + phaseMs - Date.now()), null); // late answers are ignored
-    recordRun(kino, toAsk.map((s) => ({ id: s.id, ok: !!answers.get(s.id) && !answers.get(s.id).failed }))); // late counts as failed
+    let pending = toAsk.length;
+    let allIn;
+    const allAnswered = new Promise((r) => { allIn = r; });
+    for (const s of toAsk) askSource(kino, s, title, start, pools).then((r) => { answers.set(s.id, r); if (--pending === 0) allIn(); });
+    // [enough] (resolve only) ends the wait early once the copies so far are plenty; late answers are ignored.
+    const sofar = () => [...bySource.values(), ...[...answers.values()].map((r) => r.embeds)].flat();
+    let early = false;
+    const timeUp = waitFor(kino, Math.max(0, start + phaseMs - Date.now()), () => pending === 0 || (early = !!enough && Date.now() - start >= EARLY.ms && enough(sofar())));
+    await Promise.race([allAnswered, timeUp.catch(() => {})]);
+    // A source cut short by an early end is neither late nor failing: the next call asks it again.
+    const cut = (s) => early && !answers.has(s.id);
+    recordRun(kino, toAsk.filter((s) => !cut(s)).map((s) => ({ id: s.id, ok: !!answers.get(s.id) && !answers.get(s.id).failed }))); // late counts as failed
     for (const s of toAsk) {
       const r = answers.get(s.id);
+      if (cut(s)) { down = false; continue; }
       if (!r) { kino.log("[latino]", s.id, "late"); failed.push(s.id); continue; }
       if (!r.failed || !NETWORK_CODES.has(r.failed)) down = false;
       if (r.failed) { failed.push(s.id); continue; }
@@ -202,7 +219,9 @@ export function pickLanguage(embeds, preferred) {
 }
 
 /** The server an embed really is: its extractor when its host is known, else what the source called it. */
-const serverOf = (e) => (e.server === "direct" ? "direct" : (extractorFor(e.embedUrl) || {}).name || e.server);
+/** A copy that is the stream itself: "direct" (its source's ORIGIN as Referer) or "direct-<profile>" (see directStream). */
+const isDirect = (e) => e.server === "direct" || e.server.startsWith("direct-");
+const serverOf = (e) => (isDirect(e) ? "direct" : (extractorFor(e.embedUrl) || {}).name || e.server);
 
 /** Best first: copies above `maxQuality` last, then by server tier, then by quality (1080p first, 4K last). */
 export function rank(embeds, { maxQuality = "auto", avoid = [] } = {}) {
@@ -237,8 +256,17 @@ function mimeOf(url) {
   return ext ? { mp4: "video/mp4", mkv: "video/x-matroska", avi: "video/x-msvideo", webm: "video/webm" }[ext] : undefined;
 }
 
-/** A "direct" embed is the stream itself, fetched with its source site as Referer. */
+/**
+ * A direct copy is the stream itself. "direct" plays with its source's ORIGIN as Referer; "direct-<profile>" with the
+ * headers (and the mime, for a stream whose address names no format) of the source's `DIRECT[profile]`.
+ */
 function directStream(e, source) {
+  if (e.server !== "direct") {
+    const p = source && source.DIRECT && source.DIRECT[e.server.slice("direct-".length)];
+    if (!p) return null;
+    const mime = mimeOf(e.embedUrl) || p.mime;
+    return { url: e.embedUrl, ...(mime ? { mime } : {}), headers: { "User-Agent": UA, ...p.headers } };
+  }
   const origin = source && source.ORIGIN;
   if (!origin) return null;
   const mime = mimeOf(e.embedUrl);
@@ -247,12 +275,12 @@ function directStream(e, source) {
 
 /** The real extraction: direct copies as they are, others through their host's extractor. */
 export async function defaultExtract(e, req, kino, source) {
-  if (e.server === "direct") return directStream(e, source);
+  if (isDirect(e)) return directStream(e, source);
   const ex = extractorFor(e.embedUrl);
   return ex ? ex.extract(e.embedUrl, req, kino) : null;
 }
 /** Which embeds the default extraction can play: direct ones and known hosts; the rest are never offered. */
-defaultExtract.accepts = (e) => e.server === "direct" || !!extractorFor(e.embedUrl);
+defaultExtract.accepts = (e) => isDirect(e) || !!extractorFor(e.embedUrl);
 
 /** The whole resolve's own cap: 18.5 s, or 43.5 s when the hidden browser is approved. */
 export const callLimitMs = (kino) => (kino && kino.browser ? BROWSER_CALL_MS : CALL_MS);
@@ -264,9 +292,9 @@ export const callLimitMs = (kino) => (kino && kino.browser ? BROWSER_CALL_MS : C
 export const attemptMs = (kino, e) => (serverOf(e) === "voe" && canCapture(kino) ? VOE_ATTEMPT_MS : EXTRACT.deadlineMs);
 
 /** One extraction attempt, bounded by its own requester and `untilMs`; null on any failure. */
-async function attempt(kino, extract, e, source, untilMs) {
+async function attempt(kino, extract, e, source, untilMs, pools = []) {
   const deadline = Math.min(Date.now() + attemptMs(kino, e), untilMs);
-  const req = makeRequester(kino, { budget: EXTRACT.budget, deadline });
+  const req = makeRequester(kino, { budget: EXTRACT.budget, deadline, pools });
   const r = await within(kino, Promise.resolve().then(() => extract(e, req, kino, source)), Math.max(0, Math.min(deadline + 500, untilMs) - Date.now()), null);
   if (r.e) kino.log("[latino]", e.source, serverOf(e), (r.e && r.e.code) || "extract_failed");
   else if (r.late) kino.log("[latino]", e.source, serverOf(e), "late");
@@ -338,7 +366,7 @@ export async function resolveLazy(kino, ref, { sources = SOURCES, extract = defa
   if (!e) throw fail("bad copy ref");
   const source = sources.find((s) => s.id === e.source);
   const accepts = extract.accepts || (() => true);
-  if (!accepts(e) || (e.server === "direct" && !source)) throw fail("copy not playable: " + e.source + "/" + e.server);
+  if (!accepts(e) || (isDirect(e) && !source)) throw fail("copy not playable: " + e.source + "/" + e.server);
   const s = await attempt(kino, extract, e, source, untilMs ?? Date.now() + attemptMs(kino, e));
   if (!s) throw fail("copy did not open: " + e.source + "/" + serverOf(e));
   return toStream(kino, s, e, source ? source.name : e.source);
@@ -356,8 +384,10 @@ export async function resolveTitle(kino, title, settings, { sources = SOURCES, e
   const set = normalizeSettings(settings);
   // A call that starts late (a slow TMDB before it) shortens phase 1 so a copy can still be opened.
   const phase = Math.min(phaseMs, ms, Math.max(MIN_PHASE_MS, ms - 7000));
-  const { embeds, down, missing, cached, key } = await collect(kino, title, { enabled: set.enabled, sources, phaseMs: phase });
+  const call = requestPool(CALL_REQUESTS);
   const accepts = extract.accepts || (() => true);
+  const enough = (es) => new Set(es.filter(accepts).map((e) => e.embedUrl)).size >= EARLY.copies;
+  const { embeds, down, missing, cached, key } = await collect(kino, title, { enabled: set.enabled, sources, phaseMs: phase, call, enough });
   const playable = embeds.filter(accepts);
   const lang = pickLanguage(playable, set.preferred);
   if (!lang) {
@@ -378,7 +408,7 @@ export async function resolveTitle(kino, title, settings, { sources = SOURCES, e
   for (const e of pool) {
     if (tries >= EXTRACT.tries || until - Date.now() < 1500) break;
     tries++;
-    const s = await attempt(kino, extract, e, sourceOf(e), until);
+    const s = await attempt(kino, extract, e, sourceOf(e), until, [call]);
     if (!s) { failed.add(e); continue; }
     if (!main || (lang === "sub" && !hasSubs(main.s) && hasSubs(s))) main = { e, s };
     // A Subtitulado copy without subtitles from its host is kept only if no better one turns up.
@@ -389,7 +419,7 @@ export async function resolveTitle(kino, title, settings, { sources = SOURCES, e
   if (!main) {
     // Extracted here, not through its ref: a copy whose ref is too long for Kino can still be the main one.
     const first = rest.shift();
-    const s = first && until - Date.now() >= 1500 ? await attempt(kino, extract, first, sourceOf(first), until) : null;
+    const s = first && until - Date.now() >= 1500 ? await attempt(kino, extract, first, sourceOf(first), until, [call]) : null;
     if (s) {
       noteChoice(kino, ref, { total: pool.length, order: set.preferred, chosen: label(kino, first, nameOf(first)), rest: rest.map((e) => label(kino, e, nameOf(e))) });
       return withCopies(kino, toStream(kino, s, first, nameOf(first)), rest, nameOf);

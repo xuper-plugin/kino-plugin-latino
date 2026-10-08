@@ -14,9 +14,10 @@ xuper-plugin/kino-plugin-latino
 
 ## Fuentes
 
-LaMovie, HackStore, CineCalidad, SeriesMetro, Seriesflix, Embed69, Zoowomaniacos, DeepFlix y PelisSeriesHoy
-(esta última viene apagada). Cada título se busca en TMDB y se pide a todas las fuentes encendidas; Kino
-recibe una copia en tu idioma y las demás como alternativas en el menú Servidor.
+LaMovie, HackStore, CineCalidad, SeriesMetro, Seriesflix, Embed69, Zoowomaniacos, DeepFlix, PelisPlusHD,
+FuegoCine (solo películas), PelisPanda y PelisSeriesHoy (esta última viene apagada). Cada título se busca en
+TMDB y se pide a todas las fuentes encendidas; Kino recibe una copia en tu idioma y las demás como alternativas
+en el menú Servidor. Cuando ya hay copias de sobra, no se espera a las fuentes lentas.
 
 ## Ajustes
 
@@ -24,7 +25,8 @@ recibe una copia en tu idioma y las demás como alternativas en el menú Servido
   subtituladas solo cuando no existe otra opción.
 - **Calidad máxima**: Automática, hasta 1080p, 720p o 480p (ahorra datos). Las copias más grandes pasan al
   final de la lista, no se descartan.
-- **Fuentes**: un interruptor por fuente. Siempre debe quedar una encendida.
+- **Fuentes**: un interruptor para cada una de las ocho primeras (Kino admite 12 ajustes por plugin);
+  DeepFlix, PelisPlusHD, FuegoCine y PelisPanda están siempre encendidas. Siempre debe quedar una encendida.
 - **Filas en Inicio**: muestra o esconde los estrenos de Latino en el Inicio de Kino.
 - **Estado**: cada fuente dice si respondió en su última consulta. "Probar fuentes ahora" las consulta con
   un título de prueba, "Borrar caché" olvida las listas guardadas y "Restablecer preferencias" vuelve a los

@@ -166,7 +166,7 @@ test("module shape and registry order", () => {
   assert.deepEqual(seriesmetro.kinds, ["movie", "tv"]);
   assert.deepEqual(seriesflix.kinds, ["tv"]);
   for (const m of [cinecalidad, seriesmetro, seriesflix]) assert.ok(Array.isArray(m.HOSTS) && m.HOSTS.length && typeof m.name === "string");
-  assert.deepEqual(SOURCES.map((s) => s.id), ["lamovie", "hackstore", "cinecalidad", "seriesmetro", "seriesflix", "embed69", "peliserieshoy", "zoowomaniacos", "deepflix", "xupalace", "pelisplus", "fuegocine", "pelisgo", "pelispanda", "videasy", "cuevanaubd", "playhubmax", "cinemacity"]);
+  assert.deepEqual(SOURCES.map((s) => s.id), ["lamovie", "hackstore", "cinecalidad", "seriesmetro", "seriesflix", "embed69", "peliserieshoy", "zoowomaniacos", "deepflix", "pelisplus", "fuegocine", "pelispanda"]);
   assert.equal(sourceById("seriesflix"), seriesflix);
 });
 

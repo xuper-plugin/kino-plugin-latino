@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { fakeKino } from "./helpers/fakeKino.mjs";
 import { listEmbeds, pickLanguage, rank, resolveTitle, lazyRef, resolveLazy, attemptMs, callLimitMs } from "../src/resolver.js";
 import { UA } from "../src/util/http.js";
+import { readHealth } from "../src/health.js";
 
 const T = { kind: "movie", tmdbId: 550, season: null, episode: null, titles: {}, year: 1999 };
 const src = (id, embeds, delay = 0) => ({ id, name: id, kinds: ["movie", "tv"], list: async () => { if (delay) await new Promise((r) => setTimeout(r, delay)); return embeds; } });
@@ -371,4 +372,48 @@ test("budgets: a resolve that starts with little time left shortens phase 1 but 
   await assert.rejects(resolveTitle(realSleep(kino), T, {}, { sources: [hung], extract: okExtract, callMs: 4000 }));
   const took = Date.now() - t0;
   assert.ok(took >= 2900 && took < 4300, `took ${took}`);
+});
+
+test("direct-<profile> copies play with the source's profile headers and mime; an unknown profile is not a copy", async () => {
+  const { kino } = fakeKino();
+  const source = { id: "cc", name: "CC", kinds: ["movie"], ORIGIN: "https://cc.example",
+    DIRECT: { cookie: { headers: { Referer: "https://cc.example/", Cookie: "a=1" }, mime: "application/vnd.apple.mpegurl" } },
+    list: async () => [
+      { source: "cc", lang: "lat", server: "direct-cookie", embedUrl: "https://cdn.example/hls/abc", quality: null },
+      { source: "cc", lang: "lat", server: "direct-nope", embedUrl: "https://cdn.example/other", quality: null },
+    ] };
+  const s = await resolveTitle(kino, T, {}, { sources: [source] });
+  assert.equal(s.url, "https://cdn.example/hls/abc");
+  assert.equal(s.mime, "application/vnd.apple.mpegurl");
+  assert.deepEqual(s.headers, { "User-Agent": UA, Referer: "https://cc.example/", Cookie: "a=1" });
+  assert.equal(s.label, "Latino · CC · Directo");
+});
+
+test("call allowance: sources that would spend every request still leave room to open a copy", async () => {
+  let fetches = 0;
+  const { kino } = fakeKino({ fetch: async () => { fetches++; return { status: 404, body: "" }; } });
+  const greedy = (id) => ({ id, name: id, kinds: ["movie"], list: async (t, { req }) => {
+    for (let i = 0; i < 12; i++) { try { await req(`https://lamovie.org/${id}/${i}`, { retry: false }); } catch (e) { if (e.local) break; throw e; } }
+    return id === "g1" ? [E("g1", "lat", "vimeos", 1)] : [];
+  } });
+  let extractReqs = 0;
+  const extract = async (e, req) => { await req("https://lamovie.org/extract", { retry: false }); extractReqs++; return { url: e.embedUrl + "/master.m3u8" }; };
+  extract.accepts = () => true;
+  const s = await resolveTitle(kino, T, {}, { sources: ["g1", "g2", "g3", "g4", "g5"].map(greedy), extract });
+  assert.ok(s.url.endsWith("/master.m3u8"));
+  assert.equal(extractReqs, 1);
+  assert.ok(fetches <= 37, `phase 1 kept to its 36 requests (${fetches - 1} spent)`);
+});
+
+test("early end: with 6 playable copies after 2.5 s a resolve stops waiting for a slow source, which is not marked failing", async () => {
+  const { kino } = fakeKino({ extra: { sleep: (ms) => new Promise((r) => setTimeout(r, ms)) } });
+  const fast = src("fast", [1, 2, 3, 4, 5, 6].map((n) => E("fast", "lat", "vimeos", n)));
+  const slow = src("slow", [E("slow", "lat", "vimeos", 99)], 6000);
+  const t0 = Date.now();
+  const s = await resolveTitle(kino, T, {}, { sources: [fast, slow], extract: Object.assign((e) => okExtract(e), { accepts: () => true }) });
+  const took = Date.now() - t0;
+  assert.ok(s.url.endsWith("/master.m3u8"));
+  assert.ok(took >= 2400 && took < 4500, `took ${took} ms`);
+  assert.equal("slow" in readHealth(kino), false, "a source cut short is not a failure");
+  assert.equal(readHealth(kino).fast.ok, true);
 });
