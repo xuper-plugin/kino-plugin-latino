@@ -74,7 +74,11 @@
     "fuegocine.com",
     "drive.usercontent.google.com",
     "pelisgo.online",
-    "pelispanda.org"
+    "pelispanda.org",
+    "api.videasy.net",
+    "api2.videasy.net",
+    "enc-dec.app",
+    "cuevana.unbuendato.com"
   ],
   "capabilities": [
     "search",
@@ -243,6 +247,18 @@
       "key": "src_pelispanda",
       "type": "toggle",
       "label": "PelisPanda",
+      "default": true
+    },
+    {
+      "key": "src_videasy",
+      "type": "toggle",
+      "label": "VidEasy Latino",
+      "default": true
+    },
+    {
+      "key": "src_cuevanaubd",
+      "type": "toggle",
+      "label": "Cuevana UBD",
       "default": true
     },
     {

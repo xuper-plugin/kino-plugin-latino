@@ -15,7 +15,7 @@ const covered = hostDeclared;
 
 // Named in the code but never fetched: image URLs are not checked against `hosts` (contract.md, images), and
 // sololatino.net is only a Referer header value.
-const NOT_FETCHED = new Set(["image.tmdb.org", "sololatino.net"]);
+const NOT_FETCHED = new Set(["image.tmdb.org", "sololatino.net", "cineby.sc"]);
 
 function walk(dir) {
   return readdirSync(dir).flatMap((n) => {
@@ -89,7 +89,7 @@ test("manifest: telemetry on, browser on, debug left off, section and theme kept
 test("settings form: limits, explicit toggle defaults that match readSettings, keys that match the sources", () => {
   const s = manifest.settings;
   const valued = s.filter((x) => !["section", "status", "action"].includes(x.type));
-  assert.ok(valued.length <= 17);
+  assert.ok(valued.length <= 19);
   assert.ok(s.length - valued.length <= 16);
   assert.equal(new Set(s.map((x) => x.key)).size, s.length);
   for (const x of s) {
