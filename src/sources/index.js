@@ -14,8 +14,10 @@ import * as pelisgo from "./pelisgo.js";
 import * as pelispanda from "./pelispanda.js";
 import * as videasy from "./videasy.js";
 import * as cuevanaubd from "./cuevanaubd.js";
+import * as playhubmax from "./playhubmax.js";
+import * as cinemacity from "./cinemacity.js";
 
 /** Sources in priority order. */
-export const SOURCES = [lamovie, hackstore, cinecalidad, seriesmetro, seriesflix, embed69, peliserieshoy, zoowomaniacos, deepflix, xupalace, pelisplus, fuegocine, pelisgo, pelispanda, videasy, cuevanaubd];
+export const SOURCES = [lamovie, hackstore, cinecalidad, seriesmetro, seriesflix, embed69, peliserieshoy, zoowomaniacos, deepflix, xupalace, pelisplus, fuegocine, pelisgo, pelispanda, videasy, cuevanaubd, playhubmax, cinemacity];
 
 export const sourceById = (id) => SOURCES.find((s) => s.id === id) || null;

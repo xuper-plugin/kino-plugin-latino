@@ -78,7 +78,10 @@
     "api.videasy.net",
     "api2.videasy.net",
     "enc-dec.app",
-    "cuevana.unbuendato.com"
+    "cuevana.unbuendato.com",
+    "www.playhubmax.com",
+    "api.playhubmax.com",
+    "cinemacity.cc"
   ],
   "capabilities": [
     "search",
@@ -259,6 +262,18 @@
       "key": "src_cuevanaubd",
       "type": "toggle",
       "label": "Cuevana UBD",
+      "default": true
+    },
+    {
+      "key": "src_playhubmax",
+      "type": "toggle",
+      "label": "PlayHubMax",
+      "default": true
+    },
+    {
+      "key": "src_cinemacity",
+      "type": "toggle",
+      "label": "CinemaCity",
       "default": true
     },
     {

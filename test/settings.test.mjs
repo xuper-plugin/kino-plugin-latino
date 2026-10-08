@@ -126,7 +126,7 @@ test("action resetPrefs: clearSettings names only the person's preferences, all 
   install();
   const r = await plugin.action("resetPrefs");
   const byKey = Object.fromEntries(manifest.settings.map((s) => [s.key, s]));
-  assert.ok(r.clearSettings.length <= 19);
+  assert.ok(r.clearSettings.length <= 21);
   for (const k of r.clearSettings) {
     assert.ok(byKey[k] && !["section", "status", "action"].includes(byKey[k].type) && !byKey[k].required, k);
   }
