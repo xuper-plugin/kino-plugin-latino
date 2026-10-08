@@ -163,6 +163,28 @@ async function episodeList(kino, tmdbId, { untilMs } = {}) {
   if (failure && !okChunks) throw failure;
   return { series: { rating: typeof s.vote_average === "number" ? s.vote_average : null, runtimeMinutes: runtime }, episodes: episodes2 };
 }
+var SUMMARY_CAST = 5;
+async function summaryOf(kino, kind, tmdbId, { untilMs } = {}) {
+  if (typeof kino.tmdb !== "function") return null;
+  try {
+    const d = await tmdb(kino, `/${kind === "tv" ? "tv" : "movie"}/${tmdbId}`, { language: "es-MX", append_to_response: "credits" }, { untilMs });
+    if (!d || typeof d !== "object") return null;
+    const rating = typeof d.vote_average === "number" && d.vote_average > 0 ? Math.round(d.vote_average * 10) / 10 : null;
+    return {
+      poster: img("w342", d.poster_path),
+      rating,
+      genres: (d.genres || []).map((g) => g && g.name).filter(Boolean),
+      overview: typeof d.overview === "string" ? d.overview.trim() : "",
+      cast: (d.credits && d.credits.cast || []).map((c) => c && c.name).filter(Boolean).slice(0, SUMMARY_CAST)
+    };
+  } catch (e) {
+    try {
+      kino.log("[latino]", "summary", e && e.code || "error");
+    } catch (_) {
+    }
+    return null;
+  }
+}
 
 // src/sources/lamovie.js
 var lamovie_exports = {};
@@ -205,13 +227,13 @@ function unpack(source) {
 
 // src/extractors/shared.js
 var HLS_MIME = "application/vnd.apple.mpegurl";
-function fileM3u8(text, base) {
-  const m = /\bfile\s*:\s*["']([^"']+\.m3u8[^"']*)["']/.exec(text || "");
+function fileM3u8(text3, base) {
+  const m = /\bfile\s*:\s*["']([^"']+\.m3u8[^"']*)["']/.exec(text3 || "");
   return m ? absolute(m[1], base) : null;
 }
-function hlsKey(text, keys, base) {
+function hlsKey(text3, keys, base) {
   for (const k of keys) {
-    const m = new RegExp(`["']${k}["']\\s*:\\s*["']([^"']+)["']`).exec(text || "");
+    const m = new RegExp(`["']${k}["']\\s*:\\s*["']([^"']+)["']`).exec(text3 || "");
     if (m) return absolute(m[1].replace(/\\\//g, "/"), base);
   }
   return null;
@@ -248,8 +270,8 @@ function langCode(label2) {
   for (const [re, code] of LANG_CODES) if (re.test(s)) return code;
   return null;
 }
-function captionTracks(text, base) {
-  const m = /["']?\btracks["']?\s*:\s*\[([\s\S]*?)\]/.exec(text || "");
+function captionTracks(text3, base) {
+  const m = /["']?\btracks["']?\s*:\s*\[([\s\S]*?)\]/.exec(text3 || "");
   if (!m) return [];
   const out = [];
   for (const [obj] of m[1].matchAll(/\{[^{}]*\}/g)) {
@@ -266,9 +288,9 @@ function captionTracks(text, base) {
   }
   return out;
 }
-function durationMsOf(text) {
+function durationMsOf(text3) {
   const re = /(?<![-\w])duration["']?\s*:\s*["']?(\d+(?:\.\d+)?)(?![\d.])(?!\s*m?s\b)/g;
-  for (const m of String(text || "").matchAll(re)) {
+  for (const m of String(text3 || "").matchAll(re)) {
     const ms = Math.round(Number(m[1]) * 1e3);
     if (ms >= 6e4) return ms;
   }
@@ -799,9 +821,9 @@ function unescapeAttr(value) {
     return ENTITIES[code.toLowerCase()] ?? all;
   });
 }
-var parse = (text) => {
+var parse = (text3) => {
   try {
-    return JSON.parse(text);
+    return JSON.parse(text3);
   } catch (_) {
     return null;
   }
@@ -887,8 +909,8 @@ function slugify(title) {
 }
 
 // src/util/lang.js
-function normLang(text) {
-  const s = String(text || "").toLowerCase();
+function normLang(text3) {
+  const s = String(text3 || "").toLowerCase();
   if (/\b(sub|subs|vose|subtitulado|subtitulada)\b/.test(s)) return "sub";
   if (/\b(lat|latino|latam|mx|es-mx)\b/.test(s)) return "lat";
   if (/\b(cast|castellano|esp|español|espanol|es-es|spain)\b/.test(s)) return "esp";
@@ -897,8 +919,8 @@ function normLang(text) {
 }
 
 // src/util/quality.js
-function qualityOf(text) {
-  const s = String(text || "").toLowerCase();
+function qualityOf(text3) {
+  const s = String(text3 || "").toLowerCase();
   const p = /(?<!\d)(2160|1440|1080|720|576|480|360|240)p/.exec(s);
   if (p) return p[1] + "p";
   if (/\b(4k|uhd)\b/.test(s)) return "2160p";
@@ -940,8 +962,8 @@ function episodeYearOk(found, title) {
   const y = Number(found);
   return y >= first - 1 && y <= Math.max(first, last) + 1;
 }
-var yearIn = (text) => {
-  const m = /\((\d{4})\)/.exec(String(text || ""));
+var yearIn = (text3) => {
+  const m = /\((\d{4})\)/.exec(String(text3 || ""));
   return m ? Number(m[1]) : null;
 };
 async function firstHit(candidates, probe2, max = MAX_PROBES) {
@@ -1003,8 +1025,8 @@ var postTypeOf = (kind) => tvKind(kind) ? "tvshows" : "movies";
 var PLACEHOLDER = /a[uú]n no hemos a[ñn]adido/i;
 var ENTITIES2 = { amp: "&", quot: '"', "#039": "'", apos: "'", lt: "<", gt: ">", nbsp: " " };
 function cleanText(s) {
-  const text = String(s || "").replace(/<[^>]*>/g, " ").replace(/&(amp|quot|#039|apos|lt|gt|nbsp);/g, (_, e) => ENTITIES2[e]).replace(/\s+/g, " ").trim();
-  return PLACEHOLDER.test(text) ? "" : text;
+  const text3 = String(s || "").replace(/<[^>]*>/g, " ").replace(/&(amp|quot|#039|apos|lt|gt|nbsp);/g, (_, e) => ENTITIES2[e]).replace(/\s+/g, " ").trim();
+  return PLACEHOLDER.test(text3) ? "" : text3;
 }
 function siteRef(prefix, postId, kind, slug, year2) {
   const clean = String(slug || "").toLowerCase().replace(/[^a-z0-9-]/g, "").slice(0, 200);
@@ -2020,6 +2042,7 @@ function t(key, kino = globalThis.kino) {
 function tf(key, vars, kino = globalThis.kino) {
   return t(key, kino).replace(/\{(\w+)\}/g, (m, k) => vars && vars[k] != null ? String(vars[k]) : m);
 }
+var both = (key, vars) => ({ es: tf(key, vars, { lang: "es" }), en: tf(key, vars, { lang: "en" }) });
 var has = (key) => Object.prototype.hasOwnProperty.call(WORDS.es, key);
 var KEYS = { es: Object.keys(WORDS.es), en: Object.keys(WORDS.en) };
 
@@ -2066,6 +2089,12 @@ function writeLast(kino, ref, rec) {
     chosen: isStr(rec.chosen) ? rec.chosen : "",
     alternatives: Array.isArray(rec.alternatives) ? rec.alternatives.filter(isStr).slice(0, MAX_ALTERNATIVES) : []
   }, LAST_TTL_MS);
+}
+function readLast(kino, ref) {
+  if (!isStr(ref) || !ref) return null;
+  const r = readJson(kino, LAST_PREFIX + ref);
+  if (!r || !isStr(r.chosen) || !Array.isArray(r.alternatives)) return null;
+  return { at: Number(r.at) || 0, total: Number(r.total) || 0, order: isStr(r.order) ? r.order : "", chosen: r.chosen, alternatives: r.alternatives.filter(isStr) };
 }
 
 // src/settings.js
@@ -2318,8 +2347,8 @@ function toStream(kino, s, e, sourceName) {
   return out;
 }
 var hasSubs = (s) => Array.isArray(s.subtitles) && s.subtitles.length > 0;
-function b64url(text) {
-  const bytes = new TextEncoder().encode(text);
+function b64url(text3) {
+  const bytes = new TextEncoder().encode(text3);
   let bin = "";
   for (const b of bytes) bin += String.fromCharCode(b);
   return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
@@ -2531,8 +2560,8 @@ async function searchWithin(kino, settings, within2, q, cursor, { untilMs } = {}
   if (got.every((l) => l === null)) return null;
   const lists = got.map((l) => l || []);
   const hits = lists.flat().filter((i) => {
-    const text = fold(i.title + " " + (i.originalTitle || ""));
-    return words.every((w) => text.includes(w));
+    const text3 = fold(i.title + " " + (i.originalTitle || ""));
+    return words.every((w) => text3.includes(w));
   });
   const items = dedup(hits.map((i) => dress(kino, i)));
   const more = lists[lists.length - 1].length > 0 && start + PAGES_PER_CALL <= MAX_PAGE;
@@ -2871,9 +2900,101 @@ function markEpisodes(kino, out, missing) {
   return { ...out, episodes: out.episodes.map((e) => gone.has(e.season) ? { ...e, title: markTitle(e.title, kino) } : e) };
 }
 
+// src/panel/copy.js
+var STALLS_HINT_AT = 3;
+var NETWORK_KEY = { wifi: "netWifi", ethernet: "netEthernet", cellular: "netCellular", other: "netOther" };
+var text = (p) => ({ type: "text", text: p.es, textEn: p.en });
+var pair = (f) => ({ es: f("es"), en: f("en") });
+var isNum = (n) => typeof n === "number" && Number.isFinite(n);
+function copyTab(kino, ctx) {
+  const playing = ctx && ctx.playing || {};
+  const stats = ctx && ctx.stats || {};
+  const lines = [];
+  if (playing.label) lines.push({ type: "text", text: String(playing.label), textEn: String(playing.label) });
+  if (playing.lang) lines.push(text(pair((l) => t("copyLang", { lang: l }).replace("{v}", t(playing.lang, { lang: l })))));
+  if (playing.quality) lines.push(text(both("copyQuality", { v: playing.quality })));
+  if (playing.server) lines.push(text(both("copyServer", { v: SERVER_LABEL[playing.server] || playing.server })));
+  const last = ctx && ctx.ref ? readLast(kino, ctx.ref) : null;
+  if (last && last.total > 0) lines.push(text(both("copyChosen", { n: last.total })));
+  if (!lines.length) lines.push(text(both("copyNoInfo")));
+  const elements = [{ type: "card", title: t("nowPlaying", { lang: "es" }), titleEn: t("nowPlaying", { lang: "en" }), children: lines }];
+  const statLines = [];
+  if (isNum(stats.width) && isNum(stats.height)) statLines.push(text(both("statResolution", { v: `${stats.width}x${stats.height}` })));
+  if (stats.network) {
+    const key = NETWORK_KEY[stats.network] || "netOther";
+    statLines.push(text(pair((l) => t("statNetwork", { lang: l }).replace("{v}", t(key, { lang: l })))));
+  }
+  if (isNum(stats.stallsThisSession)) statLines.push(text(both("statStalls", { v: stats.stallsThisSession })));
+  elements.push(...statLines);
+  if (isNum(stats.stallsThisSession) && stats.stallsThisSession >= STALLS_HINT_AT) {
+    const m = both("stallsHint", { n: stats.stallsThisSession });
+    elements.push({ type: "status", text: m.es, textEn: m.en });
+  }
+  return { elements, refreshMs: 5e3 };
+}
+
+// src/panel/summary.js
+var MAX_OVERVIEW = 240;
+var cut = (s) => s.length <= MAX_OVERVIEW ? s : s.slice(0, MAX_OVERVIEW - 1).trimEnd() + "\u2026";
+var text2 = (p) => ({ type: "text", text: p.es, textEn: p.en });
+async function summaryTab(kino, ctx, { untilMs } = {}) {
+  if (!ctx || ctx.kind === "live" || !ctx.ids || !ctx.ids.tmdb || typeof kino.tmdb !== "function") return null;
+  const s = await summaryOf(kino, ctx.kind === "episode" ? "tv" : "movie", ctx.ids.tmdb, { untilMs });
+  if (!s) return null;
+  const col = [];
+  const head = [];
+  if (s.rating != null) head.push(both("sumRating", { v: s.rating }));
+  if (s.genres.length) head.push({ es: s.genres.join(", "), en: s.genres.join(", ") });
+  if (head.length) col.push(text2({ es: head.map((h) => h.es).join(" \xB7 "), en: head.map((h) => h.en).join(" \xB7 ") }));
+  if (s.overview) col.push({ type: "text", text: cut(s.overview) });
+  if (s.cast.length) col.push(text2(both("sumCast", { v: s.cast.join(", ") })));
+  if (!col.length && !s.poster) return null;
+  const children = [];
+  if (s.poster) children.push({ type: "image", url: s.poster, aspect: "2:3", alt: String(ctx.title || "").slice(0, 200) });
+  if (col.length) children.push({ type: "col", children: col });
+  return { elements: [{ type: "row", children }] };
+}
+
 // src/panel/index.js
+var TITLE_MAX = 60;
+var DEFAULT_TAB = "copy";
+var TABS2 = [
+  { id: "copy", label: "tabCopy", when: () => true, load: async (kino, ctx) => copyTab(kino, ctx) },
+  { id: "summary", label: "tabSummary", when: (kino, ctx) => ctx.kind !== "live" && !!(ctx.ids && ctx.ids.tmdb) && typeof kino.tmdb === "function", load: (kino, ctx, dl) => summaryTab(kino, ctx, { untilMs: dl.end }) },
+  { id: "avail", label: "tabAvail", when: (kino, ctx) => ctx.kind !== "live", load: null },
+  { id: "prefs", label: "tabPrefs", when: () => true, load: null },
+  { id: "fail", label: "tabFail", when: () => true, load: null }
+];
 async function panel(ctx) {
-  return { title: "Latino", titleEn: "Latino", elements: [{ type: "status", text: "Cargando...", textEn: "Loading..." }] };
+  const kino = globalThis.kino;
+  ctx = ctx || {};
+  const dl = callDeadline(kino, "panel");
+  const available = TABS2.filter((x) => x.when(kino, ctx));
+  const active = available.find((x) => x.id === ctx.tab) || available.find((x) => x.id === DEFAULT_TAB);
+  let body = null;
+  try {
+    if (active.load) body = await active.load(kino, ctx, dl);
+  } catch (e) {
+    try {
+      kino.log("[latino]", "panel tab", active.id, e && e.code || "error");
+    } catch (_) {
+    }
+  }
+  if (!body || !Array.isArray(body.elements)) {
+    const m = both("tabError");
+    body = { elements: [{ type: "status", text: m.es, textEn: m.en }] };
+  }
+  const title = String(ctx.title || t("panelTitle", { lang: "es" })).slice(0, TITLE_MAX);
+  const out = {
+    title,
+    titleEn: title,
+    presentation: ctx.device === "tv" ? "panel" : "modal",
+    tabs: available.map((x) => ({ id: x.id, label: t(x.label, { lang: "es" }), labelEn: t(x.label, { lang: "en" }) })),
+    tab: active.id,
+    elements: body.elements
+  };
+  if (active.id === "copy" && body.refreshMs) out.refreshMs = body.refreshMs;
+  return out;
 }
 async function panelAction() {
   return null;
@@ -3019,7 +3140,7 @@ async function resolve(ref) {
 }
 var PREFERENCE_KEYS = ["preferred", "maxQuality", "homeRows", ...SOURCES.map((s) => "src_" + s.id)];
 var PROBE_TMDB_ID = 550;
-var fill = (text, vars) => text.replace(/\{(\w+)\}/g, (_, k) => String(vars[k]));
+var fill = (text3, vars) => text3.replace(/\{(\w+)\}/g, (_, k) => String(vars[k]));
 async function settingsStatus() {
   const kino = getKino();
   return { health: healthLine(kino, readHealth(kino)) };
