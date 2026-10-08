@@ -131,3 +131,29 @@ export async function episodeList(kino, tmdbId, { untilMs } = {}) {
   if (failure && !okChunks) throw failure;
   return { series: { rating: typeof s.vote_average === "number" ? s.vote_average : null, runtimeMinutes: runtime }, episodes };
 }
+
+const SUMMARY_CAST = 5;
+
+/**
+ * The little the panel's Resumen shows: poster, rating, genres, overview and the first five cast names. `kind` is
+ * "movie" or "tv". null when kino.tmdb is missing (Kino 0.9.54) or fails for any reason (logged by code): the tab then
+ * just disappears.
+ */
+export async function summaryOf(kino, kind, tmdbId, { untilMs } = {}) {
+  if (typeof kino.tmdb !== "function") return null;
+  try {
+    const d = await tmdb(kino, `/${kind === "tv" ? "tv" : "movie"}/${tmdbId}`, { language: "es-MX", append_to_response: "credits" }, { untilMs });
+    if (!d || typeof d !== "object") return null;
+    const rating = typeof d.vote_average === "number" && d.vote_average > 0 ? Math.round(d.vote_average * 10) / 10 : null;
+    return {
+      poster: img("w342", d.poster_path),
+      rating,
+      genres: (d.genres || []).map((g) => g && g.name).filter(Boolean),
+      overview: typeof d.overview === "string" ? d.overview.trim() : "",
+      cast: ((d.credits && d.credits.cast) || []).map((c) => c && c.name).filter(Boolean).slice(0, SUMMARY_CAST),
+    };
+  } catch (e) {
+    try { kino.log("[latino]", "summary", (e && e.code) || "error"); } catch (_) { /* logging is optional */ }
+    return null;
+  }
+}
