@@ -44,3 +44,25 @@ test("home: nothing is remembered, the next load asks the source again", async (
   const rows = await buildRows(kino, readSettings(kino), HOME_ROWS, { untilMs: Date.now() + 5000 });
   assert.ok(rows.map((r) => r.id).includes("hs-latest"), "the source is back in the next load");
 });
+
+test("home: the row clock never asks the host to sleep more than 5000 ms (Kino rejects longer sleeps)", async () => {
+  forgetListings();
+  const asked = [];
+  const { kino } = fakeKino({
+    extra: {
+      sleep: (ms) => {
+        if (!(ms >= 0 && ms <= 5000)) throw new Error("[host] takes 0 to 5000 ms");
+        asked.push(ms);
+        return new Promise((r) => setTimeout(r, ms).unref());
+      },
+    },
+    fetch: async (u) => {
+      for (const [re, fx] of LISTINGS) if (re.test(u)) return { status: 200, body: fixture(fx) };
+      return { status: 404, body: "" };
+    },
+  });
+  globalThis.kino = kino;
+  const rows = await buildRows(kino, readSettings(kino), HOME_ROWS);
+  assert.ok(rows.map((r) => r.id).includes("lm-movies"), "the Home still builds with the default 10 s page budget");
+  assert.ok(asked.every((ms) => ms <= 5000), `every sleep within the host limit, saw ${asked.join(",")}`);
+});

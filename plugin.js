@@ -343,7 +343,7 @@ __export(streamwish_exports, {
 var kino_plugin_default = {
   id: "latino",
   name: "Latino",
-  version: "2.0.3",
+  version: "2.0.4",
   apiVersion: 9,
   panel: {
     label: "Latino",
@@ -3208,10 +3208,19 @@ async function buildRows(kino, settings, defs, { untilMs } = {}) {
   return rows3.filter(Boolean);
 }
 var ROW_GRACE_MS = 600;
+var SLEEP_CHUNK_MS = 4500;
+async function sleepUpTo(kino, ms) {
+  let left = Math.max(ms, 0);
+  while (left > 0) {
+    const chunk = Math.min(left, SLEEP_CHUNK_MS);
+    await kino.sleep(chunk);
+    left -= chunk;
+  }
+}
 async function withinRowTime(kino, row, ms, id13) {
   const late = Symbol("late");
   const started = Date.now();
-  const first = await Promise.race([row, kino.sleep(Math.max(ms, 0)).then(() => late)]);
+  const first = await Promise.race([row, sleepUpTo(kino, ms).then(() => late)]);
   if (first === late && Date.now() - started < ms - 50) return row;
   if (first === late) {
     kino.log("[latino]", "row", id13, "skipped: its source did not answer in time");

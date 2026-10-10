@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.0.4
+
+- Fix (2.0.3): the Home failed on every load ("[host] takes 0 to 5000 ms"): the row clock asked Kino to sleep up to 10.6 s
+  and Kino only accepts 0 to 5000 ms. The wait is now made of sleeps of at most 4.5 s.
+  / Arreglo: el Home de Latino fallaba en cada carga; el reloj de cada fila pedía dormir más de lo que Kino permite.
+
 ## 2.0.3
 
 - Fix: a source that never answers no longer holds the whole Home. Each row now has its own clock, independent of the

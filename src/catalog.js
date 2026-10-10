@@ -220,10 +220,20 @@ export async function buildRows(kino, settings, defs, { untilMs } = {}) {
  * A row that is not back in time is skipped for this load only; nothing is remembered, the next load asks its source again.
  */
 const ROW_GRACE_MS = 600;
+/** Kino's `sleep` only takes 0 to 5000 ms and throws otherwise, so a longer wait is made of shorter sleeps. */
+const SLEEP_CHUNK_MS = 4500;
+async function sleepUpTo(kino, ms) {
+  let left = Math.max(ms, 0);
+  while (left > 0) {
+    const chunk = Math.min(left, SLEEP_CHUNK_MS);
+    await kino.sleep(chunk);
+    left -= chunk;
+  }
+}
 async function withinRowTime(kino, row, ms, id) {
   const late = Symbol("late");
   const started = Date.now();
-  const first = await Promise.race([row, kino.sleep(Math.max(ms, 0)).then(() => late)]);
+  const first = await Promise.race([row, sleepUpTo(kino, ms).then(() => late)]);
   // A clock that came back before its time (a stubbed sleep) proves nothing: the row is waited for as before.
   if (first === late && Date.now() - started < ms - 50) return row;
   if (first === late) {
