@@ -343,7 +343,7 @@ __export(streamwish_exports, {
 var kino_plugin_default = {
   id: "latino",
   name: "Latino",
-  version: "2.0.2",
+  version: "2.0.3",
   apiVersion: 9,
   panel: {
     label: "Latino",
@@ -3204,7 +3204,25 @@ var TABS = {
 };
 async function buildRows(kino, settings, defs, { untilMs } = {}) {
   const deadlineMs = upTo(PAGE_MS, untilMs);
-  const rows3 = await Promise.all(defs.map(async (d) => {
+  const rows3 = await Promise.all(defs.map((d) => withinRowTime(kino, buildRow(kino, settings, d, deadlineMs), deadlineMs + ROW_GRACE_MS, d.id)));
+  return rows3.filter(Boolean);
+}
+var ROW_GRACE_MS = 600;
+async function withinRowTime(kino, row, ms, id13) {
+  const late = Symbol("late");
+  const started = Date.now();
+  const first = await Promise.race([row, kino.sleep(Math.max(ms, 0)).then(() => late)]);
+  if (first === late && Date.now() - started < ms - 50) return row;
+  if (first === late) {
+    kino.log("[latino]", "row", id13, "skipped: its source did not answer in time");
+    row.catch(() => {
+    });
+    return null;
+  }
+  return first;
+}
+async function buildRow(kino, settings, d, deadlineMs) {
+  {
     const site = siteFor(settings, { site: d.site, genre: d.genreSlug || null });
     if (!site) return null;
     try {
@@ -3218,8 +3236,7 @@ async function buildRows(kino, settings, defs, { untilMs } = {}) {
       kino.log("[latino]", "row", d.id, e && e.code || "error");
       return null;
     }
-  }));
-  return rows3.filter(Boolean);
+  }
 }
 var clip = (s, n = 300) => s.length <= n ? s : s.slice(0, s.lastIndexOf(" ", n - 1) > 0 ? s.lastIndexOf(" ", n - 1) : n - 1).replace(/[\s,.;:]+$/, "") + "\u2026";
 var tabs = (kino) => [

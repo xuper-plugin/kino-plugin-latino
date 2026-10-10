@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.0.3
+
+- Fix: a source that never answers no longer holds the whole Home. Each row now has its own clock, independent of the
+  request queue (a request waiting behind a dead site used to spend none of its 8 s), so Kino stopped switching the plugin off
+  as "No responde" when a single site was down. A row that is late is skipped for that load only, never remembered.
+  / Arreglo: una fuente que no responde ya no deja colgado todo el Home; solo se salta esa fila en esa carga.
+
 ## 2.0.2
 
 - Fix (2.0.1): the early end of the copy search counted copies in any language, so six Subtitulado copies could cut

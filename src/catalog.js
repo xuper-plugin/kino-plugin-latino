@@ -210,7 +210,32 @@ const TABS = {
  */
 export async function buildRows(kino, settings, defs, { untilMs } = {}) {
   const deadlineMs = upTo(PAGE_MS, untilMs);
-  const rows = await Promise.all(defs.map(async (d) => {
+  const rows = await Promise.all(defs.map((d) => withinRowTime(kino, buildRow(kino, settings, d, deadlineMs), deadlineMs + ROW_GRACE_MS, d.id)));
+  return rows.filter(Boolean);
+}
+
+/**
+ * A row's own clock. A request's 8 s limit only starts when it leaves Kino, and a request waiting its turn behind a dead site
+ * spends none of it: without this clock one hung source holds the whole Home past Kino's 20 s, and Kino switches the plugin off.
+ * A row that is not back in time is skipped for this load only; nothing is remembered, the next load asks its source again.
+ */
+const ROW_GRACE_MS = 600;
+async function withinRowTime(kino, row, ms, id) {
+  const late = Symbol("late");
+  const started = Date.now();
+  const first = await Promise.race([row, kino.sleep(Math.max(ms, 0)).then(() => late)]);
+  // A clock that came back before its time (a stubbed sleep) proves nothing: the row is waited for as before.
+  if (first === late && Date.now() - started < ms - 50) return row;
+  if (first === late) {
+    kino.log("[latino]", "row", id, "skipped: its source did not answer in time");
+    row.catch(() => {}); // a late failure is nobody's business any more
+    return null;
+  }
+  return first;
+}
+
+async function buildRow(kino, settings, d, deadlineMs) {
+  {
     const site = siteFor(settings, { site: d.site, genre: d.genreSlug || null });
     if (!site) return null;
     try {
@@ -224,8 +249,7 @@ export async function buildRows(kino, settings, defs, { untilMs } = {}) {
       kino.log("[latino]", "row", d.id, (e && e.code) || "error");
       return null;
     }
-  }));
-  return rows.filter(Boolean);
+  }
 }
 
 /** Up to 300 characters, cut at a word. */
