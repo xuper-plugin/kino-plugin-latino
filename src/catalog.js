@@ -322,9 +322,46 @@ const MOVIE_TILES = ["accion", "comedia", "drama", "terror", "suspense", "animac
   "romance", "familia", "fantasia", "misterio", "documental", "historia", "belica", "musica", "western"];
 const SERIES_TILES = ["drama", "comedia", "crimen", "animacion", "sci-fi-fantasy", "action-adventure"];
 
-/** Category tiles: movie genres, then series genres; each opens its genre's "Ver más". 24 at most. */
+/**
+ * One backdrop per tile: a well-known title of the genre, chosen by hand, its TMDB image path at w780 (checked with a
+ * HEAD request on image.tmdb.org: 200, image/jpeg). Static on purpose: `categories()` asks nothing of the network, so
+ * Kino's Categorías screen paints at once. The art URL is not checked against `hosts`, which is why the pictures can
+ * come from a host the plugin never fetches. A path that stops answering costs one tile its picture, nothing else.
+ */
+const TILE_ART_SIZE = "w780";
+const MOVIE_ART = {
+  accion: "/gqrnQA6Xppdl8vIb2eJc58VC1tW.jpg", // Mad Max: Fury Road
+  comedia: "/jK65srQczOKTpW62wPxwwKztGgE.jpg", // The Grand Budapest Hotel
+  drama: "/pNjh59JSxChQktamG3LMp9ZoQzp.jpg", // The Shawshank Redemption
+  terror: "/nHRUtBwFNnNN70vcQ7lAsjc2T6S.jpg", // A Quiet Place
+  suspense: "/iWak7wT0j6ycCc8lKr4NBz9c7n5.jpg", // Gone Girl
+  animacion: "/g7CHF8gTLGooTbP4GznIGwaqAGL.jpg", // Coco
+  "ciencia-ficcion": "/xJHokMbljvjADYdit5fK5VQsXEG.jpg", // Interstellar
+  aventura: "/zPACwR32amTNvzId9qyapCWXYDJ.jpg", // Raiders of the Lost Ark
+  crimen: "/ejdD20cdHNFAYAN2DlqPToXKyzx.jpg", // The Godfather
+  romance: "/zdXnJqBaGFVtLoPNuMeKfEYUViZ.jpg", // The Notebook
+  familia: "/iJgNOTSBNrC90U2xyYq9ln0b35o.jpg", // Paddington 2
+  fantasia: "/oiwc338EoBgS4sEI2ixAny4KQKg.jpg", // The Lord of the Rings: The Fellowship of the Ring
+  misterio: "/4HWAQu28e2yaWrtupFPGFkdNU7V.jpg", // Knives Out
+  documental: "/sW7VOrkHKYIeV9PaYc5IqGU2XK8.jpg", // My Octopus Teacher
+  historia: "/m4MGxxEgAMqIX9x8MCg5pYeyYjU.jpg", // The King's Speech
+  belica: "/bdD39MpSVhKjxarTxLSfX6baoMP.jpg", // Saving Private Ryan
+  musica: "/dcvbs8z0GEXslC1kCT77x19XDeR.jpg", // Bohemian Rhapsody
+  western: "/x4biAVdPVCghBlsVIzB6NmbghIz.jpg", // The Good, the Bad and the Ugly
+};
+const SERIES_ART = {
+  drama: "/jP0Rhj9OTPDAwQlHQwOLFDdeE8t.jpg", // Grey's Anatomy
+  comedia: "/l0qVZIpXtIo7km9u5Yqh0nKPOr5.jpg", // Friends
+  crimen: "/xGexTKCJDkl12dTW4YCBDXWb1AD.jpg", // Money Heist
+  animacion: "/qcSHGC5BfoqBoP99PzDIERYG5Qm.jpg", // The Simpsons
+  "sci-fi-fantasy": "/9P4IIMYY3HifqeruZq0ZZ9g7YUi.jpg", // Stranger Things
+  "action-adventure": "/yUOFocKDW7MCC5isx4FK8A68QFp.jpg", // Lost
+};
+const tileArt = (table, genre) => `https://image.tmdb.org/t/p/${TILE_ART_SIZE}${table[genre]}`;
+
+/** Category tiles: movie genres, then series genres, each with a picture; each opens its genre's "Ver más". 24 at most. */
 export function categoryTiles(kino) {
-  const movie = MOVIE_TILES.map((g) => ({ id: `${g}-movie`, title: genreName(kino, g), ref: `genre:${g}:movie` }));
-  const tv = SERIES_TILES.map((g) => ({ id: `${g}-tv`, title: seriesTitle(kino, g), ref: `genre:${g}:tv` }));
+  const movie = MOVIE_TILES.map((g) => ({ id: `${g}-movie`, title: genreName(kino, g), ref: `genre:${g}:movie`, art: tileArt(MOVIE_ART, g) }));
+  const tv = SERIES_TILES.map((g) => ({ id: `${g}-tv`, title: seriesTitle(kino, g), ref: `genre:${g}:tv`, art: tileArt(SERIES_ART, g) }));
   return [...movie, ...tv].slice(0, 24);
 }

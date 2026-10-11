@@ -175,6 +175,34 @@ test("categories: genre tiles that browse can open, at most 24, in the person's 
   assert.equal((await plugin.categories(null))[0].title, "Action");
 });
 
+test("categories: every tile carries its own TMDB backdrop, with no request made and the refs untouched", async () => {
+  // The refs and ids are what "Ver más" opens: adding a picture must not move any of them.
+  const REFS = [
+    "genre:accion:movie", "genre:comedia:movie", "genre:drama:movie", "genre:terror:movie", "genre:suspense:movie",
+    "genre:animacion:movie", "genre:ciencia-ficcion:movie", "genre:aventura:movie", "genre:crimen:movie",
+    "genre:romance:movie", "genre:familia:movie", "genre:fantasia:movie", "genre:misterio:movie",
+    "genre:documental:movie", "genre:historia:movie", "genre:belica:movie", "genre:musica:movie", "genre:western:movie",
+    "genre:drama:tv", "genre:comedia:tv", "genre:crimen:tv", "genre:animacion:tv", "genre:sci-fi-fantasy:tv",
+    "genre:action-adventure:tv",
+  ];
+  for (const lang of [undefined, "en-US"]) {
+    const seen = [];
+    install({ lang, seen });
+    const tiles = await plugin.categories(null);
+    assert.deepEqual(tiles.map((c) => c.ref), REFS);
+    assert.ok(tiles.length <= 24);
+    assert.equal(new Set(tiles.map((c) => c.id)).size, tiles.length, "ids are unique");
+    for (const c of tiles) {
+      assert.ok(ID.test(c.id) && c.title && c.title.length <= 40, `${c.id}: id and title`);
+      assert.match(c.art, /^https:\/\/image\.tmdb\.org\/t\/p\/w780\/[A-Za-z0-9_-]+\.jpg$/, `${c.id}: art`);
+      assert.ok(c.art.length <= 2048, `${c.id}: art length`);
+    }
+    // Two tiles sharing a picture would read as a mistake on the screen.
+    assert.equal(new Set(tiles.map((c) => c.art)).size, tiles.length, "art is unique per tile");
+    assert.deepEqual(seen, [], "categories() is static: it asks nothing of the network");
+  }
+});
+
 // ---------- resolve ----------
 
 const FIGHT_ROUTES = [

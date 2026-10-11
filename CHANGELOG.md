@@ -15,6 +15,8 @@
   device being offline, and Kino lets only one report an hour through, which always named the first source (LaMovie).
   A streak is still reported once, as soon as a run shows the device does reach other sources.
   / El aviso "fuente caída" ya no sale de una ejecución en la que ninguna fuente respondió (el aparato sin red).
+- The Categorías tiles now carry a picture (a TMDB backdrop per genre, fixed paths, no request); they were empty grey tiles.
+  / Los mosaicos de Categorías ahora llevan una imagen; antes salían como cuadros grises vacíos.
 
 ## 2.0.4
 
