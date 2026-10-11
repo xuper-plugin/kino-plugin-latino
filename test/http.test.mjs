@@ -158,3 +158,50 @@ test("concurrency: at most N requests of one requester are in flight at once", a
   assert.equal(peak, 2);
   assert.equal(req.used(), 5);
 });
+
+// ---------- an attempt that already took long is not tried again ----------
+
+/** Runs `fn` with Date.now() pushed forward by whatever `skew.ms` holds, so a "slow" attempt costs no real time. */
+async function withClock(fn) {
+  const real = Date.now;
+  const skew = { ms: 0 };
+  Date.now = () => real() + skew.ms;
+  try { return await fn(skew); } finally { Date.now = real; }
+}
+
+test("a request that timed out after a long wait is not retried", async () => {
+  await withClock(async (skew) => {
+    const { kino, calls } = fakeKino({
+      fetch: async () => { skew.ms += 8000; throw Object.assign(new Error("slow"), { code: "timeout" }); },
+    });
+    const req = makeRequester(kino, { budget: 3, deadline: Date.now() + 10_000 });
+    await assert.rejects(req("https://lamovie.org/"), (e) => e.code === "timeout");
+    assert.equal(calls.length, 1, "no second request into a host that just made us wait 8 s");
+    assert.equal(req.used(), 1);
+  });
+});
+
+test("a slow 5xx answer is not retried either", async () => {
+  await withClock(async (skew) => {
+    const { kino, calls } = fakeKino({ fetch: async () => { skew.ms += 5000; return { status: 524, body: "" }; } });
+    const req = makeRequester(kino, { budget: 3, deadline: Date.now() + 20_000 });
+    assert.equal((await req("https://lamovie.org/")).status, 524);
+    assert.equal(calls.length, 1);
+  });
+});
+
+test("a quick failure is still retried once", async () => {
+  await withClock(async (skew) => {
+    let n = 0;
+    const { kino, calls } = fakeKino({
+      fetch: async () => {
+        skew.ms += 100;
+        if (++n === 1) throw Object.assign(new Error("reset"), { code: "network" });
+        return { status: 200, body: "ok" };
+      },
+    });
+    const req = makeRequester(kino, { budget: 3, deadline: Date.now() + 10_000 });
+    assert.equal((await req("https://lamovie.org/")).status, 200);
+    assert.equal(calls.length, 2);
+  });
+});

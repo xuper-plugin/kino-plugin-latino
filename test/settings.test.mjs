@@ -50,6 +50,28 @@ test("health: three failures in a row report once; a recovery re-arms it", () =>
   assert.equal(reports.length, 2);
 });
 
+test("health: a run where every source asked failed says the device is offline, not that the sites are down", () => {
+  const { kino, reports } = install();
+  const allFail = ["lamovie", "hackstore", "cinecalidad", "seriesmetro"].map((id) => ({ id, ok: false }));
+  for (let i = 0; i < 4; i++) recordRun(kino, allFail);
+  assert.equal(reports.length, 0, "nothing was reported while nothing could be reached");
+  assert.equal(readHealth(kino).lamovie.fails, 4, "the health line still counts the failures");
+});
+
+test("health: once the device reaches other sources, the failing ones are reported once", () => {
+  const { kino, reports } = install();
+  const allFail = ["lamovie", "hackstore", "cinecalidad", "seriesmetro"].map((id) => ({ id, ok: false }));
+  for (let i = 0; i < 3; i++) recordRun(kino, allFail);
+  const mixed = [{ id: "lamovie", ok: false }, { id: "hackstore", ok: true }, { id: "cinecalidad", ok: false }, { id: "seriesmetro", ok: true }];
+  recordRun(kino, mixed);
+  assert.deepEqual(reports.map((r) => r[1]).sort(), ["cinecalidad", "lamovie"]);
+  recordRun(kino, mixed);
+  assert.equal(reports.length, 2, "a streak is reported once");
+  recordRun(kino, [{ id: "lamovie", ok: true }, { id: "hackstore", ok: true }, { id: "cinecalidad", ok: true }]);
+  for (let i = 0; i < 3; i++) recordRun(kino, mixed.map((r) => (r.id === "lamovie" ? r : { ...r, ok: true })));
+  assert.equal(reports.length, 3, "a recovery re-arms it");
+});
+
 test("health: the resolver's phase 1 records sources that were asked, by thrown failure", async () => {
   const { kino, reports } = install();
   for (let i = 0; i < 3; i++) await listEmbeds(kino, { ...T, tmdbId: 550 + i }, { sources: [failing("a"), fine("b")] });

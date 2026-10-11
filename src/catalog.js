@@ -207,11 +207,39 @@ const TABS = {
 /**
  * Rows for these definitions, asked together: a row whose source is off, whose listing fails or comes back empty is
  * left out, never the whole answer.
+ *
+ * Kino runs one call of a plugin at a time and counts a call's time from when it asked, so a source that never answers
+ * must not keep the call for its whole clock while the other rows are long in: once two thirds of the rows are in, the
+ * rows still out get as long again as it took to get there (at least `stragglerMs`) and are then skipped for this
+ * load. A skipped row's request is not cancelled: if it answers, the listing cache has it for the next load.
  */
-export async function buildRows(kino, settings, defs, { untilMs } = {}) {
+export async function buildRows(kino, settings, defs, { untilMs, stragglerMs = STRAGGLER_MS } = {}) {
   const deadlineMs = upTo(PAGE_MS, untilMs);
-  const rows = await Promise.all(defs.map((d) => withinRowTime(kino, buildRow(kino, settings, d, deadlineMs), deadlineMs + ROW_GRACE_MS, d.id)));
+  const patience = makePatience(kino, defs.length, stragglerMs);
+  const rows = await Promise.all(defs.map((d) => {
+    const row = buildRow(kino, settings, d, deadlineMs).finally(patience.rowSettled);
+    return withinRowTime(kino, row, deadlineMs + ROW_GRACE_MS, d.id, patience.over);
+  }));
   return rows.filter(Boolean);
+}
+
+/**
+ * When the rows still out may be given up on: `over` settles `true` once the quorum of rows has been in for the
+ * grace, `false` when the host's sleep came back early (a stub proves nothing: nobody is skipped on its word).
+ */
+function makePatience(kino, total, stragglerMs) {
+  const quorum = Math.ceil((total * 2) / 3);
+  const started = Date.now();
+  let settled = 0;
+  let resolve;
+  const over = new Promise((r) => { resolve = r; });
+  const rowSettled = () => {
+    if (++settled !== quorum || quorum >= total) return;
+    const grace = Math.min(Math.max(stragglerMs, Date.now() - started), SLEEP_CHUNK_MS);
+    const from = Date.now();
+    kino.sleep(grace).then(() => resolve(Date.now() - from >= grace - 50), () => resolve(false));
+  };
+  return { over, rowSettled };
 }
 
 /**
@@ -220,6 +248,8 @@ export async function buildRows(kino, settings, defs, { untilMs } = {}) {
  * A row that is not back in time is skipped for this load only; nothing is remembered, the next load asks its source again.
  */
 const ROW_GRACE_MS = 600;
+/** How long the rows still out are waited for once most are in, at least (see buildRows). */
+const STRAGGLER_MS = 3000;
 /** Kino's `sleep` only takes 0 to 5000 ms and throws otherwise, so a longer wait is made of shorter sleeps. */
 const SLEEP_CHUNK_MS = 4500;
 async function sleepUpTo(kino, ms) {
@@ -230,14 +260,18 @@ async function sleepUpTo(kino, ms) {
     left -= chunk;
   }
 }
-async function withinRowTime(kino, row, ms, id) {
+async function withinRowTime(kino, row, ms, id, over) {
   const late = Symbol("late");
+  const giveUp = Symbol("giveUp");
   const started = Date.now();
-  const first = await Promise.race([row, sleepUpTo(kino, ms).then(() => late)]);
+  const contenders = [row, sleepUpTo(kino, ms).then(() => late)];
+  // Resolves only when the grace is really up; otherwise it never does, so it cannot win the race by accident.
+  if (over) contenders.push(over.then((really) => (really ? giveUp : new Promise(() => {}))));
+  const first = await Promise.race(contenders);
   // A clock that came back before its time (a stubbed sleep) proves nothing: the row is waited for as before.
   if (first === late && Date.now() - started < ms - 50) return row;
-  if (first === late) {
-    kino.log("[latino]", "row", id, "skipped: its source did not answer in time");
+  if (first === late || first === giveUp) {
+    kino.log("[latino]", "row", id, first === late ? "skipped: its source did not answer in time" : "skipped: the other rows were in and it was still out");
     row.catch(() => {}); // a late failure is nobody's business any more
     return null;
   }

@@ -2,6 +2,11 @@ import { urlDeclared } from "./hosts.js";
 
 export const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36";
 const RETRY_STATUS = new Set([408, 425, 429, 500, 502, 503, 504, 520, 521, 522, 524]);
+/**
+ * An attempt that already took this long is not tried again. The retry is for a hiccup (a reset, a quick 503); after a
+ * wait this long the host is not answering, and a second request only holds one of Kino's six fetch slots for what is left of the call.
+ */
+const SLOW_ATTEMPT_MS = 3000;
 
 /**
  * Whether a direct kino.fetch of this URL can go out without Kino stopping the call to ask the person about a host:
@@ -31,7 +36,8 @@ export function makeRequester(kino, { budget = 12, deadline = Date.now() + 8000,
     return e;
   }
 
-  async function once(url, opts) {
+  /** [timing].spentMs: how long the request itself took (not its wait for a turn), set when it settles. */
+  async function once(url, opts, timing = {}) {
     // An undeclared host would pause playback on a host question: refused here, never asked.
     if (!fetchAllowed(kino, url)) throw makeLocalError("host_not_allowed", "host not declared: " + hostOf(url));
     await acquire();
@@ -44,7 +50,12 @@ export function makeRequester(kino, { budget = 12, deadline = Date.now() + 8000,
       for (const p of pools) p.left--;
       const headers = { "User-Agent": UA, ...(opts.headers || {}) };
       const { retry, ...rest } = opts; // `retry` is ours, never Kino's
-      return await kino.fetch(url, { ...rest, headers, timeoutMs: Math.min(8000, left) });
+      const sentAt = Date.now();
+      try {
+        return await kino.fetch(url, { ...rest, headers, timeoutMs: Math.min(8000, left) });
+      } finally {
+        timing.spentMs = Date.now() - sentAt;
+      }
     } finally {
       release();
     }
@@ -54,21 +65,22 @@ export function makeRequester(kino, { budget = 12, deadline = Date.now() + 8000,
   const roomToRetry = () => used < budget && !pools.some((p) => p.left <= 0) && deadline - Date.now() > 600;
 
   async function send(url, opts = {}) {
+    const timing = {};
     try {
-      const r = await once(url, opts);
+      const r = await once(url, opts, timing);
       if (opts.retry === false || !RETRY_STATUS.has(r.status)) return r;
       // Retryable status; check if there is room for retry
-      if (roomToRetry()) {
+      if (roomToRetry() && timing.spentMs < SLOW_ATTEMPT_MS) {
         await kino.sleep(600);
         return once(url, opts);
       }
-      // No room for retry; return the retryable response as is
+      // No room for retry, or the host was slow to say so; return the retryable response as is
       return r;
     } catch (e) {
       // A local budget error and a host the manifest does not declare are permanent: a second try cannot change them.
       if (opts.retry === false || (e && (e.local || e.code === "host_not_allowed"))) throw e;
-      // Thrown fetch; check if there is room for retry
-      if (roomToRetry()) {
+      // Thrown fetch; check if there is room for retry, and that it failed quickly (a timeout never did)
+      if (roomToRetry() && !(timing.spentMs >= SLOW_ATTEMPT_MS)) {
         await kino.sleep(600);
         return once(url, opts);
       }

@@ -1,5 +1,21 @@
 # Changelog
 
+## 2.0.5
+
+- Fix: one dead source no longer holds the Home for its whole clock. Kino runs the calls of a plugin one after another,
+  so a Home that waited 10 s for a single hung row left the next call (a refresh, the section) little of its 20 s, and
+  Kino timed it out. Once two thirds of the rows are in, the rest are waited for as long again as it took to get there
+  (3 s at least) and are then skipped for that load; their request keeps going, so if it answers, the next load has it.
+  / Arreglo: una fuente caída ya no retiene el Home durante todo su reloj; con casi todas las filas listas, las que faltan
+  se saltan tras una breve espera y la siguiente carga las trae si llegaron.
+- Fix: a request that already took 3 s or more (a timeout, a slow 5xx) is not sent a second time. The retry is for a quick
+  hiccup; after a long wait it only held one of Kino's six fetch slots and the rest of the call's time.
+  / Arreglo: un pedido que ya tardó 3 s o más no se repite.
+- The "source down" report is not sent by a run where three or more sources were asked and none answered: that is the
+  device being offline, and Kino lets only one report an hour through, which always named the first source (LaMovie).
+  A streak is still reported once, as soon as a run shows the device does reach other sources.
+  / El aviso "fuente caída" ya no sale de una ejecución en la que ninguna fuente respondió (el aparato sin red).
+
 ## 2.0.4
 
 - Fix (2.0.3): the Home failed on every load ("[host] takes 0 to 5000 ms"): the row clock asked Kino to sleep up to 10.6 s

@@ -343,7 +343,7 @@ __export(streamwish_exports, {
 var kino_plugin_default = {
   id: "latino",
   name: "Latino",
-  version: "2.0.4",
+  version: "2.0.5",
   apiVersion: 9,
   panel: {
     label: "Latino",
@@ -656,6 +656,7 @@ function urlDeclared(url) {
 // src/util/http.js
 var UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36";
 var RETRY_STATUS = /* @__PURE__ */ new Set([408, 425, 429, 500, 502, 503, 504, 520, 521, 522, 524]);
+var SLOW_ATTEMPT_MS = 3e3;
 var fetchAllowed = (kino, url) => kino && kino.fetchAnyHost === true || urlDeclared(url);
 var requestPool = (n) => ({ left: n });
 function makeRequester(kino, { budget = 12, deadline = Date.now() + 8e3, pools = [], concurrency = Infinity } = {}) {
@@ -673,7 +674,7 @@ function makeRequester(kino, { budget = 12, deadline = Date.now() + 8e3, pools =
     e.local = true;
     return e;
   }
-  async function once(url, opts) {
+  async function once(url, opts, timing = {}) {
     if (!fetchAllowed(kino, url)) throw makeLocalError("host_not_allowed", "host not declared: " + hostOf(url));
     await acquire();
     try {
@@ -685,7 +686,12 @@ function makeRequester(kino, { budget = 12, deadline = Date.now() + 8e3, pools =
       for (const p of pools) p.left--;
       const headers = { "User-Agent": UA, ...opts.headers || {} };
       const { retry, ...rest } = opts;
-      return await kino.fetch(url, { ...rest, headers, timeoutMs: Math.min(8e3, left) });
+      const sentAt = Date.now();
+      try {
+        return await kino.fetch(url, { ...rest, headers, timeoutMs: Math.min(8e3, left) });
+      } finally {
+        timing.spentMs = Date.now() - sentAt;
+      }
     } finally {
       release();
     }
@@ -693,17 +699,18 @@ function makeRequester(kino, { budget = 12, deadline = Date.now() + 8e3, pools =
   let degraded = false;
   const roomToRetry = () => used < budget && !pools.some((p) => p.left <= 0) && deadline - Date.now() > 600;
   async function send(url, opts = {}) {
+    const timing = {};
     try {
-      const r = await once(url, opts);
+      const r = await once(url, opts, timing);
       if (opts.retry === false || !RETRY_STATUS.has(r.status)) return r;
-      if (roomToRetry()) {
+      if (roomToRetry() && timing.spentMs < SLOW_ATTEMPT_MS) {
         await kino.sleep(600);
         return once(url, opts);
       }
       return r;
     } catch (e) {
       if (opts.retry === false || e && (e.local || e.code === "host_not_allowed")) throw e;
-      if (roomToRetry()) {
+      if (roomToRetry() && !(timing.spentMs >= SLOW_ATTEMPT_MS)) {
         await kino.sleep(600);
         return once(url, opts);
       }
@@ -2620,6 +2627,7 @@ var sourceOn = (settings, id13) => settings.enabled[id13] !== false;
 // src/health.js
 var KEY = "health";
 var DOWN_AFTER = 3;
+var OFFLINE_RUN = 3;
 var MAX_LINE = 200;
 function readHealth(kino) {
   try {
@@ -2633,15 +2641,19 @@ function recordRun(kino, results3) {
   try {
     const h = readHealth(kino);
     const at = Date.now();
+    const offline = results3.length >= OFFLINE_RUN && results3.every((r) => !r.ok);
     for (const { id: id13, ok } of results3) {
-      const fails = ok ? 0 : (h[id13] && Number.isFinite(h[id13].fails) ? h[id13].fails : 0) + 1;
-      h[id13] = { ok: !!ok, fails, at };
-      if (fails === DOWN_AFTER) {
+      const before = h[id13] || {};
+      const fails = ok ? 0 : (Number.isFinite(before.fails) ? before.fails : 0) + 1;
+      let reported = !ok && before.reported === true;
+      if (!ok && fails >= DOWN_AFTER && !reported && !offline) {
         try {
           kino.log.report("latino:source_down", id13);
         } catch (_) {
         }
+        reported = true;
       }
+      h[id13] = { ok: !!ok, fails, at, ...reported ? { reported: true } : {} };
     }
     kino.storage.set(KEY, JSON.stringify(h));
   } catch (_) {
@@ -3202,12 +3214,33 @@ var TABS = {
     ].map((g) => genreRow(g, "tv"))
   ]
 };
-async function buildRows(kino, settings, defs, { untilMs } = {}) {
+async function buildRows(kino, settings, defs, { untilMs, stragglerMs = STRAGGLER_MS } = {}) {
   const deadlineMs = upTo(PAGE_MS, untilMs);
-  const rows3 = await Promise.all(defs.map((d) => withinRowTime(kino, buildRow(kino, settings, d, deadlineMs), deadlineMs + ROW_GRACE_MS, d.id)));
+  const patience = makePatience(kino, defs.length, stragglerMs);
+  const rows3 = await Promise.all(defs.map((d) => {
+    const row = buildRow(kino, settings, d, deadlineMs).finally(patience.rowSettled);
+    return withinRowTime(kino, row, deadlineMs + ROW_GRACE_MS, d.id, patience.over);
+  }));
   return rows3.filter(Boolean);
 }
+function makePatience(kino, total, stragglerMs) {
+  const quorum = Math.ceil(total * 2 / 3);
+  const started = Date.now();
+  let settled = 0;
+  let resolve2;
+  const over = new Promise((r) => {
+    resolve2 = r;
+  });
+  const rowSettled = () => {
+    if (++settled !== quorum || quorum >= total) return;
+    const grace = Math.min(Math.max(stragglerMs, Date.now() - started), SLEEP_CHUNK_MS);
+    const from = Date.now();
+    kino.sleep(grace).then(() => resolve2(Date.now() - from >= grace - 50), () => resolve2(false));
+  };
+  return { over, rowSettled };
+}
 var ROW_GRACE_MS = 600;
+var STRAGGLER_MS = 3e3;
 var SLEEP_CHUNK_MS = 4500;
 async function sleepUpTo(kino, ms) {
   let left = Math.max(ms, 0);
@@ -3217,13 +3250,17 @@ async function sleepUpTo(kino, ms) {
     left -= chunk;
   }
 }
-async function withinRowTime(kino, row, ms, id13) {
+async function withinRowTime(kino, row, ms, id13, over) {
   const late = Symbol("late");
+  const giveUp = Symbol("giveUp");
   const started = Date.now();
-  const first = await Promise.race([row, sleepUpTo(kino, ms).then(() => late)]);
+  const contenders = [row, sleepUpTo(kino, ms).then(() => late)];
+  if (over) contenders.push(over.then((really) => really ? giveUp : new Promise(() => {
+  })));
+  const first = await Promise.race(contenders);
   if (first === late && Date.now() - started < ms - 50) return row;
-  if (first === late) {
-    kino.log("[latino]", "row", id13, "skipped: its source did not answer in time");
+  if (first === late || first === giveUp) {
+    kino.log("[latino]", "row", id13, first === late ? "skipped: its source did not answer in time" : "skipped: the other rows were in and it was still out");
     row.catch(() => {
     });
     return null;
