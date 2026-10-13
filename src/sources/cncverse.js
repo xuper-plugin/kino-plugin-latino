@@ -9,8 +9,8 @@ export const kinds = ["movie", "tv"];
 export const HOSTS = ["cncverse.dpdns.org"];
 /** Asked after the others, and only when they found nothing (see resolveTitle). */
 export const fallback = true;
-/** One request to the bridge may take this long (the requester's default cap is 8 s; the bridge needs more). */
-export const REQUEST_MS = 12000;
+/** One request to the bridge may take this long (the requester's default cap is 8 s; the bridge needs ~9.3 s). */
+export const REQUEST_MS = 13000;
 export const ORIGIN = "https://cncverse.dpdns.org";
 
 const MAX_ROWS = 12;
@@ -59,6 +59,9 @@ export function rowOf(s) {
   if (NOT_A_FILE.some((re) => re.test(host))) return null;
   const d = descriptor(s);
   if (/\.workers\.dev$/.test(host) && /\[Download\]/i.test(d)) return null; // an HTML page, not the file
+  // A raw DASH manifest on MovieBox's own CDN answers 403 to every Referer tried (measured); only the bridge's Cinezo
+  // proxy (yenime.net) serves a DASH manifest that opens.
+  if (/\.mpd(\?|$)/i.test(s.url) && !/(^|\.)yenime\.net$/.test(host)) return null;
   const text = `${s.name || ""} ${d}`;
   let lang = "sub"; // original audio: a Spanish track or subtitles come from the host or from Kino's online search
   if (LATINO.test(text)) lang = "lat";

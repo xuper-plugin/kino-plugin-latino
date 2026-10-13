@@ -343,7 +343,7 @@ __export(streamwish_exports, {
 var kino_plugin_default = {
   id: "latino",
   name: "Latino",
-  version: "2.1.0",
+  version: "2.1.1",
   apiVersion: 9,
   panel: {
     label: "Latino",
@@ -2255,7 +2255,7 @@ var name13 = "CNCVerse";
 var kinds13 = ["movie", "tv"];
 var HOSTS22 = ["cncverse.dpdns.org"];
 var fallback = true;
-var REQUEST_MS = 12e3;
+var REQUEST_MS = 13e3;
 var ORIGIN13 = "https://cncverse.dpdns.org";
 var MAX_ROWS = 12;
 var DASH = "application/dash+xml";
@@ -2294,6 +2294,7 @@ function rowOf(s) {
   if (NOT_A_FILE.some((re) => re.test(host))) return null;
   const d = descriptor(s);
   if (/\.workers\.dev$/.test(host) && /\[Download\]/i.test(d)) return null;
+  if (/\.mpd(\?|$)/i.test(s.url) && !/(^|\.)yenime\.net$/.test(host)) return null;
   const text5 = `${s.name || ""} ${d}`;
   let lang = "sub";
   if (LATINO.test(text5)) lang = "lat";
@@ -2829,9 +2830,9 @@ var PHASE_REQUESTS = 36;
 var PANEL_CALL_REQUESTS = 27;
 var EARLY = { ms: 2500, copies: 6 };
 var CACHE_TTL_MS = 18e5;
-var FALLBACK_MS = 1e4;
-var MIN_FALLBACK_MS = 3e3;
-var FALLBACK_RESERVE_MS = 3e3;
+var FALLBACK_MS = 13e3;
+var MIN_FALLBACK_MS = 9500;
+var FALLBACK_RESERVE_MS = 1500;
 function normalizeSettings(s = {}) {
   const v = s && typeof s === "object" ? s : {};
   return {

@@ -56,9 +56,10 @@ export const PANEL_CALL_REQUESTS = 27;
 const EARLY = { ms: 2500, copies: 6 };
 const CACHE_TTL_MS = 1800000;
 // The fallback pass (CNCVerse): after the regular sources found nothing playable, with what is left of the call.
-const FALLBACK_MS = 10000;
-const MIN_FALLBACK_MS = 3000;
-const FALLBACK_RESERVE_MS = 3000; // left for opening the copy and answering
+// Measured: the bridge answers a stream request in ~9.3 s whatever it holds (cached or not), so less than 9.5 s is no use.
+const FALLBACK_MS = 13000;
+const MIN_FALLBACK_MS = 9500;
+const FALLBACK_RESERVE_MS = 1500; // left for answering: a direct copy needs no extraction
 
 /** Settings with every default filled in: `{ preferred, maxQuality, enabled }`. */
 export function normalizeSettings(s = {}) {

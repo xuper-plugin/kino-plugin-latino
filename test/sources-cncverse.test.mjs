@@ -19,6 +19,8 @@ const BRIDGE = {
     stream("🎬MovieBox 🧊 720p • CNCVerse Bridge", "https://bcdnxw.hakunaymatata.com/resource/z.mp4?sign=3", ["🎞️ 720p", "🛰️ Source: MovieBox • Hindi dub"]),
     stream("🎬HDHub4U ❄️ 4K • CNCVerse Bridge", "https://pixel.hubcloud.ist/?id=zzz", ["🎞️ 4K", "🛰️ Source: HDhub4u • HubCloud"]),
     stream("🎬HDHub4U 🧊 1080p • CNCVerse Bridge", "https://pixel.rohitkiskk.workers.dev/?id=1", ["🎞️ 1080p", "🛰️ Source: HDhub4u • HubCloud 10Gbps [Download]"]),
+    stream("🎬MovieBoxProviderIN 🧊 1080p • CNCVerse Bridge", "https://sbcdnw.hakunaymatata.com/dash/123_0_0_1080_h265/index_web.mpd", ["🎞️ 1080p • DASH", "🛰️ Source: MovieBoxProviderIN"]),
+    stream("🎬Cinezo 🧊 1080p • CNCVerse Bridge", "https://proxy.yenime.net/manifest.mpd?url=https%3A%2F%2Fx", ["🎞️ 1080p • DASH", "🛰️ Source: Cinezo"]),
     stream("🎬Vidy 🧊 1080p • CNCVerse Bridge", "https://moon.zenoak.top/vd/AAA/index-s1080p.m3u8", ["🎞️ 1080p • HLS", "🛰️ Source: Vidy"]),
   ],
 };
@@ -58,9 +60,10 @@ test("cncverse: rows keep files only, in Spanish or English, with the language t
   assert.equal(rows.find((r) => /y\.mp4/.test(r.embedUrl)).lang, "lat");
   assert.equal(rows.find((r) => /y\.mp4/.test(r.embedUrl)).server, "direct-moviebox");
   assert.equal(rows.find((r) => /zenoak/.test(r.embedUrl)).server, "direct-vidy");
-  // left out: the donate row, the hubcloud page, the "[Download]" page, the Hindi copy
-  assert.equal(rows.length, 4);
-  assert.ok(!rows.some((r) => /hubcloud|rohitkiskk|z\.mp4/.test(r.embedUrl)));
+  // left out: the donate row, the hubcloud page, the "[Download]" page, the Hindi copy, a raw DASH on MovieBox's CDN
+  assert.equal(rows.length, 5);
+  assert.ok(!rows.some((r) => /hubcloud|rohitkiskk|z\.mp4|sbcdnw/.test(r.embedUrl)));
+  assert.equal(rows.find((r) => /yenime/.test(r.embedUrl)).server, "direct-cinezo");
 });
 
 test("cncverse: the sealed code goes in the address, never as a literal; an episode is asked by TMDB first", async () => {
