@@ -15,8 +15,9 @@ const hostEntries = manifest.hosts.map((h) => (typeof h === "string" ? h : h.hos
 const covered = hostDeclared;
 
 // Named in the code but never fetched: image URLs are not checked against `hosts` (contract.md, images), and
-// sololatino.net is only a Referer header value.
-const NOT_FETCHED = new Set(["image.tmdb.org", "sololatino.net"]);
+// sololatino.net and the CNCVerse profiles' sites (movieboxonline.net, www.vidy.st, player.cinezo.live, kisskh.is) are
+// only Referer header values.
+const NOT_FETCHED = new Set(["image.tmdb.org", "sololatino.net", "movieboxonline.net", "www.vidy.st", "player.cinezo.live", "kisskh.is"]);
 
 function walk(dir) {
   return readdirSync(dir).flatMap((n) => {

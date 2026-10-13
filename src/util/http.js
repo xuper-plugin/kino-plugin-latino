@@ -23,7 +23,7 @@ export const requestPool = (n) => ({ left: n });
  * [pools]: shared allowances every request also spends; [concurrency]: most requests of this requester in flight at
  * once (Kino runs 6 of the plugin's at a time, so one slow source must not hold them all).
  */
-export function makeRequester(kino, { budget = 12, deadline = Date.now() + 8000, pools = [], concurrency = Infinity } = {}) {
+export function makeRequester(kino, { budget = 12, deadline = Date.now() + 8000, pools = [], concurrency = Infinity, maxMs = 8000 } = {}) {
   let used = 0;
   let active = 0;
   const waiting = [];
@@ -52,7 +52,7 @@ export function makeRequester(kino, { budget = 12, deadline = Date.now() + 8000,
       const { retry, ...rest } = opts; // `retry` is ours, never Kino's
       const sentAt = Date.now();
       try {
-        return await kino.fetch(url, { ...rest, headers, timeoutMs: Math.min(8000, left) });
+        return await kino.fetch(url, { ...rest, headers, timeoutMs: Math.min(maxMs, left) });
       } finally {
         timing.spentMs = Date.now() - sentAt;
       }

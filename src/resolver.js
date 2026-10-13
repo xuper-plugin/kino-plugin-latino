@@ -55,6 +55,10 @@ export const PANEL_CALL_REQUESTS = 27;
 // A resolve stops waiting for slow sources once it has this many playable copies, but never before EARLY_MS.
 const EARLY = { ms: 2500, copies: 6 };
 const CACHE_TTL_MS = 1800000;
+// The fallback pass (CNCVerse): after the regular sources found nothing playable, with what is left of the call.
+const FALLBACK_MS = 10000;
+const MIN_FALLBACK_MS = 3000;
+const FALLBACK_RESERVE_MS = 3000; // left for opening the copy and answering
 
 /** Settings with every default filled in: `{ preferred, maxQuality, enabled }`. */
 export function normalizeSettings(s = {}) {
@@ -94,9 +98,9 @@ function writeCache(kino, key, done, embeds, ttlMs = CACHE_TTL_MS) {
  * One source's list, never throwing: `{ embeds, failed: null | code, missing }`, `missing` the source's note that it
  * has the series but not the episode (`{ seasonFound }`, see episodeMissing) or null.
  */
-async function askSource(kino, source, title, start, pools) {
+async function askSource(kino, source, title, start, pools, deadlineMs = SOURCE.deadlineMs) {
   try {
-    const req = makeRequester(kino, { budget: SOURCE.budget, deadline: start + SOURCE.deadlineMs, pools, concurrency: SOURCE.concurrency });
+    const req = makeRequester(kino, { budget: SOURCE.budget, deadline: start + deadlineMs, pools, concurrency: SOURCE.concurrency, maxMs: source.REQUEST_MS || 8000 });
     const out = await source.list(title, { kino, req });
     const embeds = (Array.isArray(out) ? out : []).filter(validEmbed);
     return { embeds, failed: null, degraded: req.degraded(), missing: embeds.length ? null : missingOf(out) };
@@ -113,11 +117,13 @@ async function askSource(kino, source, title, start, pools) {
  * has the series but none had the episode -- `seasonFound` true when one of them has that season. The cache keeps which sources answered, so
  * a source turned on later is asked on its own and merged in.
  */
-async function collect(kino, title, { enabled, sources = SOURCES, phaseMs = PHASE_MS, fresh = false, skip = [], cachePrefix = "emb:", ttlMs, call = requestPool(CALL_REQUESTS), enough = null } = {}) {
+async function collect(kino, title, { enabled, sources = SOURCES, phaseMs = PHASE_MS, fresh = false, skip = [], cachePrefix = "emb:", ttlMs, call = requestPool(CALL_REQUESTS), enough = null, fallbackPass = false } = {}) {
   const start = Date.now();
   const phase = requestPool(Math.min(PHASE_REQUESTS, call.left));
   const pools = [call, phase];
-  const active = sources.filter((s) => isOn(enabled, s.id) && (!s.kinds || s.kinds.includes(title.kind)));
+  // A fallback source (the bridge) is asked only in the fallback pass: every other lookup (the panel's availability, the
+  // probe) leaves it alone, so a slow source never holds them.
+  const active = sources.filter((s) => isOn(enabled, s.id) && (!s.kinds || s.kinds.includes(title.kind)) && (fallbackPass ? s.fallback === true : !s.fallback));
   const key = cacheKey(title, cachePrefix);
   const cached = fresh ? null : readCache(kino, key);
   const done = new Set(cached ? cached.done : []);
@@ -136,7 +142,7 @@ async function collect(kino, title, { enabled, sources = SOURCES, phaseMs = PHAS
     let pending = toAsk.length;
     let allIn;
     const allAnswered = new Promise((r) => { allIn = r; });
-    for (const s of toAsk) askSource(kino, s, title, start, pools).then((r) => { answers.set(s.id, r); if (--pending === 0) allIn(); });
+    for (const s of toAsk) askSource(kino, s, title, start, pools, fallbackPass ? Math.max(phaseMs, SOURCE.deadlineMs) : SOURCE.deadlineMs).then((r) => { answers.set(s.id, r); if (--pending === 0) allIn(); });
     // [enough] (resolve only) ends the wait early once the copies so far are plenty; late answers are ignored.
     const sofar = () => [...bySource.values(), ...[...answers.values()].map((r) => r.embeds)].flat();
     let early = false;
@@ -395,8 +401,25 @@ export async function resolveTitle(kino, title, settings, { sources = SOURCES, e
   const accepts = (e) => (extract.accepts || (() => true))(e) && profiled(e);
   // Ending phase 1 early needs plenty of copies in the language the person prefers, not just any language.
   const enough = (es) => new Set(es.filter((e) => e.lang === set.preferred && accepts(e)).map((e) => e.embedUrl)).size >= EARLY.copies;
-  const { embeds, down, missing, cached, key } = await collect(kino, title, { enabled: set.enabled, sources, phaseMs: phase, call, enough });
-  const playable = embeds.filter(accepts);
+  let { embeds, down, missing, cached, key } = await collect(kino, title, { enabled: set.enabled, sources, phaseMs: phase, call, enough });
+  let playable = embeds.filter(accepts);
+  // Nothing from the regular sources: a fallback source (the bridge) gets what is left of the call. Its answer is cached
+  // on its own ("fb:"), so a late one is found by the next try.
+  if (!playable.length) {
+    const fbSources = sources.filter((s) => s.fallback);
+    const fbLeft = until - Date.now() - FALLBACK_RESERVE_MS;
+    if (fbSources.length && fbLeft >= MIN_FALLBACK_MS) {
+      const fb = await collect(kino, title, { enabled: set.enabled, sources: fbSources, phaseMs: Math.min(FALLBACK_MS, fbLeft), call, cachePrefix: "fb:", fallbackPass: true });
+      if (fb.embeds.length) {
+        embeds = fb.embeds;
+        playable = embeds.filter(accepts);
+        down = false;
+        missing = null;
+      } else if (fb.asked.length) {
+        down = down && fb.down;
+      }
+    }
+  }
   const lang = pickLanguage(playable, set.preferred);
   if (!lang) {
     if (down) throw kino.error("unavailable", "every source failed", { userMessage: t("sourcesDown", kino) });
