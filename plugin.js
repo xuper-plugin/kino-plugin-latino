@@ -343,7 +343,7 @@ __export(streamwish_exports, {
 var kino_plugin_default = {
   id: "latino",
   name: "Latino",
-  version: "2.0.5",
+  version: "2.0.6",
   apiVersion: 9,
   panel: {
     label: "Latino",
@@ -2263,6 +2263,7 @@ var WORDS = {
     tabPrefs: "Preferencias",
     tabFail: "Si falla",
     tabError: "No se pudo cargar esta pesta\xF1a",
+    tabLoading: "Cargando esta pesta\xF1a\u2026",
     nowPlaying: "Reproduciendo ahora",
     copyLang: "Idioma: {v}",
     copyQuality: "Calidad: {v}",
@@ -2394,6 +2395,7 @@ var WORDS = {
     tabPrefs: "Preferences",
     tabFail: "If it fails",
     tabError: "This tab couldn't load",
+    tabLoading: "Loading this tab\u2026",
     nowPlaying: "Playing now",
     copyLang: "Language: {v}",
     copyQuality: "Quality: {v}",
@@ -4027,6 +4029,10 @@ function failAction(kino, ev, ctx) {
 // src/panel/index.js
 var TITLE_MAX2 = 60;
 var DEFAULT_TAB = "copy";
+var TAB_BUDGET_MS = 1500;
+var PENDING_REFRESH_MS = 2e3;
+var MAX_RUNS = 8;
+var runs = /* @__PURE__ */ new Map();
 var TABS2 = [
   { id: "copy", label: "tabCopy", when: () => true, load: async (kino, ctx) => copyTab(kino, ctx) },
   { id: "summary", label: "tabSummary", when: (kino, ctx) => ctx.kind !== "live" && !!titleTmdbId(ctx) && typeof kino.tmdb === "function", load: (kino, ctx, dl) => summaryTab(kino, ctx, { untilMs: dl.end }) },
@@ -4034,7 +4040,35 @@ var TABS2 = [
   { id: "prefs", label: "tabPrefs", when: () => true, load: (kino, ctx) => prefsTab(kino, ctx) },
   { id: "fail", label: "tabFail", when: () => true, load: (kino, ctx) => failTab(kino, ctx) }
 ];
+function loadingElement(ctx) {
+  const m = both("tabLoading");
+  const draws = !!ctx && Array.isArray(ctx.features) && ctx.features.includes("loading");
+  return { type: draws ? "loading" : "status", text: m.es, textEn: m.en };
+}
+function tabRun(kino, ctx, active, dl) {
+  const key = `${active.id}|${ctx.ref || ""}|${ctx.kind || ""}`;
+  let run = runs.get(key);
+  if (!run) {
+    run = (async () => {
+      try {
+        return active.load ? await active.load(kino, ctx, dl) : null;
+      } catch (e) {
+        try {
+          kino.log("[latino]", "panel tab", active.id, e && e.code || "error");
+        } catch (_) {
+        }
+        return null;
+      }
+    })();
+    runs.set(key, run);
+    while (runs.size > MAX_RUNS) runs.delete(runs.keys().next().value);
+  }
+  return { key, run };
+}
 async function panel(ctx) {
+  return panelWithin(ctx, TAB_BUDGET_MS);
+}
+async function panelWithin(ctx, budgetMs) {
   const kino = globalThis.kino;
   ctx = ctx || {};
   const dl = callDeadline(kino, "panel");
@@ -4042,16 +4076,13 @@ async function panel(ctx) {
   const available = TABS2.filter((x) => x.when(kino, ctx));
   const active = available.find((x) => x.id === ctx.tab) || available.find((x) => x.id === DEFAULT_TAB);
   const strip = nextStrip(kino, ctx, { untilMs: Math.min(dl.end, Date.now() + 6e3) }).catch(() => []);
-  let body = null;
-  try {
-    if (active.load) body = await active.load(kino, ctx, dl);
-  } catch (e) {
-    try {
-      kino.log("[latino]", "panel tab", active.id, e && e.code || "error");
-    } catch (_) {
-    }
-  }
-  if (!body || !Array.isArray(body.elements)) {
+  const { key, run } = tabRun(kino, ctx, active, dl);
+  const [tabR, stripR] = await Promise.all([within(kino, run, budgetMs, null), within(kino, strip, budgetMs, [])]);
+  const pending = !!tabR.late;
+  if (!pending) runs.delete(key);
+  let body = tabR.v;
+  if (pending) body = { elements: [loadingElement(ctx)] };
+  else if (!body || !Array.isArray(body.elements)) {
     const m = both("tabError");
     body = { elements: [{ type: "status", text: m.es, textEn: m.en }] };
   }
@@ -4062,9 +4093,10 @@ async function panel(ctx) {
     presentation: ctx.device === "tv" ? "panel" : "modal",
     tabs: available.map((x) => ({ id: x.id, label: t(x.label, { lang: "es" }), labelEn: t(x.label, { lang: "en" }) })),
     tab: active.id,
-    elements: [...await strip, ...body.elements]
+    elements: [...Array.isArray(stripR.v) ? stripR.v : [], ...body.elements]
   };
-  if (active.id === "copy" && body.refreshMs) out.refreshMs = body.refreshMs;
+  if (pending || stripR.late) out.refreshMs = PENDING_REFRESH_MS;
+  else if (active.id === "copy" && body.refreshMs) out.refreshMs = body.refreshMs;
   return out;
 }
 async function panelAction(ev, ctx) {

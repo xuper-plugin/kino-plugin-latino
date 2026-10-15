@@ -1,5 +1,17 @@
 # Changelog
 
+## 2.0.6
+
+- Fix: switching tab in the player panel no longer hangs until the tab has loaded. Each call now answers within 1.5 s:
+  a tab still looking things up (Resumen, Disponibilidad) shows as loading and Kino asks again 2 s later, when the same
+  lookup (it keeps running) is usually done; the "Siguiente" strip no longer holds a ready tab back either, it comes on
+  the next call. On Kino 0.9.64 and later the waiting tab shows Kino's spinner (the panel's new `loading` element, sent
+  only when the panel context lists it in `features`); an older Kino shows the line "Cargando esta pestaña…" instead.
+  / Arreglo: cambiar de pestaña en el panel del reproductor ya no se queda pegado hasta que carga. La pestaña responde en
+  1,5 s como máximo: si aún está buscando, muestra que está cargando y Kino vuelve a pedirla a los 2 s; la franja
+  "Siguiente" tampoco frena una pestaña lista. En Kino 0.9.64 o más nuevo se ve el indicador de carga de Kino; en uno
+  anterior, la línea "Cargando esta pestaña…".
+
 ## 2.0.5
 
 - Fix: one dead source no longer holds the Home for its whole clock. Kino runs the calls of a plugin one after another,
