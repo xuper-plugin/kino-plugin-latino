@@ -1,7 +1,7 @@
 {
   "id": "latino",
   "name": "Latino",
-  "version": "2.1.1",
+  "version": "2.1.2",
   "apiVersion": 9,
   "panel": {
     "label": "Latino",
@@ -20,6 +20,7 @@
     "cinecalidad.vg",
     "www3.seriesmetro.net",
     "seriesmetro.net",
+    "seriesflixhd.pw",
     "seriesflixhd.casa",
     "seriesflixhd.best",
     "embed69.org",

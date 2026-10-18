@@ -343,7 +343,7 @@ __export(streamwish_exports, {
 var kino_plugin_default = {
   id: "latino",
   name: "Latino",
-  version: "2.1.1",
+  version: "2.1.2",
   apiVersion: 9,
   panel: {
     label: "Latino",
@@ -362,6 +362,7 @@ var kino_plugin_default = {
     "cinecalidad.vg",
     "www3.seriesmetro.net",
     "seriesmetro.net",
+    "seriesflixhd.pw",
     "seriesflixhd.casa",
     "seriesflixhd.best",
     "embed69.org",
@@ -1641,8 +1642,8 @@ __export(seriesflix_exports, {
 var id5 = "seriesflix";
 var name5 = "Seriesflix";
 var kinds5 = ["tv"];
-var HOSTS14 = ["seriesflixhd.casa"];
-var SITE5 = "https://seriesflixhd.casa";
+var HOSTS14 = ["seriesflixhd.pw"];
+var SITE5 = "https://seriesflixhd.pw";
 var ORIGIN5 = SITE5;
 var decode2 = (b64) => {
   try {

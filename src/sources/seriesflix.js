@@ -1,12 +1,13 @@
 // Seriesflix: series only. /episodio/<slug>-<s>x<e> lists a block of players per language, each a base64 `data-url`.
+// The site moved to seriesflixhd.pw; seriesflixhd.casa and .best redirect there (and Kino checks every hop, so all three are declared).
 import { orEmpty, firstHit, toEmbeds, titleSlugs, episodeYearOk } from "./wpapi.js";
 
 export const id = "seriesflix";
 export const name = "Seriesflix";
 export const kinds = ["tv"];
-export const HOSTS = ["seriesflixhd.casa"];
+export const HOSTS = ["seriesflixhd.pw"];
 
-const SITE = "https://seriesflixhd.casa";
+const SITE = "https://seriesflixhd.pw";
 /** The site origin, for a "direct" embed's Referer. */
 export const ORIGIN = SITE;
 

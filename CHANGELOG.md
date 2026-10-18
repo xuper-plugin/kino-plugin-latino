@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.1.2
+
+- Fix: Seriesflix works again. The site moved to seriesflixhd.pw and seriesflixhd.casa and .best now redirect there; Kino
+  checks every hop of a redirect against the manifest's `hosts`, and the new address was not declared, so that source found
+  nothing in the app. It now asks seriesflixhd.pw directly and declares it (the two old names stay: they redirect to it).
+  / Arreglo: Seriesflix vuelve a funcionar. El sitio se mudó a seriesflixhd.pw y los dos nombres anteriores redirigen allí;
+  Kino revisa cada salto de la redirección contra los `hosts` del manifest y la dirección nueva no estaba declarada.
+
 ## 2.0.5
 
 - Fix: one dead source no longer holds the Home for its whole clock. Kino runs the calls of a plugin one after another,
