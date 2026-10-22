@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.1.5
+
+- Fix: TioPlus finds series and movies with a title of several words again ("Stranger Things", "Breaking Bad", "The Last of Us").
+  Its search page returns no results for them unless the query ends in a space; one-word titles worked either way, so only
+  those were opening. The search now always ends in a space.
+  / Arreglo: TioPlus vuelve a encontrar títulos de varias palabras. Su buscador no devuelve nada si la consulta no termina en un
+  espacio; los de una palabra funcionaban, por eso solo esos abrían.
+
 ## 2.1.4
 
 - Removed: the CNCVerse fallback source. CNCVerse is now its own plugin, so Latino no longer asks the bridge, declares

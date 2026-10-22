@@ -343,7 +343,7 @@ __export(streamwish_exports, {
 var kino_plugin_default = {
   id: "latino",
   name: "Latino",
-  version: "2.1.4",
+  version: "2.1.5",
   apiVersion: 9,
   panel: {
     label: "Latino",
@@ -2110,7 +2110,7 @@ async function list11(title, { req }) {
   return orEmpty(async () => {
     let body = null, at = null;
     for (const q of terms) {
-      const html = await page2(`${SITE11}/search/${encodeURIComponent(q)}`, req);
+      const html = await page2(`${SITE11}/search/${encodeURIComponent(q + " ")}`, req);
       const hit = html && matches2(results2(html, title.kind), title)[0];
       if (!hit) continue;
       at = tv ? `${hit.url}/season/${Number(title.season)}/episode/${Number(title.episode)}` : hit.url;

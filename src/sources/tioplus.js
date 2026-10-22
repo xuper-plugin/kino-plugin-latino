@@ -64,7 +64,9 @@ export async function list(title, { req }) {
   return orEmpty(async () => {
     let body = null, at = null;
     for (const q of terms) {
-      const html = await page(`${SITE}/search/${encodeURIComponent(q)}`, req);
+      // The site's search answers nothing for a title of several words ("Stranger Things", "Breaking Bad") unless the query ends
+      // in a space (measured 2026-10-22: "%20" at the end finds it, without it the page has no results); one word works either way.
+      const html = await page(`${SITE}/search/${encodeURIComponent(q + " ")}`, req);
       const hit = html && matches(results(html, title.kind), title)[0];
       if (!hit) continue;
       at = tv ? `${hit.url}/season/${Number(title.season)}/episode/${Number(title.episode)}` : hit.url;

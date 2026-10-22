@@ -98,7 +98,7 @@ const TP_MOVIE = `<title>Ver Oppenheimer (2023) Online Gratis Español - TioPlus
 const playerFor = (u) => `<script>location.href = '${u}';</script>`;
 
 test("tioplus: an exact title of the right year and kind, its tabs' languages, and only the players worth following", async () => {
-  const f = routes([[/\/search\/Oppenheimer$/, TP_SEARCH], [/\/pelicula\/oppenheimer$/, TP_MOVIE],
+  const f = routes([[/\/search\/Oppenheimer%20$/, TP_SEARCH], [/\/pelicula\/oppenheimer$/, TP_MOVIE],
     [new RegExp("/player/" + btoa("EV1") + "$"), playerFor("https://vidhideplus.com/v/8oqab7tbqjt8")],
     [new RegExp("/player/" + btoa("EV2") + "$"), playerFor("https://vidhideplus.com/v/subcopy")]]);
   const e = await tioplus.list(OPP, ctx(f.kino));
@@ -110,9 +110,10 @@ test("tioplus: an exact title of the right year and kind, its tabs' languages, a
 test("tioplus: a page of another year is turned away; an episode is asked at season/<s>/episode/<e>", async () => {
   const f = routes([[/\/search\//, TP_SEARCH], [/\/pelicula\/oppenheimer$/, TP_MOVIE.replace("(2023)", "(2011)")]]);
   assert.deepEqual(await tioplus.list(OPP, ctx(f.kino)), []);
-  const g = routes([[/\/search\/Breaking%20Bad$/, `<a class='itemA' href="https://tioplus.app/serie/breaking-bad"><h2>Breaking Bad (2008)</h2></a>`],
+  const g = routes([[/\/search\/Breaking%20Bad%20$/, `<a class='itemA' href="https://tioplus.app/serie/breaking-bad"><h2>Breaking Bad (2008)</h2></a>`],
     [/\/serie\/breaking-bad\/season\/2\/episode\/3$/, `<title>Ver Breaking Bad (2008) Temporada 2 Capítulo 3 Online - TioPlus</title>` + tab("Español Latino", [["EV", "Earnvids"]])],
     [/\/player\//, playerFor("https://voe.sx/e/abc")]]);
   const e = await tioplus.list(BB, ctx(g.kino));
   assert.deepEqual(e.map((x) => [x.lang, x.server]), [["lat", "voe"]]);
+  assert.ok(g.calls[0].url.endsWith("/search/Breaking%20Bad%20"), "a several-word query ends in a space or the site finds nothing: " + g.calls[0].url);
 });
