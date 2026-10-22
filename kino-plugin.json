@@ -1,7 +1,7 @@
 {
   "id": "latino",
   "name": "Latino",
-  "version": "2.1.3",
+  "version": "2.1.4",
   "apiVersion": 9,
   "panel": {
     "label": "Latino",
@@ -81,8 +81,7 @@
     "vidhideplus.com",
     "*.vidhideplus.com",
     "callistanise.com",
-    "*.callistanise.com",
-    "cncverse.dpdns.org"
+    "*.callistanise.com"
   ],
   "capabilities": [
     "search",
@@ -236,15 +235,6 @@
       "default": true
     },
     {
-      "key": "src_cncverse",
-      "type": "toggle",
-      "label": "CNCVerse (respaldo)",
-      "labelEn": "CNCVerse (fallback)",
-      "hint": "Solo se consulta si las demás no encuentran nada.",
-      "hintEn": "Only asked when the others find nothing.",
-      "default": true
-    },
-    {
       "key": "homeSection",
       "type": "section",
       "label": "Inicio",
@@ -293,8 +283,5 @@
       "confirm": "¿Volver a los valores de fábrica de Latino?",
       "confirmEn": "Go back to Latino's default settings?"
     }
-  ],
-  "secrets": {
-    "bridgeCode": "kino-sealed:v1:Vyop5_y52e0jXZE5b8EGmz6OPGupPkDC-IlIo63b8jmjuUrVjvko7isKUnC09tFFmqsHrzn_HeX2XcR_yXNgAXwxqWoy3ZaX7tY"
-  }
+  ]
 }

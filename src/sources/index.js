@@ -9,9 +9,8 @@ import * as deepflix from "./deepflix.js";
 import * as pelisplus from "./pelisplus.js";
 import * as pelispanda from "./pelispanda.js";
 import * as tioplus from "./tioplus.js";
-import * as cncverse from "./cncverse.js";
 
-/** Sources in priority order. A `fallback` source (CNCVerse) is asked only when the others found nothing. */
-export const SOURCES = [lamovie, hackstore, cinecalidad, seriesmetro, seriesflix, embed69, zoowomaniacos, deepflix, pelisplus, pelispanda, tioplus, cncverse];
+/** Sources in priority order. A `fallback` source would be asked only when the others found nothing (none today). */
+export const SOURCES = [lamovie, hackstore, cinecalidad, seriesmetro, seriesflix, embed69, zoowomaniacos, deepflix, pelisplus, pelispanda, tioplus];
 
 export const sourceById = (id) => SOURCES.find((s) => s.id === id) || null;

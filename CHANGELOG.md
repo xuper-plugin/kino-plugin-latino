@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.1.4
+
+- Removed: the CNCVerse fallback source. CNCVerse is now its own plugin, so Latino no longer asks the bridge, declares
+  its host, keeps its sealed code or shows its setting. The sealed secret goes with it: from this version Latino installs
+  from a branch or a manifest URL again.
+  / Eliminado: la fuente de respaldo CNCVerse. CNCVerse es ahora un plugin aparte; Latino ya no consulta el puente ni
+  declara su host, ni guarda su código sellado ni muestra su ajuste.
+
 ## 2.1.3
 
 - Fix: Zoowomaniacos works again. The site moved from proyectox.yoyatengoabuela.com to zoowomaniacos.org (the old name

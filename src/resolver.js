@@ -55,7 +55,7 @@ export const PANEL_CALL_REQUESTS = 27;
 // A resolve stops waiting for slow sources once it has this many playable copies, but never before EARLY_MS.
 const EARLY = { ms: 2500, copies: 6 };
 const CACHE_TTL_MS = 1800000;
-// The fallback pass (CNCVerse): after the regular sources found nothing playable, with what is left of the call.
+// The fallback pass (no source uses it today): after the regular sources found nothing playable, with what is left of the call.
 // Measured: the bridge answers a stream request in ~9.3 s whatever it holds (cached or not), so less than 9.5 s is no use.
 const FALLBACK_MS = 13000;
 const MIN_FALLBACK_MS = 9500;

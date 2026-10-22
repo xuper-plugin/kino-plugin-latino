@@ -65,11 +65,3 @@ npm run validate    # compila plugin.js y valida el manifiesto con el kit
 ```
 
 Licencia Apache-2.0 (ver `LICENSE` y `NOTICE`).
-
-## CNCVerse (respaldo)
-
-Desde la 2.1.0 hay una fuente más, **CNCVerse**, que no busca ni lista nada: solo se consulta, por id de IMDb/TMDB,
-cuando ninguna otra fuente encontró el título (el puente es lento y compartido). Sus copias son el archivo directo con
-el audio original (se marcan «Subtitulado»; el español latino o castellano, cuando el puente lo etiqueta). El código
-del perfil va sellado en el manifiesto, así que solo funciona al instalar desde la rama principal, sin `@rama`. Se apaga
-con el ajuste **CNCVerse (respaldo)**.
