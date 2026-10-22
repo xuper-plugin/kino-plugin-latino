@@ -6,9 +6,9 @@ import { normLang } from "../util/lang.js";
 export const id = "zoowomaniacos";
 export const name = "Zoowomaniacos";
 export const kinds = ["movie"];
-export const HOSTS = ["proyectox.yoyatengoabuela.com"];
+export const HOSTS = ["zoowomaniacos.org"];
 
-const SITE = "https://proyectox.yoyatengoabuela.com";
+const SITE = "https://zoowomaniacos.org";
 /** The site origin, for a "direct" embed's Referer. */
 export const ORIGIN = SITE;
 const AJAX = { Referer: SITE + "/", Origin: SITE, "X-Requested-With": "XMLHttpRequest" };

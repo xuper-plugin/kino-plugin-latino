@@ -4,7 +4,6 @@ import { fakeKino } from "./helpers/fakeKino.mjs";
 import { makeRequester } from "../src/util/http.js";
 import * as pelispanda from "../src/sources/pelispanda.js";
 import * as pelisplus from "../src/sources/pelisplus.js";
-import * as fuegocine from "../src/sources/fuegocine.js";
 import * as tioplus from "../src/sources/tioplus.js";
 
 // Shapes captured from the live sites on 2026-10-08.
@@ -84,56 +83,6 @@ test("pelisplus: an episode reads the #link_url spans, named by their li[data-id
     [/\/serie\/breaking-bad$/, "<title>Ver Serie: Breaking Bad (2024) Online Latino HD - Pelisplus</title>"], [/\/capitulo\//, ep]]);
   assert.deepEqual(await pelisplus.list(BB, ctx(other.kino)), [], "a same-title series of another year is passed over");
   assert.deepEqual(e.map((x) => [x.lang, x.server, x.embedUrl]), [["lat", "fastream", "https://fastream.to/embed-abc.html"], ["lat", "doodstream", "https://dood.to/e/xyz"]]);
-});
-
-// ---------- FuegoCine ----------
-
-const fcEntry = (title, links) => ({ title: { $t: title }, content: { $t: `<div></div>
-<script>
-  const _SV_LINKS = [
-${links.map((l) => `    {
-		lang: "${l.lang}",
-		name: "${l.name}",
-		quality: "${l.quality}",
-		url: "${l.url}",
-		tagVideo: false
-},`).join("")}
-  ]
-</script>` } });
-const FC_FEED = { feed: { entry: [
-  fcEntry("Duna: Parte 1 (2021)", [{ lang: "lat", name: "FC✅", quality: "FHD (1080p)", url: "https://cdn.example/dune1.mp4" }]),
-  fcEntry("Dune: Parte 2 (2024)", [
-    { lang: "lat", name: "FC✅", quality: "FHD (1080p)", url: "https://repfuegocinefree.blogspot.com/?player=fluidplayer&provider=rand&format=video%2Fmp4&link=https%3A%2F%2F1a-1791.com%2Fvideo%2FLAW6r.aaa.mp4" },
-    { lang: "mex", name: "FC✅", quality: "Multicalidad", url: "https://repfuegocinefree.blogspot.com/?player=fluidplayer&link=https%3A%2F%2Fpixeldrain.com%2Fapi%2Ffile%2FMF6X7TCT" },
-    { lang: "lat", name: "Drive✅", quality: "FHD (1080p)", url: "https://drive.google.com/file/d/1HR8/preview" },
-    { lang: "lat", name: "SW", quality: "HD", url: "https://streamwish.to/e/abc" },
-  ]),
-] } };
-
-test("fuegocine: the post with the movie's year and base title, its links read from the feed itself", async () => {
-  const f = routes([[/\/feeds\/posts\/default\?/, FC_FEED]]);
-  const e = await fuegocine.list(DUNE2, ctx(f.kino));
-  assert.equal(f.calls.length, 1, "the feed carries the links: no post page is asked");
-  assert.equal(f.calls[0].url, "https://www.fuegocine.com/feeds/posts/default?alt=json&max-results=10&q=Duna");
-  assert.deepEqual(e.map((x) => [x.lang, x.server, x.quality, x.embedUrl]), [
-    ["lat", "direct", "1080p", "https://1a-1791.com/video/LAW6r.aaa.mp4"],
-    ["lat", "direct", null, "https://pixeldrain.com/api/file/MF6X7TCT"],
-    ["lat", "drive", "1080p", "https://drive.google.com/file/d/1HR8/preview"],
-    ["lat", "streamwish", "720p", "https://streamwish.to/e/abc"],
-  ]);
-});
-
-test("fuegocine: a same-name movie of another year is not taken, and no one-word search is made", async () => {
-  const f = routes([[/\/feeds\/posts\/default\?/, FC_FEED]]);
-  assert.deepEqual(await fuegocine.list(DUNE84, ctx(f.kino)), []);
-  assert.ok(f.calls.every((c) => /q=(Duna|Dune)$/.test(c.url)), f.calls.map((c) => c.url).join(" "));
-  assert.deepEqual(await fuegocine.list({ ...FIGHT }, ctx(routes([[/feeds/, { feed: {} }]]).kino)), []);
-});
-
-test("fuegocine: series are not asked (the site has movies only)", async () => {
-  const f = routes([]);
-  assert.deepEqual(await fuegocine.list(BB, ctx(f.kino)), []);
-  assert.equal(f.calls.length, 0);
 });
 
 // ---------- TioPlus ----------

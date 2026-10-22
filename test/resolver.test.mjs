@@ -239,7 +239,7 @@ test("lazy ref round trip for a real source's direct copy, and its labels", asyn
   const s = await resolveLazy(kino, ref);
   assert.equal(s.url, e.embedUrl);
   assert.equal(s.mime, "application/vnd.apple.mpegurl");
-  assert.equal(s.headers.Referer, "https://proyectox.yoyatengoabuela.com/");
+  assert.equal(s.headers.Referer, "https://zoowomaniacos.org/");
   assert.equal(s.label, "Castellano · Zoowomaniacos · Directo 1080p"); // R16: the ref carries the quality
 });
 

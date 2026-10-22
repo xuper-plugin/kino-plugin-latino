@@ -7,12 +7,11 @@ import * as embed69 from "./embed69.js";
 import * as zoowomaniacos from "./zoowomaniacos.js";
 import * as deepflix from "./deepflix.js";
 import * as pelisplus from "./pelisplus.js";
-import * as fuegocine from "./fuegocine.js";
 import * as pelispanda from "./pelispanda.js";
 import * as tioplus from "./tioplus.js";
 import * as cncverse from "./cncverse.js";
 
 /** Sources in priority order. A `fallback` source (CNCVerse) is asked only when the others found nothing. */
-export const SOURCES = [lamovie, hackstore, cinecalidad, seriesmetro, seriesflix, embed69, zoowomaniacos, deepflix, pelisplus, fuegocine, pelispanda, tioplus, cncverse];
+export const SOURCES = [lamovie, hackstore, cinecalidad, seriesmetro, seriesflix, embed69, zoowomaniacos, deepflix, pelisplus, pelispanda, tioplus, cncverse];
 
 export const sourceById = (id) => SOURCES.find((s) => s.id === id) || null;

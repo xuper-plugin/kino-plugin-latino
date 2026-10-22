@@ -1,5 +1,20 @@
 # Changelog
 
+## 2.1.3
+
+- Fix: Zoowomaniacos works again. The site moved from proyectox.yoyatengoabuela.com to zoowomaniacos.org (the old name
+  redirects there, and the new host was not declared, so Kino refused the hop). It now asks zoowomaniacos.org directly;
+  its search and player pages answer as before.
+  / Arreglo: Zoowomaniacos vuelve a funcionar. El sitio se mudó a zoowomaniacos.org y el nombre anterior redirige allí;
+  el host nuevo no estaba declarado y Kino rechazaba el salto.
+- Fix: VidHide copies from PelisPlus play again. They redirect to vidhidefast.com, which was not declared in `hosts`
+  (`host_not_allowed`); it is now declared and handled by the VidHide extractor.
+  / Arreglo: las copias de VidHide que llegan por PelisPlus vuelven a abrirse; redirigen a vidhidefast.com, que no estaba
+  declarado en `hosts`.
+- Removed: FuegoCine. Google took the site down on a copyright claim (its owner said so on 2026-10-20); the blog answers
+  "Blog not found" and no new address exists. The source, its host and its tests are deleted.
+  / Eliminado: FuegoCine. Google retiró el sitio por una reclamación de derechos de autor; ya no existe y no hay dirección nueva.
+
 ## 2.1.2
 
 - Fix: Seriesflix works again. The site moved to seriesflixhd.pw and seriesflixhd.casa and .best now redirect there; Kino
