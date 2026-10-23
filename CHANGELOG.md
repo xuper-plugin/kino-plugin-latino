@@ -1,5 +1,16 @@
 # Changelog
 
+## 2.1.6
+
+- Fix: a search finds the series of a franchise again. TMDB's mixed search answers one page of 20 and a franchise's films crowd
+  the series out of it: "dragon ball" listed Daima and Z Kai only as their cinema screenings ("Movie", 1 h 14 min), never as the
+  series with its episodes. The series search now runs beside it and the series it finds that the mixed page left out are added
+  after; if it fails, the mixed page answers alone as before.
+  / Arreglo: la búsqueda vuelve a traer las series de una franquicia. La búsqueda mixta de TMDB responde una página de 20 y las
+  películas de una franquicia desplazan a las series: "dragon ball" mostraba Daima y Z Kai solo como sus proyecciones de cine
+  ("Película", 1 h 14 min), nunca como la serie con sus episodios. Ahora la búsqueda de series corre a la par y se agregan, al
+  final, las series que la página mixta dejó fuera; si falla, responde la mixta sola como antes.
+
 ## 2.1.5
 
 - Fix: TioPlus finds series and movies with a title of several words again ("Stranger Things", "Breaking Bad", "The Last of Us").

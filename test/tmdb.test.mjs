@@ -112,3 +112,28 @@ test("empty query returns [] without calling TMDB", async () => {
   const { kino } = fakeKino({ tmdb: {} });
   assert.deepEqual(await searchTitles(kino, "   "), []);
 });
+
+test("a series the multi page left out is added after it, once", async () => {
+  const { kino } = fakeKino({ tmdb: {} });
+  const asked = [];
+  const multi = { results: [
+    { media_type: "movie", id: 1, title: "Dragon Ball Daima", release_date: "2024-10-04" },
+    { media_type: "tv", id: 2, name: "Dragon Ball Z" },
+    { media_type: "person", id: 3, name: "Akira Toriyama" },
+  ] };
+  const tv = { results: [{ id: 2, name: "Dragon Ball Z" }, { id: 4, name: "Dragon Ball Daima", first_air_date: "2024-10-11" }] };
+  const withTv = { ...kino, tmdb: async (path) => { asked.push(path); return path === "/search/tv" ? tv : multi; } };
+  const items = await searchTitles(withTv, "dragon ball");
+  assert.deepEqual(asked.sort(), ["/search/multi", "/search/tv"]);
+  assert.deepEqual(items.map((i) => i.ref), ["m:1", "s:2", "s:4"]);
+  assert.equal(items[2].kind, "series");
+  assert.equal(items[2].year, "2024");
+});
+
+test("when the series search fails the multi page stands alone", async () => {
+  const { kino } = fakeKino({ tmdb: {} });
+  const multi = { results: [{ media_type: "movie", id: 1, title: "Fight Club" }] };
+  const withTv = { ...kino, tmdb: async (path) => { if (path === "/search/tv") throw new Error("boom"); return multi; } };
+  const items = await searchTitles(withTv, "fight club");
+  assert.deepEqual(items.map((i) => i.ref), ["m:1"]);
+});

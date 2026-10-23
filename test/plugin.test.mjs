@@ -448,7 +448,8 @@ test("deadline: a hanging kino.tmdb never holds episodes, details or the probe a
 test("deadline: search gives kino.tmdb up to 9 s, tries once more with what is left, and ends inside the call's limit", async () => {
   let calls = 0;
   const r = await onVirtualClock(async (sleep) => {
-    install({ extra: { sleep, tmdb: () => { calls++; return hangingTmdb(); } } });
+    // The series search runs beside the multi one and is a complement: only the multi tries are counted.
+    install({ extra: { sleep, tmdb: (path) => { if (path === "/search/multi") calls++; return hangingTmdb(); } } });
     return plugin.search({ q: "x" });
   });
   assert.equal(calls, 2);

@@ -102,6 +102,7 @@ async function searchTitles(kino, query, { untilMs, onFirstFailure } = {}) {
   if (typeof query !== "string" || !query.trim()) return [];
   const ask = (maxMs) => tmdb(kino, "/search/multi", { query, language: "es-MX" }, { untilMs, maxMs });
   const end = untilMs == null ? Date.now() + 14e3 : untilMs;
+  const series = tmdb(kino, "/search/tv", { query, language: "es-MX" }, { untilMs, maxMs: Math.min(SEARCH_TMDB_MS, end - Date.now() - 1e3) }).catch(() => null);
   let r;
   try {
     r = await ask(Math.min(SEARCH_TMDB_MS, end - Date.now() - 1e3));
@@ -111,12 +112,15 @@ async function searchTitles(kino, query, { untilMs, onFirstFailure } = {}) {
     r = await ask(Math.min(SEARCH_TMDB_MS, end - Date.now() - 500));
   }
   const items = [];
-  for (const x of r && r.results || []) {
-    if (x.media_type !== "movie" && x.media_type !== "tv") continue;
+  const seen = /* @__PURE__ */ new Set();
+  const add = (x, mediaType) => {
+    if (mediaType !== "movie" && mediaType !== "tv") return;
     const title = x.title || x.name;
-    if (!title) continue;
-    const movie = x.media_type === "movie";
+    if (!title) return;
+    const movie = mediaType === "movie";
     const ref = (movie ? "m:" : "s:") + x.id;
+    if (seen.has(ref)) return;
+    seen.add(ref);
     const item3 = {
       id: (movie ? "m-" : "s-") + x.id,
       // Kino's item ids allow no ":"
@@ -132,7 +136,10 @@ async function searchTitles(kino, query, { untilMs, onFirstFailure } = {}) {
     if (x.overview) item3.overview = x.overview;
     if (typeof x.vote_average === "number" && x.vote_average > 0 && x.vote_average <= 10) item3.rating = Math.round(x.vote_average * 10) / 10;
     items.push(item3);
-  }
+  };
+  for (const x of r && r.results || []) add(x, x.media_type);
+  const tv = await series;
+  for (const x of tv && tv.results || []) add(x, "tv");
   return items;
 }
 var CHUNK = 20;
@@ -343,7 +350,7 @@ __export(streamwish_exports, {
 var kino_plugin_default = {
   id: "latino",
   name: "Latino",
-  version: "2.1.5",
+  version: "2.1.6",
   apiVersion: 9,
   panel: {
     label: "Latino",
