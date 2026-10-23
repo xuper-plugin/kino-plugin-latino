@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { fakeKino, fixture } from "./helpers/fakeKino.mjs";
 import { titleContext, searchTitles, episodeList } from "../src/tmdb.js";
+import { withoutSeriesScreenings } from "../src/util/titles.js";
 
 const fc = JSON.parse(fixture("tmdb/fight-club.json"));
 const bb = JSON.parse(fixture("tmdb/breaking-bad.json"));
@@ -113,27 +114,37 @@ test("empty query returns [] without calling TMDB", async () => {
   assert.deepEqual(await searchTitles(kino, "   "), []);
 });
 
-test("a series the multi page left out is added after it, once", async () => {
-  const { kino } = fakeKino({ tmdb: {} });
-  const asked = [];
-  const multi = { results: [
-    { media_type: "movie", id: 1, title: "Dragon Ball Daima", release_date: "2024-10-04" },
-    { media_type: "tv", id: 2, name: "Dragon Ball Z" },
-    { media_type: "person", id: 3, name: "Akira Toriyama" },
-  ] };
-  const tv = { results: [{ id: 2, name: "Dragon Ball Z" }, { id: 4, name: "Dragon Ball Daima", first_air_date: "2024-10-11" }] };
-  const withTv = { ...kino, tmdb: async (path) => { asked.push(path); return path === "/search/tv" ? tv : multi; } };
-  const items = await searchTitles(withTv, "dragon ball");
-  assert.deepEqual(asked.sort(), ["/search/multi", "/search/tv"]);
-  assert.deepEqual(items.map((i) => i.ref), ["m:1", "s:2", "s:4"]);
-  assert.equal(items[2].kind, "series");
-  assert.equal(items[2].year, "2024");
+const film = (title, year, overview = "") => ({ kind: "movie", title, year: String(year), overview });
+const show = (title, year) => ({ kind: "series", title, year: String(year) });
+
+test("a film that is a series' screening is left out: same year, or episodes in its synopsis", () => {
+  const items = [
+    film("Dragon Ball DAIMA", 2024), show("Dragon Ball Daima", 2024),
+    film("Dragon Ball Z Kai", 2024, "Theatrical screening of Dragon Ball Z Kai's Raditz Saga (episodes 1-4)"), show("Dragon Ball Z Kai", 2009),
+    film("Dragon Ball Z: La batalla de los dioses", 2013),
+  ];
+  assert.deepEqual(withoutSeriesScreenings(items).map((i) => i.title), ["Dragon Ball Daima", "Dragon Ball Z Kai", "Dragon Ball Z: La batalla de los dioses"]);
+  // The film TMDB gives no synopsis in Spanish for: still its series' screening.
+  assert.deepEqual(withoutSeriesScreenings([film("Dragon Ball Z Kai", 2024), show("Dragon Ball Z Kai", 2009)]).map((i) => i.kind), ["series"]);
 });
 
-test("when the series search fails the multi page stands alone", async () => {
+test("a real film that shares a series' name stays", () => {
+  const items = [film("Fargo", 1996, "A pregnant sheriff..."), show("Fargo", 2014), film("The Flash", 2023, "Barry Allen changes the past"), show("The Flash", 2014)];
+  assert.equal(withoutSeriesScreenings(items).length, 4);
+});
+
+test("accents and punctuation do not hide a screening, Spanish synopsis words count, and a list without series is untouched", () => {
+  assert.equal(withoutSeriesScreenings([film("Pokémon: La película", 2020, "Reúne los primeros capítulos"), show("Pokemon la pelicula", 2019)]).length, 1);
+  const only = [film("Alien", 1979)];
+  assert.equal(withoutSeriesScreenings(only), only);
+});
+
+test("search drops a series' screening listed as a film", async () => {
   const { kino } = fakeKino({ tmdb: {} });
-  const multi = { results: [{ media_type: "movie", id: 1, title: "Fight Club" }] };
-  const withTv = { ...kino, tmdb: async (path) => { if (path === "/search/tv") throw new Error("boom"); return multi; } };
-  const items = await searchTitles(withTv, "fight club");
-  assert.deepEqual(items.map((i) => i.ref), ["m:1"]);
+  const multi = { results: [
+    { media_type: "movie", id: 1, title: "Dragon Ball DAIMA", release_date: "2024-10-04" },
+    { media_type: "tv", id: 2, name: "Dragon Ball Daima", first_air_date: "2024-10-11" },
+  ] };
+  const items = await searchTitles({ ...kino, tmdb: async () => multi }, "dragon ball daima");
+  assert.deepEqual(items.map((i) => i.ref), ["s:2"]);
 });

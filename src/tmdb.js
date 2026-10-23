@@ -1,6 +1,7 @@
 // TMDB through kino.tmdb: the title context sources receive, search, and the episode list.
 
 import { bounded } from "./util/time.js";
+import { withoutSeriesScreenings } from "./util/titles.js";
 
 const IMG = "https://image.tmdb.org/t/p/";
 /** Longest wait for one kino.tmdb answer (Kino's own is 15 s, more than some exports have). */
@@ -58,17 +59,12 @@ const RETRYABLE = new Set(["timeout", "network"]);
  * Movies and series matching [query]; people and untitled results are dropped. A first try waits up to 9 s (but leaves
  * the call 1 s beyond `untilMs`'s own margin to answer); a `timeout`/`network` failure is tried once more when 4 s
  * of the call remain. [onFirstFailure] runs as soon as the first try has failed (the caller starts its fallback then).
- *
- * `/search/multi` answers one page of 20 across films, series and people, and a franchise's films crowd the series out
- * of it ("dragon ball": Daima and Z Kai came only as their cinema screenings, never as the series). The series search
- * runs beside it and what it finds that the multi page did not is added after, so a series is always there. It is
- * only a complement: if it fails, the multi page stands alone.
+ * A series' screenings listed as films are left out ([withoutSeriesScreenings]).
  */
 export async function searchTitles(kino, query, { untilMs, onFirstFailure } = {}) {
   if (typeof query !== "string" || !query.trim()) return [];
   const ask = (maxMs) => tmdb(kino, "/search/multi", { query, language: "es-MX" }, { untilMs, maxMs });
   const end = untilMs == null ? Date.now() + 14000 : untilMs;
-  const series = tmdb(kino, "/search/tv", { query, language: "es-MX" }, { untilMs, maxMs: Math.min(SEARCH_TMDB_MS, end - Date.now() - 1000) }).catch(() => null);
   let r;
   try {
     r = await ask(Math.min(SEARCH_TMDB_MS, end - Date.now() - 1000));
@@ -78,15 +74,12 @@ export async function searchTitles(kino, query, { untilMs, onFirstFailure } = {}
     r = await ask(Math.min(SEARCH_TMDB_MS, end - Date.now() - 500));
   }
   const items = [];
-  const seen = new Set();
-  const add = (x, mediaType) => {
-    if (mediaType !== "movie" && mediaType !== "tv") return;
+  for (const x of (r && r.results) || []) {
+    if (x.media_type !== "movie" && x.media_type !== "tv") continue;
     const title = x.title || x.name;
-    if (!title) return;
-    const movie = mediaType === "movie";
+    if (!title) continue;
+    const movie = x.media_type === "movie";
     const ref = (movie ? "m:" : "s:") + x.id;
-    if (seen.has(ref)) return;
-    seen.add(ref);
     const item = {
       id: (movie ? "m-" : "s-") + x.id, // Kino's item ids allow no ":"
       ref, title, kind: movie ? "movie" : "series",
@@ -99,11 +92,8 @@ export async function searchTitles(kino, query, { untilMs, onFirstFailure } = {}
     if (x.overview) item.overview = x.overview;
     if (typeof x.vote_average === "number" && x.vote_average > 0 && x.vote_average <= 10) item.rating = Math.round(x.vote_average * 10) / 10;
     items.push(item);
-  };
-  for (const x of (r && r.results) || []) add(x, x.media_type);
-  const tv = await series;
-  for (const x of (tv && tv.results) || []) add(x, "tv"); // /search/tv carries no media_type
-  return items;
+  }
+  return withoutSeriesScreenings(items);
 }
 
 const CHUNK = 20; // Kino's key allows 20 kino.tmdb calls per 10 s per plugin

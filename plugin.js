@@ -58,6 +58,30 @@ function callDeadline(kino, call) {
   return { end, left: () => Math.max(0, end - Date.now()) };
 }
 
+// src/util/titles.js
+function plainTitle(text5) {
+  return String(text5 || "").normalize("NFD").replace(/\p{M}+/gu, "").toLowerCase().replace(/&/g, " and ").replace(/[^a-z0-9]+/g, " ").trim();
+}
+var EPISODES = /\b(episod|cap[ií]tul|temporada|season)/i;
+function withoutSeriesScreenings(items) {
+  const series = /* @__PURE__ */ new Map();
+  for (const i of items) {
+    if (i.kind !== "series") continue;
+    const key = plainTitle(i.title);
+    const year2 = Number(i.year) || null;
+    if (!series.has(key) || year2 && year2 < series.get(key)) series.set(key, year2);
+  }
+  if (!series.size) return items;
+  return items.filter((i) => {
+    if (i.kind !== "movie" || !series.has(plainTitle(i.title))) return true;
+    const first = series.get(plainTitle(i.title));
+    const year2 = Number(i.year) || null;
+    if (first && year2 && year2 < first) return true;
+    const sameYear = first && year2 && year2 === first;
+    return !(sameYear || !i.overview || EPISODES.test(i.overview));
+  });
+}
+
 // src/tmdb.js
 var IMG = "https://image.tmdb.org/t/p/";
 var TMDB_MS = 6e3;
@@ -102,7 +126,6 @@ async function searchTitles(kino, query, { untilMs, onFirstFailure } = {}) {
   if (typeof query !== "string" || !query.trim()) return [];
   const ask = (maxMs) => tmdb(kino, "/search/multi", { query, language: "es-MX" }, { untilMs, maxMs });
   const end = untilMs == null ? Date.now() + 14e3 : untilMs;
-  const series = tmdb(kino, "/search/tv", { query, language: "es-MX" }, { untilMs, maxMs: Math.min(SEARCH_TMDB_MS, end - Date.now() - 1e3) }).catch(() => null);
   let r;
   try {
     r = await ask(Math.min(SEARCH_TMDB_MS, end - Date.now() - 1e3));
@@ -112,15 +135,12 @@ async function searchTitles(kino, query, { untilMs, onFirstFailure } = {}) {
     r = await ask(Math.min(SEARCH_TMDB_MS, end - Date.now() - 500));
   }
   const items = [];
-  const seen = /* @__PURE__ */ new Set();
-  const add = (x, mediaType) => {
-    if (mediaType !== "movie" && mediaType !== "tv") return;
+  for (const x of r && r.results || []) {
+    if (x.media_type !== "movie" && x.media_type !== "tv") continue;
     const title = x.title || x.name;
-    if (!title) return;
-    const movie = mediaType === "movie";
+    if (!title) continue;
+    const movie = x.media_type === "movie";
     const ref = (movie ? "m:" : "s:") + x.id;
-    if (seen.has(ref)) return;
-    seen.add(ref);
     const item3 = {
       id: (movie ? "m-" : "s-") + x.id,
       // Kino's item ids allow no ":"
@@ -136,11 +156,8 @@ async function searchTitles(kino, query, { untilMs, onFirstFailure } = {}) {
     if (x.overview) item3.overview = x.overview;
     if (typeof x.vote_average === "number" && x.vote_average > 0 && x.vote_average <= 10) item3.rating = Math.round(x.vote_average * 10) / 10;
     items.push(item3);
-  };
-  for (const x of r && r.results || []) add(x, x.media_type);
-  const tv = await series;
-  for (const x of tv && tv.results || []) add(x, "tv");
-  return items;
+  }
+  return withoutSeriesScreenings(items);
 }
 var CHUNK = 20;
 async function episodeList(kino, tmdbId, { untilMs } = {}) {
@@ -350,7 +367,7 @@ __export(streamwish_exports, {
 var kino_plugin_default = {
   id: "latino",
   name: "Latino",
-  version: "2.1.6",
+  version: "2.1.7",
   apiVersion: 9,
   panel: {
     label: "Latino",

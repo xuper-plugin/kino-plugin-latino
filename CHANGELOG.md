@@ -1,5 +1,17 @@
 # Changelog
 
+## 2.1.7
+
+- Fix: a series is not offered as a film. TMDB lists a series' cinema or premiere screenings as films of their own ("Dragon Ball
+  Daima", 1 h 14 min; "Dragon Ball Z Kai", episodes 1-4 shown in cinemas) and the search showed them first, as "Movie", beside
+  the series (or instead of it, when a person typed the name). A film is now left out when a series has exactly its title and
+  it is that series' screening: it came the same year, has no synopsis, or its synopsis speaks of episodes or a season. A real film that shares a
+  series' name stays. The extra series search added in 2.1.6 is gone: the series were already in the answer.
+  / Arreglo: una serie ya no se ofrece como película. TMDB lista como películas las proyecciones de cine de una serie ("Dragon
+  Ball Daima", "Dragon Ball Z Kai") y la búsqueda las mostraba primero, como "Película". Ahora se descarta la película cuando
+  hay una serie con exactamente su título y es su proyección (del mismo año, sin sinopsis, o con una sinopsis que habla de
+  episodios o de una temporada); una película real con el nombre de una serie se queda. Se quitó la búsqueda extra de series de la 2.1.6: las series ya venían.
+
 ## 2.1.6
 
 - Fix: a search finds the series of a franchise again. TMDB's mixed search answers one page of 20 and a franchise's films crowd
