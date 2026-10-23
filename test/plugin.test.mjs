@@ -297,7 +297,7 @@ test("settings: defaults, and the person's choices read from kino.config", () =>
   assert.equal(d.homeRows, true);
   assert.equal(d.enabled.lamovie, true); // the kit applies the manifest's explicit toggle default, as Kino does
   const s = readSettings({ config: { get: (k) => ({ preferred: "esp", maxQuality: "720p", src_lamovie: false, src_embed69: true, homeRows: false })[k] } });
-  assert.deepEqual(s, { preferred: "esp", maxQuality: "720p", enabled: { lamovie: false, embed69: true }, homeRows: false, avoid: [] });
+  assert.deepEqual(s, { preferred: "esp", maxQuality: "720p", enabled: { lamovie: false, embed69: true }, homeRows: false, liveSports: true, avoid: [] });
 });
 
 test("t('notFound') is English when Kino speaks English", () => {
@@ -531,4 +531,19 @@ test("cacheCleared: one saved item is singular, several are plural (Spanish and 
   const en = install({ lang: "en-US" });
   en.kino.storage.set("tmdb:lm:2", "3");
   assert.equal((await plugin.action("clearCache")).message, "Done: cleared 1 saved item.");
+});
+
+// ---------- live: sports list ----------
+
+test("liveCategories names the sports playlist, and nothing when the person turned it off", async () => {
+  install({});
+  const cats = await plugin.liveCategories();
+  assert.equal(cats.length, 1);
+  assert.equal(cats[0].playlist.url, plugin.SPORTS_LIST);
+  assert.equal(cats[0].playlist.format, "m3u");
+  assert.equal(cats[0].playlist.genre, "deportes");
+  assert.match(cats[0].playlist.url, /^https:\/\/raw\.githubusercontent\.com\//);
+  install({ config: { liveSports: false } });
+  assert.deepEqual(await plugin.liveCategories(), []);
+  assert.deepEqual(await plugin.liveChannels({ categoryId: "x" }), { items: [] });
 });

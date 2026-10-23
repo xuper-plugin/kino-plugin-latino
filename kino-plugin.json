@@ -1,7 +1,7 @@
 {
   "id": "latino",
   "name": "Latino",
-  "version": "2.1.7",
+  "version": "2.2.0",
   "apiVersion": 9,
   "panel": {
     "label": "Latino",
@@ -10,7 +10,7 @@
   },
   "entry": "plugin.js",
   "icon": "icon.png",
-  "description": "Películas y series en español latino, castellano o subtituladas desde varias fuentes",
+  "description": "Películas y series en español latino, castellano o subtituladas desde varias fuentes, y una lista de canales de eventos deportivos en vivo",
   "author": "xuper-plugin",
   "homepage": "https://github.com/xuper-plugin/kino-plugin-latino",
   "hosts": [
@@ -81,7 +81,8 @@
     "vidhideplus.com",
     "*.vidhideplus.com",
     "callistanise.com",
-    "*.callistanise.com"
+    "*.callistanise.com",
+    "raw.githubusercontent.com"
   ],
   "capabilities": [
     "search",
@@ -90,7 +91,8 @@
     "episodes",
     "resolve",
     "scopedSearch",
-    "download"
+    "download",
+    "channels"
   ],
   "streamHosts": "any",
   "categories": [
@@ -235,6 +237,21 @@
       "default": true
     },
     {
+      "key": "liveSection",
+      "type": "section",
+      "label": "En vivo",
+      "labelEn": "Live"
+    },
+    {
+      "key": "liveSports",
+      "type": "toggle",
+      "label": "Eventos deportivos en vivo",
+      "labelEn": "Live sports events",
+      "default": true,
+      "hint": "Partidos y canales deportivos, al día. Salen en En vivo.",
+      "hintEn": "Matches and sports channels, updated daily. Shown in Live."
+    },
+    {
       "key": "homeSection",
       "type": "section",
       "label": "Inicio",
@@ -283,5 +300,6 @@
       "confirm": "¿Volver a los valores de fábrica de Latino?",
       "confirmEn": "Go back to Latino's default settings?"
     }
-  ]
+  ],
+  "liveStreamHosts": "any"
 }

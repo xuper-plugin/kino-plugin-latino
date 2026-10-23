@@ -1,5 +1,16 @@
 # Changelog
 
+## 2.2.0
+
+- New: a live sports list in the Live tab. Latino now names a public M3U of sports events and sports channels that is
+  updated every day; Kino downloads it, groups it and refreshes it every 3 hours. A new setting, "Live sports events"
+  (on by default), hides it. It adds the `channels` capability, `liveStreamHosts: "any"` (the list's streams are on many
+  hosts) and the host raw.githubusercontent.com, so the update asks for approval.
+  / Nuevo: una lista de deportes en vivo en la pestaña En vivo. Latino nombra un M3U público de eventos y canales
+  deportivos que se actualiza a diario; Kino lo descarga, lo agrupa y lo refresca cada 3 horas. Un ajuste nuevo,
+  "Eventos deportivos en vivo" (activo por defecto), lo oculta. Añade la capacidad `channels`, `liveStreamHosts: "any"`
+  (los streams de la lista están en muchos hosts) y el host raw.githubusercontent.com, así que la actualización pide aprobación.
+
 ## 2.1.7
 
 - Fix: a series is not offered as a film. TMDB lists a series' cinema or premiere screenings as films of their own ("Dragon Ball

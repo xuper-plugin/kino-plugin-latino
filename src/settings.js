@@ -13,8 +13,8 @@ function bool(v, fallback) {
 }
 
 /**
- * `{ preferred, maxQuality, enabled: { <sourceId>: bool }, homeRows }` -- the resolver's settings plus
- * `homeRows`. Keys: preferred, maxQuality, src_<sourceId>, homeRows. `avoid` (server ids to try last) comes only from the panel.
+ * `{ preferred, maxQuality, enabled: { <sourceId>: bool }, homeRows, liveSports }` -- the resolver's settings plus
+ * `homeRows` and `liveSports`. Keys: preferred, maxQuality, src_<sourceId>, homeRows, liveSports. `avoid` (server ids to try last) comes only from the panel.
  */
 export function readSettings(kino) {
   const get = (key) => {
@@ -28,7 +28,7 @@ export function readSettings(kino) {
   // The player panel's override (kino.storage, see panel/state.js) wins over the settings form.
   const prefs = readPrefs(kino);
   const base = normalizeSettings({ preferred: prefs.preferred ?? get("preferred"), maxQuality: prefs.maxQuality ?? get("maxQuality"), enabled });
-  return { ...base, homeRows: bool(get("homeRows"), true), avoid: prefs.avoid };
+  return { ...base, homeRows: bool(get("homeRows"), true), liveSports: bool(get("liveSports"), true), avoid: prefs.avoid };
 }
 
 /** Whether a source is on under these settings (every source is on unless turned off). */

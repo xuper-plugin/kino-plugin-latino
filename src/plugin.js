@@ -1,7 +1,7 @@
 // Latino: films and series in Latin American Spanish, Spain Spanish or subtitled, from several Spanish-language sites.
 //
 // Exports Kino calls: search (with scopedSearch), home, browse, section, categories, episodes, details and resolve,
-// plus the settings form's settingsStatus, action and validateSettings.
+// liveCategories and liveChannels (the live sports list), plus the settings form's settingsStatus, action and validateSettings.
 // Refs:
 //   m:<tmdb>  s:<tmdb>  e:<tmdb>:<season>:<episode>        TMDB titles (search) and episodes
 //   lm:<post>:<movie|tv>:<slug>[:<year>]  hs:...            LaMovie / HackStore listings, matched to TMDB on demand
@@ -196,6 +196,26 @@ export async function resolve(ref) {
   const title = await contextFor(kino, r, dl.end - RESOLVE_RESERVE_MS);
   if (!title) throw notFound(kino, "not a playable ref");
   return resolveTitle(kino, title, readSettings(kino), { callMs: dl.left(), ref: r });
+}
+
+// ---------- live: sports events ----------
+
+// A public M3U of sports events and channels, refreshed daily upstream. Kino downloads it itself (the host is declared in
+// the manifest), so the plugin only names it; its streams are on many hosts, hence `liveStreamHosts: "any"`.
+export const SPORTS_LIST = "https://raw.githubusercontent.com/linhpy89/linh/refs/heads/linh/full.m3u";
+const SPORTS_REFRESH_HOURS = 3;
+
+/** `liveCategories()`: the sports list as a playlist, unless the person turned it off. */
+export async function liveCategories() {
+  const kino = getKino();
+  const on = readSettings(kino).liveSports;
+  if (!on) return [];
+  return [{ playlist: { url: SPORTS_LIST, format: "m3u", genre: "deportes", refreshHours: SPORTS_REFRESH_HOURS } }];
+}
+
+/** `liveChannels()`: required with the channels capability; every channel comes from the playlist, none from a category. */
+export async function liveChannels() {
+  return { items: [] };
 }
 
 // ---------- settings form ----------

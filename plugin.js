@@ -367,7 +367,7 @@ __export(streamwish_exports, {
 var kino_plugin_default = {
   id: "latino",
   name: "Latino",
-  version: "2.1.7",
+  version: "2.2.0",
   apiVersion: 9,
   panel: {
     label: "Latino",
@@ -376,7 +376,7 @@ var kino_plugin_default = {
   },
   entry: "plugin.js",
   icon: "icon.png",
-  description: "Pel\xEDculas y series en espa\xF1ol latino, castellano o subtituladas desde varias fuentes",
+  description: "Pel\xEDculas y series en espa\xF1ol latino, castellano o subtituladas desde varias fuentes, y una lista de canales de eventos deportivos en vivo",
   author: "xuper-plugin",
   homepage: "https://github.com/xuper-plugin/kino-plugin-latino",
   hosts: [
@@ -447,7 +447,8 @@ var kino_plugin_default = {
     "vidhideplus.com",
     "*.vidhideplus.com",
     "callistanise.com",
-    "*.callistanise.com"
+    "*.callistanise.com",
+    "raw.githubusercontent.com"
   ],
   capabilities: [
     "search",
@@ -456,7 +457,8 @@ var kino_plugin_default = {
     "episodes",
     "resolve",
     "scopedSearch",
-    "download"
+    "download",
+    "channels"
   ],
   streamHosts: "any",
   categories: [
@@ -601,6 +603,21 @@ var kino_plugin_default = {
       default: true
     },
     {
+      key: "liveSection",
+      type: "section",
+      label: "En vivo",
+      labelEn: "Live"
+    },
+    {
+      key: "liveSports",
+      type: "toggle",
+      label: "Eventos deportivos en vivo",
+      labelEn: "Live sports events",
+      default: true,
+      hint: "Partidos y canales deportivos, al d\xEDa. Salen en En vivo.",
+      hintEn: "Matches and sports channels, updated daily. Shown in Live."
+    },
+    {
       key: "homeSection",
       type: "section",
       label: "Inicio",
@@ -649,7 +666,8 @@ var kino_plugin_default = {
       confirm: "\xBFVolver a los valores de f\xE1brica de Latino?",
       confirmEn: "Go back to Latino's default settings?"
     }
-  ]
+  ],
+  liveStreamHosts: "any"
 };
 
 // src/util/hosts.js
@@ -2559,7 +2577,7 @@ function readSettings(kino) {
   }
   const prefs = readPrefs(kino);
   const base = normalizeSettings({ preferred: prefs.preferred ?? get("preferred"), maxQuality: prefs.maxQuality ?? get("maxQuality"), enabled });
-  return { ...base, homeRows: bool(get("homeRows"), true), avoid: prefs.avoid };
+  return { ...base, homeRows: bool(get("homeRows"), true), liveSports: bool(get("liveSports"), true), avoid: prefs.avoid };
 }
 var sourceOn = (settings, id12) => settings.enabled[id12] !== false;
 
@@ -4176,6 +4194,17 @@ async function resolve(ref) {
   if (!title) throw notFound(kino, "not a playable ref");
   return resolveTitle(kino, title, readSettings(kino), { callMs: dl.left(), ref: r });
 }
+var SPORTS_LIST = "https://raw.githubusercontent.com/linhpy89/linh/refs/heads/linh/full.m3u";
+var SPORTS_REFRESH_HOURS = 3;
+async function liveCategories() {
+  const kino = getKino();
+  const on = readSettings(kino).liveSports;
+  if (!on) return [];
+  return [{ playlist: { url: SPORTS_LIST, format: "m3u", genre: "deportes", refreshHours: SPORTS_REFRESH_HOURS } }];
+}
+async function liveChannels() {
+  return { items: [] };
+}
 var PREFERENCE_KEYS = kino_plugin_default.settings.filter((s) => !["section", "status", "action"].includes(s.type)).map((s) => s.key);
 var PROBE_TMDB_ID = 550;
 var fill = (text5, vars) => text5.replace(/\{(\w+)\}/g, (_, k) => String(vars[k]));
@@ -4231,12 +4260,15 @@ async function validateSettings(values) {
   return SOURCES.some((s) => on[s.id] !== false) ? null : t("keepOneSource", kino);
 }
 export {
+  SPORTS_LIST,
   action,
   browse,
   categories,
   details,
   episodes,
   home,
+  liveCategories,
+  liveChannels,
   panel,
   panelAction,
   playerEvent,
