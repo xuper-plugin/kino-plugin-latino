@@ -69,11 +69,57 @@ export async function search(query) {
 }
 
 /** `home()`: the newest titles of LaMovie (films, series) and HackStore, unless the person turned the rows off. */
+// The last good Home, kept so a Home whose sources are all down (or that is still out at HOME_GUARD_MS) shows something instead of
+// nothing. Only the rows are kept, trimmed until they fit HOME_CACHE_MAX: the 256 KB of storage are shared with the TMDB, match and
+// health caches. A fresh Home always asks the sources again; the copy is only the fallback.
+const HOME_KEY = "home1";
+const HOME_STALE_MS = 12 * 3600 * 1000;
+const HOME_CACHE_MAX = 60 * 1024;
+const HOME_GUARD_MS = 12000;
+
+function saveHome(kino, rows) {
+  try {
+    for (let per = 20; per >= 4; per -= 4) {
+      const text = JSON.stringify({ at: Date.now(), rows: rows.map((r) => ({ ...r, items: r.items.slice(0, per) })) });
+      if (text.length <= HOME_CACHE_MAX) {
+        kino.storage.set(HOME_KEY, text, { ttlMs: HOME_STALE_MS });
+        return;
+      }
+    }
+  } catch (_) { /* full storage: no copy */ }
+}
+
+function savedHome(kino) {
+  try {
+    const s = JSON.parse(kino.storage.get(HOME_KEY) || "null");
+    return s && Array.isArray(s.rows) && s.rows.length && Date.now() - s.at < HOME_STALE_MS ? s.rows : null;
+  } catch (_) { return null; }
+}
+
+/** Resolves to null after `ms`; kino.sleep takes at most 5000 ms per call. */
+async function guardAfter(kino, ms) {
+  for (let left = ms; left > 0; left -= 4500) await kino.sleep(Math.min(left, 4500));
+  return null;
+}
+
 export async function home() {
   const kino = getKino();
   const settings = readSettings(kino);
   if (!settings.homeRows) return [];
-  return buildRows(kino, settings, HOME_ROWS, { untilMs: callDeadline(kino, "home").end });
+  const saved = savedHome(kino);
+  const fresh = buildRows(kino, settings, HOME_ROWS, { untilMs: callDeadline(kino, "home").end }).then((rows) => {
+    if (rows.length) saveHome(kino, rows);
+    return rows;
+  });
+  let rows;
+  try {
+    rows = saved ? await Promise.race([fresh, guardAfter(kino, HOME_GUARD_MS)]) : await fresh;
+  } catch (e) {
+    if (saved) return saved;
+    throw e;
+  }
+  fresh.catch(() => {});
+  return rows && rows.length ? rows : saved || rows || [];
 }
 
 /** `browse(ref, cursor)`: a "Ver más" page of a home row, a section row or a category tile. */

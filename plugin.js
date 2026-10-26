@@ -367,7 +367,7 @@ __export(streamwish_exports, {
 var kino_plugin_default = {
   id: "latino",
   name: "Latino",
-  version: "2.2.0",
+  version: "2.2.1",
   apiVersion: 9,
   panel: {
     label: "Latino",
@@ -4091,11 +4091,53 @@ async function search2(query) {
   const sorted = lean ? [...items.filter((i) => i.kind === lean), ...items.filter((i) => i.kind !== lean)] : items;
   return sorted.slice(0, 100);
 }
+var HOME_KEY = "home1";
+var HOME_STALE_MS = 12 * 3600 * 1e3;
+var HOME_CACHE_MAX = 60 * 1024;
+var HOME_GUARD_MS = 12e3;
+function saveHome(kino, rows3) {
+  try {
+    for (let per = 20; per >= 4; per -= 4) {
+      const text5 = JSON.stringify({ at: Date.now(), rows: rows3.map((r) => ({ ...r, items: r.items.slice(0, per) })) });
+      if (text5.length <= HOME_CACHE_MAX) {
+        kino.storage.set(HOME_KEY, text5, { ttlMs: HOME_STALE_MS });
+        return;
+      }
+    }
+  } catch (_) {
+  }
+}
+function savedHome(kino) {
+  try {
+    const s = JSON.parse(kino.storage.get(HOME_KEY) || "null");
+    return s && Array.isArray(s.rows) && s.rows.length && Date.now() - s.at < HOME_STALE_MS ? s.rows : null;
+  } catch (_) {
+    return null;
+  }
+}
+async function guardAfter(kino, ms) {
+  for (let left = ms; left > 0; left -= 4500) await kino.sleep(Math.min(left, 4500));
+  return null;
+}
 async function home() {
   const kino = getKino();
   const settings = readSettings(kino);
   if (!settings.homeRows) return [];
-  return buildRows(kino, settings, HOME_ROWS, { untilMs: callDeadline(kino, "home").end });
+  const saved = savedHome(kino);
+  const fresh = buildRows(kino, settings, HOME_ROWS, { untilMs: callDeadline(kino, "home").end }).then((rows4) => {
+    if (rows4.length) saveHome(kino, rows4);
+    return rows4;
+  });
+  let rows3;
+  try {
+    rows3 = saved ? await Promise.race([fresh, guardAfter(kino, HOME_GUARD_MS)]) : await fresh;
+  } catch (e) {
+    if (saved) return saved;
+    throw e;
+  }
+  fresh.catch(() => {
+  });
+  return rows3 && rows3.length ? rows3 : saved || rows3 || [];
 }
 async function browse(ref, cursor) {
   const kino = getKino();
