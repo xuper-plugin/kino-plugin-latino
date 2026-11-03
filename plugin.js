@@ -3730,6 +3730,18 @@ var twin = (key, field = "text", vars) => {
   const w = both(key, vars);
   return { [field]: w.es, [field + "En"]: w.en };
 };
+var logo = () => ({
+  type: "Image",
+  key: "logo",
+  url: LOGO_DATA,
+  aspect: LOGO_ASPECT,
+  fit: "contain",
+  h: 40,
+  alt: "Latino",
+  altEn: "Latino",
+  fallback: { type: "Text", text: "Latino", textEn: "Latino", style: "h4" }
+});
+var tabBar = (active) => ({ type: "TabBar", key: "tabs", divider: false, value: active, onChanged: "tab", tabs: TAB_IDS.map((id12) => ({ value: id12, ...twin(TAB_KEYS[id12], "label") })) });
 var railSkeleton = (n) => ({
   type: "Column",
   key: "skel" + n,
@@ -3786,7 +3798,8 @@ var rail = (r, key, titleOverride) => ({
   items: r.items,
   size: "medium"
 });
-function browseView({ tab, data, recent, pending, failed }) {
+function browseView({ tab, data, recent, pending, failed, device = "phone" }) {
+  const tv = device === "tv";
   const active = TAB_IDS.includes(tab) ? tab : TAB_IDS[0];
   const body = [];
   if (data) {
@@ -3815,22 +3828,15 @@ function browseView({ tab, data, recent, pending, failed }) {
       dense: true,
       divider: false,
       leading: { type: "IconButton", key: "close", icon: "close", ...twin("brClose", "labelText"), ...twin("brClose", "tooltip"), onPressed: { go: { close: true } } },
-      title: {
-        type: "Image",
-        key: "logo",
-        url: LOGO_DATA,
-        aspect: LOGO_ASPECT,
-        fit: "contain",
-        h: 40,
-        alt: "Latino",
-        altEn: "Latino",
-        fallback: { type: "Text", text: "Latino", textEn: "Latino", style: "h4" }
-      }
+      // On a TV the search is a button of the bar (a floating one is hard to reach with a remote); elsewhere it floats.
+      ...tv ? { actions: [{ type: "IconButton", key: "searchButton", icon: "search", ...twin("brSearch", "labelText"), ...twin("brSearch", "tooltip"), onPressed: "openSearch" }] } : {},
+      title: tv ? { type: "Row", key: "titleRow", gap: 24, crossAxisAlignment: "center", children: [logo(), tabBar(active)] } : logo()
     },
-    floatingActionButton: { type: "FloatingActionButton", key: "searchFab", icon: "search", ...twin("brSearch", "tooltip"), onPressed: "openSearch" },
+    ...tv ? {} : { floatingActionButton: { type: "FloatingActionButton", key: "searchFab", icon: "search", ...twin("brSearch", "tooltip"), onPressed: "openSearch" } },
     // The tabs stay pinned under the bar; only the rows scroll.
     body: { type: "Column", key: "page", children: [
-      { type: "TabBar", key: "tabs", divider: false, value: active, onChanged: "tab", tabs: TAB_IDS.map((id12) => ({ value: id12, ...twin(TAB_KEYS[id12], "label") })) },
+      // The tabs line up with the bar's buttons and the cards below (a wide window and the TV pad their content by 24).
+      ...tv ? [] : [{ type: "Column", key: "tabsRow", padding: { compact: 0, expanded: 24 }, children: [tabBar(active)] }],
       { type: "SingleChildScrollView", key: "browse-" + active, flex: 1, children: [{ type: "Column", padding: { compact: 12, expanded: 24 }, gap: 16, children: body }] }
     ] },
     ...pending ? { every: { ms: POLL_MS, event: "tick" } } : {}
@@ -3991,7 +3997,7 @@ function makeBrowse({ kino, loadTab, searchTitles: searchTitles2 }) {
     const data = dataOf(tab);
     const loaded = TAB_IDS.map((t2) => memo2.get(t2)).filter(Boolean).map((m) => m.data);
     const pending = Array.isArray(st.pending) && st.pending.length > 0;
-    return browseView({ tab, data, recent: recentOf(readKeys(), loaded), pending, failed: !!(st.failed && st.failed[tab]) });
+    return browseView({ tab, data, recent: recentOf(readKeys(), loaded), pending, failed: !!(st.failed && st.failed[tab]), device: ctx.device });
   }
   async function load(tab) {
     const page3 = await loadTab(tab);
