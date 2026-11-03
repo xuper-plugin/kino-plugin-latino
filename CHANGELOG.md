@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.3.1
+
+- Fix: the browse screen's featured slider no longer closes the app on Kino 0.9.81. Its pager keeps the number of slides of its first drawing, and the screen went from the kept copy (4 slides) to the fresh page (up to 6). The slider's key now carries its slide count, so a different count is a new pager, and the kept copy keeps every slide.
+
 ## 2.3.0
 
 - On a Kino that reads screens (the manifest's `enhancements."14"` and `"19"`), the Latino entry in the menu opens the plugin's own browse screen: one bar with its logo, tabs Inicio / Películas / Series, a featured slider (up to 6 titles with picture and synopsis, turning every 6 s), Kino's rails with «Ver más», and «Continuar viendo» (the titles played through Latino, by ref or TMDB id).
