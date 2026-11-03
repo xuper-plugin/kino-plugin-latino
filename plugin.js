@@ -3765,6 +3765,7 @@ var heroSkeleton = () => ({ type: "Skeleton", key: "heroSkeleton", shape: "block
 var slideNode = (s) => ({
   type: "heroCard",
   key: "slide-" + s.id,
+  h: { compact: 200, expanded: 240 },
   title: s.title,
   text: s.text,
   image: s.image,
