@@ -9,7 +9,7 @@
 //   selected.
 // The state holds only `tab`, `pending` and `failed` (a few bytes); the trees live here, in memory.
 import { tabOf, recentOf, cardOf, playedKey, TAB_IDS } from "./model.js";
-import { browseView, searchView } from "./view.js";
+import { browseView, searchView, settingsView } from "./view.js";
 
 const TAB_KEY = "browseTab";
 const SNAP_PREFIX = "browse1:";
@@ -100,6 +100,7 @@ export function makeBrowse({ kino, loadTab, searchTitles }) {
 
   function view(ctx) {
     const st = ctx.state && typeof ctx.state === "object" ? ctx.state : {};
+    if (ctx.route && ctx.route.name === "settings") return settingsView();
     if (ctx.route && ctx.route.name === "search") {
       const query = typeof st.sq === "string" ? st.sq : "";
       const items = found && found.q === query ? found.items : null;
@@ -177,7 +178,13 @@ export function makeBrowse({ kino, loadTab, searchTitles }) {
       }
     },
     sretry({ state }) { return typeof state.sq === "string" && state.sq !== "" ? { state: { sstate: "loading" } } : null; },
-    back() { return { route: { pop: true }, state: { sq: null, sstate: null } }; },
+    // The gear: the plugin's settings are a page of their own, one Back away.
+    go({ arg }) { return arg === "settings" ? { route: { push: "settings" }, state: { fromBrowse: true } } : null; },
+    back({ state, route }) {
+      // The settings page opened on its own (from the settings button) closes; pushed from the gear, or the search page, it pops.
+      if (route && route.name === "settings" && !state.fromBrowse) return { close: true };
+      return { route: { pop: true }, state: { sq: null, sstate: null } };
+    },
   };
 
   async function event(ev) {

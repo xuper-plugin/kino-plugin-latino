@@ -4,6 +4,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { makeBrowse } from "../src/browse/index.js";
 import { checkScreenTree, checkScreenAnswer, fakeScreenContext, fakeScreenEvent, childNodes } from "../sdk/screen.mjs";
+import manifest from "../kino-plugin.json" with { type: "json" };
 
 const all = (n, out = []) => { if (!n || typeof n !== "object") return out; out.push(n); for (const c of childNodes(n)) all(c, out); return out; };
 const byKey = (tree, key) => all(tree).find((n) => n.key === key) ?? null;
@@ -38,7 +39,7 @@ function harness({ device = "phone", lang = "es", kino = fakeKino(), failing = n
   const route = () => routes[routes.length - 1];
   const render = async () => {
     const raw = browse.view(fakeScreenContext({ state: JSON.parse(JSON.stringify(state)), route: route(), device, lang }));
-    const r = checkScreenTree(JSON.parse(JSON.stringify(raw)), lang, undefined, { apiVersion: 19 });
+    const r = checkScreenTree(JSON.parse(JSON.stringify(raw)), lang, undefined, { apiVersion: 19, settings: manifest.settings });
     return { raw, tree: r.tree, dropped: r.dropped, every: r.every };
   };
   const send = async (name, { arg, value, timer = false } = {}) => {
@@ -49,7 +50,7 @@ function harness({ device = "phone", lang = "es", kino = fakeKino(), failing = n
     if (raw && raw.route) { if (raw.route.pop) { if (routes.length > 1) routes.pop(); } else routes.push({ name: raw.route.push, params: {} }); }
     return raw;
   };
-  return { browse, render, send, loaded, searched, kino, get state() { return state; }, route: () => route().name };
+  return { browse, render, send, loaded, searched, kino, get state() { return state; }, route: () => route().name, push: (name) => routes.push({ name, params: {} }) };
 }
 
 test("before anything is kept: skeletons for the slider and the rails, three tabs, no timer until open", async () => {
@@ -191,4 +192,21 @@ test("in English every tree draws with nothing dropped, on the phone and on the 
     assert.deepEqual(r.dropped, [], device);
     assert.equal(byKey(r.tree, "tabs").tabs[1].label, "Movies");
   }
+});
+
+test("the gear opens the settings page (Kino's own form in the same one bar); back returns, or closes when opened on its own", async () => {
+  const h = harness();
+  await h.send("open");
+  const home = await h.render();
+  assert.ok(home.raw.appBar.actions.some((a) => a.key === "settingsButton" && a.icon === "settings"));
+  await h.send("go", { arg: "settings" });
+  assert.equal(h.route(), "settings");
+  const r = await h.render();
+  assert.deepEqual(r.dropped, []);
+  assert.ok(types(r.tree).includes("settings") || all(r.tree).some((n) => n.key === "form"));
+  await h.send("back");
+  assert.equal(h.route(), "main");
+  const alone = harness();
+  alone.push("settings");
+  assert.deepEqual(await alone.send("back"), { close: true });
 });

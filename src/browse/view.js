@@ -63,6 +63,7 @@ const rail = (r, key, titleOverride) => ({
  */
 export function browseView({ tab, data, recent, pending, failed, device = "phone" }) {
   const tv = device === "tv";
+  const gear = { type: "IconButton", key: "settingsButton", icon: "settings", ...twin("brSettings", "labelText"), ...twin("brSettings", "tooltip"), onPressed: { event: "go", arg: "settings" } };
   const active = TAB_IDS.includes(tab) ? tab : TAB_IDS[0];
   const body = [];
   if (data) {
@@ -87,7 +88,7 @@ export function browseView({ tab, data, recent, pending, failed, device = "phone
       divider: false,
       leading: { type: "IconButton", key: "close", icon: "close", ...twin("brClose", "labelText"), ...twin("brClose", "tooltip"), onPressed: { go: { close: true } } },
       // On a TV the search is a button of the bar (a floating one is hard to reach with a remote); elsewhere it floats.
-      ...(tv ? { actions: [{ type: "IconButton", key: "searchButton", icon: "search", ...twin("brSearch", "labelText"), ...twin("brSearch", "tooltip"), onPressed: "openSearch" }] } : {}),
+      actions: tv ? [{ type: "IconButton", key: "searchButton", icon: "search", ...twin("brSearch", "labelText"), ...twin("brSearch", "tooltip"), onPressed: "openSearch" }, gear] : [gear],
       title: tv
         // On a TV the tabs sit in the bar beside the logo (one row, one D-pad strip); elsewhere they are pinned under it.
         ? { type: "Row", key: "titleRow", gap: 24, crossAxisAlignment: "center", children: [logo(), tabBar(active)] }
@@ -101,6 +102,22 @@ export function browseView({ tab, data, recent, pending, failed, device = "phone
       { type: "SingleChildScrollView", key: "browse-" + active, flex: 1, children: [{ type: "Column", padding: { compact: 12, expanded: 24 }, gap: 16, children: body }] },
     ] },
     ...(pending ? { every: { ms: POLL_MS, event: "tick" } } : {}),
+  };
+}
+
+/**
+ * The settings page (route "settings"): the same one bar, then Kino's own form of the plugin's settings (language and quality,
+ * sources, the test and clear actions). `back` pops to the browse screen, or closes when the page was opened on its own.
+ */
+export function settingsView() {
+  return {
+    type: "Scaffold",
+    appBar: {
+      type: "AppBar", mergeWithKinoBar: true, dense: true, divider: false,
+      leading: { type: "IconButton", key: "back", icon: "arrow_back", ...twin("brBack", "labelText"), ...twin("brBack", "tooltip"), onPressed: "back" },
+      title: logo(),
+    },
+    body: { type: "SingleChildScrollView", key: "settings-page", children: [{ type: "Column", padding: { compact: 12, expanded: 24 }, gap: 16, children: [{ type: "settings", key: "form" }] }] },
   };
 }
 

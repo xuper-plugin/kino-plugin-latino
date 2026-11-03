@@ -313,8 +313,14 @@
         "icon": "movie",
         "menuOpens": "screen",
         "opensFrom": [
-          "menu"
-        ]
+          "menu",
+          "settings"
+        ],
+        "settingsButton": {
+          "label": "Abrir Latino",
+          "labelEn": "Open Latino"
+        },
+        "settingsIn": "screen"
       }
     },
     "19": {

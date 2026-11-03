@@ -679,8 +679,14 @@ var kino_plugin_default = {
         icon: "movie",
         menuOpens: "screen",
         opensFrom: [
-          "menu"
-        ]
+          "menu",
+          "settings"
+        ],
+        settingsButton: {
+          label: "Abrir Latino",
+          labelEn: "Open Latino"
+        },
+        settingsIn: "screen"
       }
     },
     "19": {
@@ -2325,6 +2331,7 @@ var WORDS = {
     brEmpty: "A\xFAn no hay nada aqu\xED.",
     brBack: "Atr\xE1s",
     brClose: "Cerrar",
+    brSettings: "Configuraci\xF3n",
     seriesGenre: "Series de {g}",
     badge_2160p: "4K",
     g_accion: "Acci\xF3n",
@@ -2470,6 +2477,7 @@ var WORDS = {
     brEmpty: "Nothing here yet.",
     brBack: "Back",
     brClose: "Close",
+    brSettings: "Settings",
     seriesGenre: "{g} series",
     badge_2160p: "4K",
     g_accion: "Action",
@@ -3801,6 +3809,7 @@ var rail = (r, key, titleOverride) => ({
 });
 function browseView({ tab, data, recent, pending, failed, device = "phone" }) {
   const tv = device === "tv";
+  const gear = { type: "IconButton", key: "settingsButton", icon: "settings", ...twin("brSettings", "labelText"), ...twin("brSettings", "tooltip"), onPressed: { event: "go", arg: "settings" } };
   const active = TAB_IDS.includes(tab) ? tab : TAB_IDS[0];
   const body = [];
   if (data) {
@@ -3830,7 +3839,7 @@ function browseView({ tab, data, recent, pending, failed, device = "phone" }) {
       divider: false,
       leading: { type: "IconButton", key: "close", icon: "close", ...twin("brClose", "labelText"), ...twin("brClose", "tooltip"), onPressed: { go: { close: true } } },
       // On a TV the search is a button of the bar (a floating one is hard to reach with a remote); elsewhere it floats.
-      ...tv ? { actions: [{ type: "IconButton", key: "searchButton", icon: "search", ...twin("brSearch", "labelText"), ...twin("brSearch", "tooltip"), onPressed: "openSearch" }] } : {},
+      actions: tv ? [{ type: "IconButton", key: "searchButton", icon: "search", ...twin("brSearch", "labelText"), ...twin("brSearch", "tooltip"), onPressed: "openSearch" }, gear] : [gear],
       title: tv ? { type: "Row", key: "titleRow", gap: 24, crossAxisAlignment: "center", children: [logo(), tabBar(active)] } : logo()
     },
     ...tv ? {} : { floatingActionButton: { type: "FloatingActionButton", key: "searchFab", icon: "search", ...twin("brSearch", "tooltip"), onPressed: "openSearch" } },
@@ -3841,6 +3850,20 @@ function browseView({ tab, data, recent, pending, failed, device = "phone" }) {
       { type: "SingleChildScrollView", key: "browse-" + active, flex: 1, children: [{ type: "Column", padding: { compact: 12, expanded: 24 }, gap: 16, children: body }] }
     ] },
     ...pending ? { every: { ms: POLL_MS, event: "tick" } } : {}
+  };
+}
+function settingsView() {
+  return {
+    type: "Scaffold",
+    appBar: {
+      type: "AppBar",
+      mergeWithKinoBar: true,
+      dense: true,
+      divider: false,
+      leading: { type: "IconButton", key: "back", icon: "arrow_back", ...twin("brBack", "labelText"), ...twin("brBack", "tooltip"), onPressed: "back" },
+      title: logo()
+    },
+    body: { type: "SingleChildScrollView", key: "settings-page", children: [{ type: "Column", padding: { compact: 12, expanded: 24 }, gap: 16, children: [{ type: "settings", key: "form" }] }] }
   };
 }
 function searchView({ query, status: status3, items, history = [], device = "phone" }) {
@@ -3993,6 +4016,7 @@ function makeBrowse({ kino, loadTab, searchTitles: searchTitles2 }) {
   }
   function view(ctx) {
     const st = ctx.state && typeof ctx.state === "object" ? ctx.state : {};
+    if (ctx.route && ctx.route.name === "settings") return settingsView();
     if (ctx.route && ctx.route.name === "search") {
       const query = typeof st.sq === "string" ? st.sq : "";
       const items = found && found.q === query ? found.items : null;
@@ -4076,7 +4100,12 @@ function makeBrowse({ kino, loadTab, searchTitles: searchTitles2 }) {
     sretry({ state }) {
       return typeof state.sq === "string" && state.sq !== "" ? { state: { sstate: "loading" } } : null;
     },
-    back() {
+    // The gear: the plugin's settings are a page of their own, one Back away.
+    go({ arg }) {
+      return arg === "settings" ? { route: { push: "settings" }, state: { fromBrowse: true } } : null;
+    },
+    back({ state, route }) {
+      if (route && route.name === "settings" && !state.fromBrowse) return { close: true };
       return { route: { pop: true }, state: { sq: null, sstate: null } };
     }
   };
