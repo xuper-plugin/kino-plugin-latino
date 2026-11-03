@@ -1,7 +1,7 @@
 {
   "id": "latino",
   "name": "Latino",
-  "version": "2.2.1",
+  "version": "2.3.0",
   "apiVersion": 9,
   "panel": {
     "label": "Latino",
@@ -301,5 +301,26 @@
       "confirmEn": "Go back to Latino's default settings?"
     }
   ],
-  "liveStreamHosts": "any"
+  "liveStreamHosts": "any",
+  "enhancements": {
+    "14": {
+      "capabilities": [
+        "screen"
+      ],
+      "screen": {
+        "label": "Latino",
+        "labelEn": "Latino",
+        "icon": "movie",
+        "menuOpens": "screen",
+        "opensFrom": [
+          "menu"
+        ]
+      }
+    },
+    "19": {
+      "capabilities": [
+        "screen"
+      ]
+    }
+  }
 }

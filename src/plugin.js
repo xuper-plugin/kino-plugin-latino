@@ -21,6 +21,7 @@ import { t } from "./i18n.js";
 import { missingSeasons, markEpisodes } from "./availability.js";
 import { callDeadline } from "./util/time.js";
 import { clearPrefs } from "./panel/state.js";
+import { makeBrowse } from "./browse/index.js";
 import manifest from "../kino-plugin.json" with { type: "json" };
 
 const getKino = () => globalThis.kino;
@@ -241,7 +242,31 @@ export async function resolve(ref) {
   const dl = callDeadline(kino, "resolve");
   const title = await contextFor(kino, r, dl.end - RESOLVE_RESERVE_MS);
   if (!title) throw notFound(kino, "not a playable ref");
-  return resolveTitle(kino, title, readSettings(kino), { callMs: dl.left(), ref: r });
+  const out = await resolveTitle(kino, title, readSettings(kino), { callMs: dl.left(), ref: r });
+  // The browse screen's "Continuar viendo": a play that found a copy is remembered (its ref, or its TMDB id).
+  try { browseScreen().notePlayed(r); } catch (_) { /* never fails a play */ }
+  return out;
+}
+
+// ---------- the browse screen (Kino 0.9.74+, through the manifest's enhancements) ----------
+
+let browseInstance = null;
+const browseScreen = () => (browseInstance ??= makeBrowse({
+  kino: getKino(),
+  loadTab: (tab) => { const kino = getKino(); return sectionPage(kino, readSettings(kino), tab, { untilMs: callDeadline(kino, "section").end }); },
+  searchTitles: (q) => search({ q }),
+}));
+
+/** `screen(ctx)`: the plugin's own browse screen (a pure view: it draws what it holds and never waits for a source). */
+export async function screen(ctx) {
+  await null;
+  return browseScreen().view(ctx && typeof ctx === "object" ? ctx : {});
+}
+
+/** `screenEvent(ev)`: the screen's events (its timers load a tab or a search, one per call). */
+export async function screenEvent(ev) {
+  await null;
+  return browseScreen().event(ev && typeof ev === "object" ? ev : {});
 }
 
 // ---------- live: sports events ----------

@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.3.0
+
+- On a Kino that reads screens (the manifest's `enhancements."14"` and `"19"`), the Latino entry in the menu opens the plugin's own browse screen: one bar with its logo, tabs Inicio / Películas / Series, a featured slider (up to 6 titles with picture and synopsis, turning every 6 s), Kino's rails with «Ver más», and «Continuar viendo» (the titles played through Latino, by ref or TMDB id).
+- It paints at once from the copy it keeps of each tab (12 h) and shows skeletons while a tab is not in; a timer then loads one tab per tick, the one in view first (on a TV only the one in view), so a slow source never holds the others back.
+- The floating search button opens a search page of the plugin (skeletons, then a grid; the empty page paints what earlier searches found). An older Kino keeps the section it always had.
+
 ## 2.2.0
 
 - New: a live sports list in the Live tab. Latino now names a public M3U of sports events and sports channels that is
