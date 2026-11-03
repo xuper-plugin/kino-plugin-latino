@@ -108,13 +108,22 @@ export function browseView({ tab, data, recent, pending, failed, device = "phone
  * The search page (route "search"): the box with the words, then skeletons while the sources answer, then the results as
  * Kino's grid; empty, it paints what earlier searches found. `status`: "idle", "loading", "done" or "fail".
  */
-export function searchView({ query, status, items, history = [] }) {
-  const body = [{
-    type: "Form", key: "searchForm", onSubmitted: "search", gap: 8, children: [
-      { type: "TextField", key: "q", kind: "text", value: query, ...twin("brSearchHint", "labelText"), maxLength: 100, autofocus: true },
-      { type: "ElevatedButton", key: "searchGo", ...twin("brSearch", "labelText"), icon: "search", submit: true },
-    ],
-  }];
+export function searchView({ query, status, items, history = [], device = "phone" }) {
+  const tv = device === "tv";
+  // On a TV the box and its button live in the bar (field on the left, button on the right) and the bar carries no title: the
+  // screen is known by what it does. Elsewhere the box sits at the top of the page under a "Buscar" title.
+  const searchForm = () => ({
+    type: "Form", key: "searchForm", onSubmitted: "search", gap: 8, children: tv
+      ? [{ type: "Row", key: "searchRow", gap: 16, crossAxisAlignment: "center", children: [
+        { type: "TextField", key: "q", kind: "text", value: query, ...twin("brSearchHint", "labelText"), maxLength: 100, autofocus: true, weight: 1 },
+        { type: "ElevatedButton", key: "searchGo", ...twin("brSearch", "labelText"), icon: "search", submit: true },
+      ] }]
+      : [
+        { type: "TextField", key: "q", kind: "text", value: query, ...twin("brSearchHint", "labelText"), maxLength: 100, autofocus: true },
+        { type: "ElevatedButton", key: "searchGo", ...twin("brSearch", "labelText"), icon: "search", submit: true },
+      ],
+  });
+  const body = tv ? [] : [searchForm()];
   if (status === "fail") {
     body.push({ type: "MaterialBanner", key: "searchFailed", role: "error", ...twin("brSearchFailed"), action: { ...twin("brRetry", "label"), onTap: "sretry" } });
   } else if (status === "done" && items) {
@@ -131,7 +140,7 @@ export function searchView({ query, status, items, history = [] }) {
     appBar: {
       type: "AppBar", mergeWithKinoBar: true, dense: true, divider: false,
       leading: { type: "IconButton", key: "back", icon: "arrow_back", ...twin("brBack", "labelText"), ...twin("brBack", "tooltip"), onPressed: "back" },
-      ...twin("brSearchTitle", "title"),
+      ...(tv ? { title: searchForm() } : twin("brSearchTitle", "title")),
     },
     body: { type: "SingleChildScrollView", key: "search-page", children: [{ type: "Column", padding: { compact: 12, expanded: 24 }, gap: 16, children: body }] },
     ...(status === "loading" ? { every: { ms: 1_000, event: "stick" } } : {}),

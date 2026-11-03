@@ -104,7 +104,7 @@ export function makeBrowse({ kino, loadTab, searchTitles }) {
       const query = typeof st.sq === "string" ? st.sq : "";
       const items = found && found.q === query ? found.items : null;
       const status = query === "" ? "idle" : st.sstate === "fail" ? "fail" : items ? "done" : "loading";
-      return searchView({ query, status, items, history: query === "" ? readHistory() : [] });
+      return searchView({ query, status, items, history: query === "" ? readHistory() : [], device: ctx.device });
     }
     const tab = TAB_IDS.includes(st.tab) ? st.tab : (tabFromArgs(ctx.route) ?? stored() ?? TAB_IDS[0]);
     const data = dataOf(tab);

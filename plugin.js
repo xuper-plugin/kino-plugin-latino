@@ -3843,17 +3843,22 @@ function browseView({ tab, data, recent, pending, failed, device = "phone" }) {
     ...pending ? { every: { ms: POLL_MS, event: "tick" } } : {}
   };
 }
-function searchView({ query, status: status3, items, history = [] }) {
-  const body = [{
+function searchView({ query, status: status3, items, history = [], device = "phone" }) {
+  const tv = device === "tv";
+  const searchForm = () => ({
     type: "Form",
     key: "searchForm",
     onSubmitted: "search",
     gap: 8,
-    children: [
+    children: tv ? [{ type: "Row", key: "searchRow", gap: 16, crossAxisAlignment: "center", children: [
+      { type: "TextField", key: "q", kind: "text", value: query, ...twin("brSearchHint", "labelText"), maxLength: 100, autofocus: true, weight: 1 },
+      { type: "ElevatedButton", key: "searchGo", ...twin("brSearch", "labelText"), icon: "search", submit: true }
+    ] }] : [
       { type: "TextField", key: "q", kind: "text", value: query, ...twin("brSearchHint", "labelText"), maxLength: 100, autofocus: true },
       { type: "ElevatedButton", key: "searchGo", ...twin("brSearch", "labelText"), icon: "search", submit: true }
     ]
-  }];
+  });
+  const body = tv ? [] : [searchForm()];
   if (status3 === "fail") {
     body.push({ type: "MaterialBanner", key: "searchFailed", role: "error", ...twin("brSearchFailed"), action: { ...twin("brRetry", "label"), onTap: "sretry" } });
   } else if (status3 === "done" && items) {
@@ -3873,7 +3878,7 @@ function searchView({ query, status: status3, items, history = [] }) {
       dense: true,
       divider: false,
       leading: { type: "IconButton", key: "back", icon: "arrow_back", ...twin("brBack", "labelText"), ...twin("brBack", "tooltip"), onPressed: "back" },
-      ...twin("brSearchTitle", "title")
+      ...tv ? { title: searchForm() } : twin("brSearchTitle", "title")
     },
     body: { type: "SingleChildScrollView", key: "search-page", children: [{ type: "Column", padding: { compact: 12, expanded: 24 }, gap: 16, children: body }] },
     ...status3 === "loading" ? { every: { ms: 1e3, event: "stick" } } : {}
@@ -3992,7 +3997,7 @@ function makeBrowse({ kino, loadTab, searchTitles: searchTitles2 }) {
       const query = typeof st.sq === "string" ? st.sq : "";
       const items = found && found.q === query ? found.items : null;
       const status3 = query === "" ? "idle" : st.sstate === "fail" ? "fail" : items ? "done" : "loading";
-      return searchView({ query, status: status3, items, history: query === "" ? readHistory() : [] });
+      return searchView({ query, status: status3, items, history: query === "" ? readHistory() : [], device: ctx.device });
     }
     const tab = TAB_IDS.includes(st.tab) ? st.tab : tabFromArgs(ctx.route) ?? stored() ?? TAB_IDS[0];
     const data = dataOf(tab);
