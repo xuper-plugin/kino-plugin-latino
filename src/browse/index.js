@@ -10,6 +10,7 @@
 // The state holds only `tab`, `pending` and `failed` (a few bytes); the trees live here, in memory.
 import { tabOf, recentOf, cardOf, playedKey, TAB_IDS } from "./model.js";
 import { browseView, searchView, settingsView } from "./view.js";
+import { makeMetaCache } from "./metaCache.js";
 
 const TAB_KEY = "browseTab";
 const SNAP_PREFIX = "browse1:";
@@ -24,6 +25,12 @@ const HIST_MAX = 24;
  * `kino`: the host; `loadTab(tab)` → the section page of that tab (`{ rows }`); `searchTitles(q)` → the cards a search finds.
  */
 export function makeBrowse({ kino, loadTab, searchTitles }) {
+  const meta = makeMetaCache({ kino });
+  /** [data] with what the meta cache knows: the cards' TMDB ids and the slides' title logos. */
+  const enrich = (data) => (data ? {
+    slides: data.slides.map((s) => { const k = meta.known(s.id); return k.logo ? { ...s, logo: k.logo } : s; }),
+    rails: data.rails.map((r) => ({ ...r, items: meta.dress(r.items) })),
+  } : data);
   const memo = new Map(); // tab -> { data, whole: loaded in this sandbox }
   const log = (...a) => { try { kino.log("[latino]", ...a); } catch (_) { /* no log */ } };
   const get = (k) => { try { return kino.storage.get(k); } catch (_) { return null; } };
@@ -108,10 +115,10 @@ export function makeBrowse({ kino, loadTab, searchTitles }) {
       return searchView({ query, status, items, history: query === "" ? readHistory() : [], device: ctx.device });
     }
     const tab = TAB_IDS.includes(st.tab) ? st.tab : (tabFromArgs(ctx.route) ?? stored() ?? TAB_IDS[0]);
-    const data = dataOf(tab);
+    const data = enrich(dataOf(tab));
     const loaded = TAB_IDS.map((t) => memo.get(t)).filter(Boolean).map((m) => m.data);
     const pending = Array.isArray(st.pending) && st.pending.length > 0;
-    return browseView({ tab, data, recent: recentOf(readKeys(), loaded), pending, failed: !!(st.failed && st.failed[tab]), device: ctx.device });
+    return browseView({ tab, data, recent: meta.dress(recentOf(readKeys(), loaded)), pending, failed: !!(st.failed && st.failed[tab]), device: ctx.device });
   }
 
   async function load(tab) {
@@ -146,9 +153,16 @@ export function makeBrowse({ kino, loadTab, searchTitles }) {
       if (pending.length === 0) return null;
       const [next, ...rest] = pending;
       const failed = { ...(state.failed || {}) };
+      // The TMDB ids and title logos of a tab's first titles (slides first), a few lookups per tick; it asks again until all are known.
+      if (next.startsWith("meta:")) {
+        const m = memo.get(next.slice(5));
+        if (m) await meta.fill([...m.data.slides.map((s) => ({ id: s.id, title: s.title, kind: s.kind })), ...m.data.rails.flatMap((r) => r.items.slice(0, 6).map((c) => ({ id: c.id, title: c.title, kind: c.kind })))], 12_000);
+        return { state: { pending: rest } };
+      }
       try {
         const ok = await load(next);
         if (!ok) failed[next] = true; else delete failed[next];
+        if (ok && meta.usable()) rest.unshift("meta:" + next);
       } catch (e) {
         log("browse tab", (e && e.code) || "error");
         failed[next] = true;

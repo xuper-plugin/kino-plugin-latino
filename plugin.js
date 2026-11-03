@@ -3774,6 +3774,7 @@ var slideNode = (s) => ({
   type: "heroCard",
   key: "slide-" + s.id,
   h: { compact: 200, expanded: 240 },
+  ...s.logo ? { logo: s.logo } : {},
   title: s.title,
   text: s.text,
   image: s.image,
@@ -3908,6 +3909,73 @@ function searchView({ query, status: status3, items, history = [], device = "pho
   };
 }
 
+// src/browse/metaCache.js
+var KEY2 = "meta1";
+var MAX = 120;
+var CALL_MS2 = 8e3;
+var HTTPS2 = /^https:\/\//;
+function makeMetaCache({ kino, clock = { now: () => Date.now() } }) {
+  const usable = () => {
+    try {
+      return typeof kino.meta === "function" && kino.meta.byTitle === true;
+    } catch (_) {
+      return false;
+    }
+  };
+  let book = null;
+  function read() {
+    if (book) return book;
+    try {
+      const o = JSON.parse(kino.storage.get(KEY2) || "null");
+      book = o && typeof o === "object" && !Array.isArray(o) ? o : {};
+    } catch (_) {
+      book = {};
+    }
+    return book;
+  }
+  function write() {
+    try {
+      const ids = Object.keys(book);
+      if (ids.length > MAX) for (const id12 of ids.slice(0, ids.length - MAX)) delete book[id12];
+      kino.storage.set(KEY2, JSON.stringify(book));
+    } catch (_) {
+    }
+  }
+  function known(id12) {
+    const e = read()[id12];
+    if (!e) return {};
+    return { ...e.t > 0 ? { tmdb: e.t } : {}, ...e.l && HTTPS2.test(e.l) ? { logo: e.l } : {} };
+  }
+  function dress2(cards) {
+    return cards.map((c) => {
+      const k = known(c.id);
+      return k.tmdb && !(c.ids && c.ids.tmdb) ? { ...c, ids: { ...c.ids || {}, tmdb: k.tmdb } } : c;
+    });
+  }
+  async function fill2(cards, budgetMs) {
+    if (!usable()) return 0;
+    const b = read();
+    const end = clock.now() + budgetMs;
+    let asked = 0;
+    for (const c of cards) {
+      if (clock.now() + CALL_MS2 > end) break;
+      if (!c || typeof c.id !== "string" || Object.hasOwn(b, c.id) || c.ids && c.ids.tmdb && c.noLogo) continue;
+      const year2 = c.year !== void 0 ? { year: c.year } : {};
+      try {
+        const a = await kino.meta({ type: c.kind === "series" ? "series" : "movie", title: c.title, ...year2 });
+        b[c.id] = { t: a && a.ids && Number.isInteger(a.ids.tmdb) ? a.ids.tmdb : 0, l: a && typeof a.logo === "string" ? a.logo : "" };
+      } catch (e) {
+        if (e && e.code === "rate_limited") break;
+        continue;
+      }
+      asked++;
+    }
+    if (asked > 0) write();
+    return asked;
+  }
+  return { known, dress: dress2, fill: fill2, usable };
+}
+
 // src/browse/index.js
 var TAB_KEY = "browseTab";
 var SNAP_PREFIX = "browse1:";
@@ -3918,6 +3986,14 @@ var RECENT_MAX = 12;
 var HIST_KEY = "searchHist1";
 var HIST_MAX = 24;
 function makeBrowse({ kino, loadTab, searchTitles: searchTitles2 }) {
+  const meta = makeMetaCache({ kino });
+  const enrich = (data) => data ? {
+    slides: data.slides.map((s) => {
+      const k = meta.known(s.id);
+      return k.logo ? { ...s, logo: k.logo } : s;
+    }),
+    rails: data.rails.map((r) => ({ ...r, items: meta.dress(r.items) }))
+  } : data;
   const memo2 = /* @__PURE__ */ new Map();
   const log = (...a) => {
     try {
@@ -4024,10 +4100,10 @@ function makeBrowse({ kino, loadTab, searchTitles: searchTitles2 }) {
       return searchView({ query, status: status3, items, history: query === "" ? readHistory() : [], device: ctx.device });
     }
     const tab = TAB_IDS.includes(st.tab) ? st.tab : tabFromArgs(ctx.route) ?? stored() ?? TAB_IDS[0];
-    const data = dataOf(tab);
+    const data = enrich(dataOf(tab));
     const loaded = TAB_IDS.map((t2) => memo2.get(t2)).filter(Boolean).map((m) => m.data);
     const pending = Array.isArray(st.pending) && st.pending.length > 0;
-    return browseView({ tab, data, recent: recentOf(readKeys(), loaded), pending, failed: !!(st.failed && st.failed[tab]), device: ctx.device });
+    return browseView({ tab, data, recent: meta.dress(recentOf(readKeys(), loaded)), pending, failed: !!(st.failed && st.failed[tab]), device: ctx.device });
   }
   async function load(tab) {
     const page3 = await loadTab(tab);
@@ -4063,10 +4139,16 @@ function makeBrowse({ kino, loadTab, searchTitles: searchTitles2 }) {
       if (pending.length === 0) return null;
       const [next, ...rest] = pending;
       const failed = { ...state.failed || {} };
+      if (next.startsWith("meta:")) {
+        const m = memo2.get(next.slice(5));
+        if (m) await meta.fill([...m.data.slides.map((s) => ({ id: s.id, title: s.title, kind: s.kind })), ...m.data.rails.flatMap((r) => r.items.slice(0, 6).map((c) => ({ id: c.id, title: c.title, kind: c.kind })))], 12e3);
+        return { state: { pending: rest } };
+      }
       try {
         const ok = await load(next);
         if (!ok) failed[next] = true;
         else delete failed[next];
+        if (ok && meta.usable()) rest.unshift("meta:" + next);
       } catch (e) {
         log("browse tab", e && e.code || "error");
         failed[next] = true;
