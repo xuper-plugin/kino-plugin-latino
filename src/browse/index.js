@@ -9,7 +9,8 @@
 //   selected.
 // The state holds only `tab`, `pending` and `failed` (a few bytes); the trees live here, in memory.
 import { tabOf, recentOf, cardOf, playedKey, TAB_IDS } from "./model.js";
-import { browseView, searchView, settingsView } from "./view.js";
+import { browseView, searchView, settingsView, detailPage } from "./view.js";
+import { loadDetail, titleRefOf } from "./detail.js";
 import { makeMetaCache } from "./metaCache.js";
 
 const TAB_KEY = "browseTab";
@@ -94,6 +95,8 @@ export function makeBrowse({ kino, loadTab, searchTitles }) {
   }
 
   let found = null; // { q, items }: the last search
+  const details = new Map(); // ref -> { d } | { d: null } (failed): the pages loaded in this sandbox
+  const paramsOf = (route) => (route && route.params && typeof route.params === "object" ? route.params : {});
 
   const tabFromArgs = (route) => {
     const a = route && route.args && typeof route.args === "object" ? route.args : {};
@@ -109,6 +112,11 @@ export function makeBrowse({ kino, loadTab, searchTitles }) {
   function view(ctx) {
     const st = ctx.state && typeof ctx.state === "object" ? ctx.state : {};
     if (ctx.route && ctx.route.name === "settings") return settingsView();
+    if (ctx.route && ctx.route.name === "detail") {
+      const p = paramsOf(ctx.route);
+      const t = titleRefOf(p.open);
+      if (t) return detailPage({ r: { ref: p.open, id: (t.kind === "movie" ? "m-" : "s-") + t.id }, entry: details.get(p.open) || null, season: Number(st.season) || 0 });
+    }
     if (ctx.route && ctx.route.name === "search") {
       const query = typeof st.sq === "string" ? st.sq : "";
       const items = found && found.q === query ? found.items : null;
@@ -133,7 +141,34 @@ export function makeBrowse({ kino, loadTab, searchTitles }) {
     open({ route, state, device }) {
       const tab = tabFromArgs(route) ?? (TAB_IDS.includes(state.tab) ? state.tab : stored() ?? TAB_IDS[0]);
       for (const t of TAB_IDS) dataOf(t); // the kept copies, so a played title is found whichever tab it was on
-      return { state: { tab, pending: needed(tab, device), failed: null } };
+      const out = { state: { tab, pending: needed(tab, device), failed: null } };
+      // A card, a slide or a result asked for a title: its page goes over the list, so Back returns to it.
+      const a = route && route.args && typeof route.args === "object" ? route.args : {};
+      if (typeof a.open === "string" && titleRefOf(a.open)) {
+        out.route = { push: "detail", params: { open: a.open, t: typeof a.t === "string" ? a.t.slice(0, 100) : "", k: a.k === "movie" ? "movie" : "series" } };
+        out.state.season = null;
+      }
+      return out;
+    },
+    // The page's timer: loads the title once, then no timer.
+    async dtick({ route }) {
+      const p = paramsOf(route);
+      if (typeof p.open !== "string" || details.has(p.open)) return { state: { dv: Date.now() } };
+      try {
+        details.set(p.open, { d: await loadDetail({ open: p.open, t: p.t, k: p.k }) });
+      } catch (e) {
+        log("browse detail", (e && e.code) || "error");
+        details.set(p.open, { d: null });
+      }
+      return { state: { dv: Date.now() } };
+    },
+    dretry({ route }) {
+      details.delete(paramsOf(route).open);
+      return { state: { dv: Date.now() } };
+    },
+    season({ value, arg }) {
+      const n = parseInt(value != null ? value : arg, 10);
+      return n > 0 ? { state: { season: n } } : null;
     },
     tab({ value, arg, state }) {
       const tab = TAB_IDS.includes(value) ? value : TAB_IDS.includes(arg) ? arg : null;

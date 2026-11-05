@@ -5,15 +5,15 @@ var __export = (target, all) => {
 };
 
 // src/util/time.js
-async function waitFor(kino, ms, done = () => false) {
+async function waitFor(kino2, ms, done = () => false) {
   const end = Date.now() + ms;
   while (!done()) {
     const left = end - Date.now();
     if (left <= 0) return;
-    await kino.sleep(Math.min(250, left));
+    await kino2.sleep(Math.min(250, left));
   }
 }
-async function within(kino, promise, ms, fallback) {
+async function within(kino2, promise, ms, fallback) {
   let settled = false;
   const guarded2 = Promise.resolve(promise).then((v) => {
     settled = true;
@@ -22,14 +22,14 @@ async function within(kino, promise, ms, fallback) {
     settled = true;
     return { e };
   });
-  const r = await Promise.race([guarded2, waitFor(kino, ms, () => settled).then(() => null, () => null)]);
+  const r = await Promise.race([guarded2, waitFor(kino2, ms, () => settled).then(() => null, () => null)]);
   return r || { v: fallback, late: true };
 }
-async function bounded(kino, run, ms, what) {
+async function bounded(kino2, run, ms, what) {
   await null;
-  if (!(ms > 0)) throw kino.error("timeout", `${what}: no time left`);
-  const r = await within(kino, Promise.resolve().then(run), ms, void 0);
-  if (r.late) throw kino.error("timeout", `${what}: over ${Math.round(ms)} ms`);
+  if (!(ms > 0)) throw kino2.error("timeout", `${what}: no time left`);
+  const r = await within(kino2, Promise.resolve().then(run), ms, void 0);
+  if (r.late) throw kino2.error("timeout", `${what}: over ${Math.round(ms)} ms`);
   if (r.e) throw r.e;
   return r.v;
 }
@@ -51,8 +51,8 @@ var LIMIT_MS = {
   playerEvent: 5e3
 };
 var BROWSER_RESOLVE_MS = 45e3;
-function callDeadline(kino, call) {
-  const limit = call === "resolve" && kino && kino.browser ? BROWSER_RESOLVE_MS : LIMIT_MS[call] || 15e3;
+function callDeadline(kino2, call) {
+  const limit = call === "resolve" && kino2 && kino2.browser ? BROWSER_RESOLVE_MS : LIMIT_MS[call] || 15e3;
   const margin = limit <= 6e3 ? 1e3 : 1500;
   const end = Date.now() + limit - margin;
   return { end, left: () => Math.max(0, end - Date.now()) };
@@ -85,11 +85,11 @@ function withoutSeriesScreenings(items) {
 // src/tmdb.js
 var IMG = "https://image.tmdb.org/t/p/";
 var TMDB_MS = 6e3;
-async function tmdb(kino, path, params, { untilMs, maxMs = TMDB_MS } = {}) {
+async function tmdb(kino2, path, params, { untilMs, maxMs = TMDB_MS } = {}) {
   await null;
-  if (typeof kino.tmdb !== "function") throw kino.error("unavailable", "kino.tmdb missing (Kino older than 0.9.53)");
+  if (typeof kino2.tmdb !== "function") throw kino2.error("unavailable", "kino.tmdb missing (Kino older than 0.9.53)");
   const ms = Math.min(maxMs, untilMs == null ? TMDB_MS : untilMs - Date.now());
-  return bounded(kino, () => kino.tmdb(path, params), ms, "tmdb " + path.split("/").slice(0, 2).join("/"));
+  return bounded(kino2, () => kino2.tmdb(path, params), ms, "tmdb " + path.split("/").slice(0, 2).join("/"));
 }
 var year = (d) => typeof d === "string" && /^\d{4}/.test(d) ? Number(d.slice(0, 4)) : null;
 var img = (size, p) => p ? IMG + size + p : null;
@@ -98,8 +98,8 @@ function translated(translations, country) {
   const hit = list12.find((t2) => t2.iso_3166_1 === country && t2.iso_639_1 === (country === "US" ? "en" : "es") && t2.data && (t2.data.title || t2.data.name));
   return hit ? hit.data.title || hit.data.name : "";
 }
-async function titleContext(kino, { kind, tmdbId, season = null, episode = null }, { untilMs } = {}) {
-  const d = await tmdb(kino, `/${kind === "tv" ? "tv" : "movie"}/${tmdbId}`, { language: "es-MX", append_to_response: "external_ids,translations" }, { untilMs });
+async function titleContext(kino2, { kind, tmdbId, season = null, episode = null }, { untilMs } = {}) {
+  const d = await tmdb(kino2, `/${kind === "tv" ? "tv" : "movie"}/${tmdbId}`, { language: "es-MX", append_to_response: "external_ids,translations" }, { untilMs });
   const original = d.original_title || d.original_name || d.title || d.name || "";
   const esMX = d.title || d.name || original;
   return {
@@ -122,9 +122,9 @@ async function titleContext(kino, { kind, tmdbId, season = null, episode = null 
 var SEARCH_TMDB_MS = 9e3;
 var SEARCH_RETRY_MIN_MS = 4e3;
 var RETRYABLE = /* @__PURE__ */ new Set(["timeout", "network"]);
-async function searchTitles(kino, query, { untilMs, onFirstFailure } = {}) {
+async function searchTitles(kino2, query, { untilMs, onFirstFailure } = {}) {
   if (typeof query !== "string" || !query.trim()) return [];
-  const ask = (maxMs) => tmdb(kino, "/search/multi", { query, language: "es-MX" }, { untilMs, maxMs });
+  const ask = (maxMs) => tmdb(kino2, "/search/multi", { query, language: "es-MX" }, { untilMs, maxMs });
   const end = untilMs == null ? Date.now() + 14e3 : untilMs;
   let r;
   try {
@@ -160,8 +160,8 @@ async function searchTitles(kino, query, { untilMs, onFirstFailure } = {}) {
   return withoutSeriesScreenings(items);
 }
 var CHUNK = 20;
-async function episodeList(kino, tmdbId, { untilMs } = {}) {
-  const s = await tmdb(kino, `/tv/${tmdbId}`, { language: "es-MX" }, { untilMs });
+async function episodeList(kino2, tmdbId, { untilMs } = {}) {
+  const s = await tmdb(kino2, `/tv/${tmdbId}`, { language: "es-MX" }, { untilMs });
   const runtime = s.episode_run_time && s.episode_run_time[0] || s.last_episode_to_air && s.last_episode_to_air.runtime || null;
   const numbers = (s.seasons || []).map((x) => x.season_number).filter((n) => n > 0);
   const episodes2 = [];
@@ -171,7 +171,7 @@ async function episodeList(kino, tmdbId, { untilMs } = {}) {
     const chunk = numbers.slice(i, i + CHUNK);
     let r;
     try {
-      r = await tmdb(kino, `/tv/${tmdbId}`, { language: "es-MX", append_to_response: chunk.map((n) => "season/" + n).join(",") }, { untilMs });
+      r = await tmdb(kino2, `/tv/${tmdbId}`, { language: "es-MX", append_to_response: chunk.map((n) => "season/" + n).join(",") }, { untilMs });
     } catch (e) {
       failure = e;
       continue;
@@ -191,10 +191,10 @@ async function episodeList(kino, tmdbId, { untilMs } = {}) {
   return { series: { rating: typeof s.vote_average === "number" ? s.vote_average : null, runtimeMinutes: runtime }, episodes: episodes2 };
 }
 var SUMMARY_CAST = 5;
-async function summaryOf(kino, kind, tmdbId, { untilMs } = {}) {
-  if (typeof kino.tmdb !== "function") return null;
+async function summaryOf(kino2, kind, tmdbId, { untilMs } = {}) {
+  if (typeof kino2.tmdb !== "function") return null;
   try {
-    const d = await tmdb(kino, `/${kind === "tv" ? "tv" : "movie"}/${tmdbId}`, { language: "es-MX", append_to_response: "credits" }, { untilMs });
+    const d = await tmdb(kino2, `/${kind === "tv" ? "tv" : "movie"}/${tmdbId}`, { language: "es-MX", append_to_response: "credits" }, { untilMs });
     if (!d || typeof d !== "object") return null;
     const rating = typeof d.vote_average === "number" && d.vote_average > 0 ? Math.round(d.vote_average * 10) / 10 : null;
     return {
@@ -206,7 +206,7 @@ async function summaryOf(kino, kind, tmdbId, { untilMs } = {}) {
     };
   } catch (e) {
     try {
-      kino.log("[latino]", "summary", e && e.code || "error");
+      kino2.log("[latino]", "summary", e && e.code || "error");
     } catch (_) {
     }
     return null;
@@ -275,13 +275,13 @@ function absolute(href, base) {
 function findIn(html, pick4) {
   return pick4(html) || pick4(unpack(html) || "") || null;
 }
-function miss(kino, server, reason) {
-  if (kino && typeof kino.log === "function") kino.log("[latino]", server, reason);
+function miss(kino2, server, reason) {
+  if (kino2 && typeof kino2.log === "function") kino2.log("[latino]", server, reason);
   return null;
 }
-async function pageText(req, url, headers, kino, server) {
+async function pageText(req, url, headers, kino2, server) {
   const r = await req(url, { headers });
-  return r.ok ? r.text() : miss(kino, server || "embed", "status " + r.status);
+  return r.ok ? r.text() : miss(kino2, server || "embed", "status " + r.status);
 }
 var LANG_CODES = [
   [/^(español|espanol|spanish|castellano|latino|spa|esp?)\b/i, "es"],
@@ -333,11 +333,11 @@ function pageExtras(html, base) {
 
 // src/extractors/goodstream.js
 var HOSTS = ["goodstream.one"];
-async function extract(embedUrl, req, kino) {
-  const html = await pageText(req, embedUrl, { Referer: "https://goodstream.one/" }, kino, "goodstream");
+async function extract(embedUrl, req, kino2) {
+  const html = await pageText(req, embedUrl, { Referer: "https://goodstream.one/" }, kino2, "goodstream");
   if (html == null) return null;
   const url = findIn(html, (t2) => fileM3u8(t2, embedUrl));
-  if (!url) return miss(kino, "goodstream", "no playlist in page");
+  if (!url) return miss(kino2, "goodstream", "no playlist in page");
   return { url, mime: HLS_MIME, headers: { Referer: embedUrl, Origin: "https://goodstream.one" }, ...pageExtras(html, embedUrl) };
 }
 
@@ -348,11 +348,11 @@ __export(vimeos_exports, {
   extract: () => extract2
 });
 var HOSTS2 = ["vimeos.net", "vimeos.zip"];
-async function extract2(embedUrl, req, kino) {
-  const html = await pageText(req, embedUrl, { Referer: "https://vimeos.net/" }, kino, "vimeos");
+async function extract2(embedUrl, req, kino2) {
+  const html = await pageText(req, embedUrl, { Referer: "https://vimeos.net/" }, kino2, "vimeos");
   if (html == null) return null;
   const url = findIn(html, (t2) => fileM3u8(t2, embedUrl));
-  if (!url) return miss(kino, "vimeos", "no playlist in page");
+  if (!url) return miss(kino2, "vimeos", "no playlist in page");
   return { url, mime: HLS_MIME, headers: { Referer: "https://vimeos.net/" }, ...pageExtras(html, embedUrl) };
 }
 
@@ -367,7 +367,7 @@ __export(streamwish_exports, {
 var kino_plugin_default = {
   id: "latino",
   name: "Latino",
-  version: "2.3.1",
+  version: "2.4.0",
   apiVersion: 9,
   panel: {
     label: "Latino",
@@ -727,9 +727,9 @@ function urlDeclared(url) {
 var UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36";
 var RETRY_STATUS = /* @__PURE__ */ new Set([408, 425, 429, 500, 502, 503, 504, 520, 521, 522, 524]);
 var SLOW_ATTEMPT_MS = 3e3;
-var fetchAllowed = (kino, url) => kino && kino.fetchAnyHost === true || urlDeclared(url);
+var fetchAllowed = (kino2, url) => kino2 && kino2.fetchAnyHost === true || urlDeclared(url);
 var requestPool = (n) => ({ left: n });
-function makeRequester(kino, { budget = 12, deadline = Date.now() + 8e3, pools = [], concurrency = Infinity, maxMs = 8e3 } = {}) {
+function makeRequester(kino2, { budget = 12, deadline = Date.now() + 8e3, pools = [], concurrency = Infinity, maxMs = 8e3 } = {}) {
   let used = 0;
   let active = 0;
   const waiting = [];
@@ -740,12 +740,12 @@ function makeRequester(kino, { budget = 12, deadline = Date.now() + 8e3, pools =
     else active--;
   };
   function makeLocalError(code, message) {
-    const e = kino.error(code, message);
+    const e = kino2.error(code, message);
     e.local = true;
     return e;
   }
   async function once(url, opts, timing = {}) {
-    if (!fetchAllowed(kino, url)) throw makeLocalError("host_not_allowed", "host not declared: " + hostOf(url));
+    if (!fetchAllowed(kino2, url)) throw makeLocalError("host_not_allowed", "host not declared: " + hostOf(url));
     await acquire();
     try {
       if (used >= budget) throw makeLocalError("unavailable", "budget spent at " + url);
@@ -758,7 +758,7 @@ function makeRequester(kino, { budget = 12, deadline = Date.now() + 8e3, pools =
       const { retry, ...rest } = opts;
       const sentAt = Date.now();
       try {
-        return await kino.fetch(url, { ...rest, headers, timeoutMs: Math.min(maxMs, left) });
+        return await kino2.fetch(url, { ...rest, headers, timeoutMs: Math.min(maxMs, left) });
       } finally {
         timing.spentMs = Date.now() - sentAt;
       }
@@ -774,14 +774,14 @@ function makeRequester(kino, { budget = 12, deadline = Date.now() + 8e3, pools =
       const r = await once(url, opts, timing);
       if (opts.retry === false || !RETRY_STATUS.has(r.status)) return r;
       if (roomToRetry() && timing.spentMs < SLOW_ATTEMPT_MS) {
-        await kino.sleep(600);
+        await kino2.sleep(600);
         return once(url, opts);
       }
       return r;
     } catch (e) {
       if (opts.retry === false || e && (e.local || e.code === "host_not_allowed")) throw e;
       if (roomToRetry() && !(timing.spentMs >= SLOW_ATTEMPT_MS)) {
-        await kino.sleep(600);
+        await kino2.sleep(600);
         return once(url, opts);
       }
       throw e;
@@ -808,14 +808,14 @@ var hostOf = (url) => {
 
 // src/extractors/streamwish.js
 var HOSTS3 = ["hlswish.com", "streamwish.com", "streamwish.to", "strwish.com", "wishembed.com", "filelions.com", "hglink.to", "vibuxer.com"];
-async function extract3(embedUrl, req, kino) {
+async function extract3(embedUrl, req, kino2) {
   const u = new URL(embedUrl);
   if (u.hostname === "hglink.to") u.hostname = "vibuxer.com";
   const referer = u.origin + "/";
-  const html = await pageText(req, u.href, { Referer: referer }, kino, "streamwish");
+  const html = await pageText(req, u.href, { Referer: referer }, kino2, "streamwish");
   if (html == null) return null;
   const url = findIn(html, (t2) => hlsKey(t2, ["hls4", "hls2", "hls3"], u.origin) || fileM3u8(t2, u.origin));
-  if (!url) return miss(kino, "streamwish", "no playlist in page");
+  if (!url) return miss(kino2, "streamwish", "no playlist in page");
   return { url, mime: HLS_MIME, headers: { "User-Agent": UA, Referer: referer }, ...pageExtras(html, u.origin) };
 }
 
@@ -826,12 +826,12 @@ __export(vidhide_exports, {
   extract: () => extract4
 });
 var HOSTS4 = ["vidhide.com", "vidhidepro.com", "vidhideplus.com", "vidhidefast.com", "dintezuvio.com", "minochinos.com", "filelions.to", "morencius.com"];
-async function extract4(embedUrl, req, kino) {
+async function extract4(embedUrl, req, kino2) {
   const u = new URL(embedUrl);
-  const html = await pageText(req, embedUrl, { Referer: u.origin + "/" }, kino, "vidhide");
+  const html = await pageText(req, embedUrl, { Referer: u.origin + "/" }, kino2, "vidhide");
   if (html == null) return null;
   const url = findIn(html, (t2) => hlsKey(t2, ["hls4", "hls2"], u.origin) || fileM3u8(t2, u.origin));
-  if (!url) return miss(kino, "vidhide", "no playlist in page");
+  if (!url) return miss(kino2, "vidhide", "no playlist in page");
   return { url, mime: HLS_MIME, headers: { Referer: u.origin + "/", Origin: u.origin }, ...pageExtras(html, u.origin) };
 }
 
@@ -842,11 +842,11 @@ __export(fastream_exports, {
   extract: () => extract5
 });
 var HOSTS5 = ["fastream.to"];
-async function extract5(embedUrl, req, kino) {
-  const html = await pageText(req, embedUrl, { Referer: "https://fastream.to/" }, kino, "fastream");
+async function extract5(embedUrl, req, kino2) {
+  const html = await pageText(req, embedUrl, { Referer: "https://fastream.to/" }, kino2, "fastream");
   if (html == null) return null;
   const url = findIn(html, (t2) => fileM3u8(t2, embedUrl));
-  if (!url) return miss(kino, "fastream", "no playlist in page");
+  if (!url) return miss(kino2, "fastream", "no playlist in page");
   return { url, mime: HLS_MIME, headers: { Referer: "https://fastream.to/" }, ...pageExtras(html, embedUrl) };
 }
 
@@ -873,33 +873,33 @@ function decodeVoe(enc) {
   return JSON.parse(decodeURIComponent(escape(atob(s))));
 }
 var redirectOf = (html) => (/window\.location\.href\s*=\s*'([^']+)'/.exec(html) || [])[1] || null;
-var canCapture = (kino) => !!(kino && kino.browser && kino.browser.captureAll === true && typeof kino.browser.capture === "function");
+var canCapture = (kino2) => !!(kino2 && kino2.browser && kino2.browser.captureAll === true && typeof kino2.browser.capture === "function");
 var CAPTURE_MS = 12e3;
 var MIN_CAPTURE_MS = 3e3;
-async function capture(embedUrl, req, kino) {
+async function capture(embedUrl, req, kino2) {
   const ms = Math.min(CAPTURE_MS, (req.left ? req.left() : CAPTURE_MS) - 300);
   if (ms < MIN_CAPTURE_MS) {
-    kino.log("[latino]", "voe", "no time to capture");
+    kino2.log("[latino]", "voe", "no time to capture");
     return null;
   }
   let cap;
   try {
-    cap = await kino.browser.capture(embedUrl, { match: "\\.m3u8|\\.mp4", timeoutMs: ms });
+    cap = await kino2.browser.capture(embedUrl, { match: "\\.m3u8|\\.mp4", timeoutMs: ms });
   } catch (e) {
-    kino.log("[latino]", "voe capture", e && e.code || "error");
+    kino2.log("[latino]", "voe capture", e && e.code || "error");
     return null;
   }
   const m = cap && Array.isArray(cap.media) ? cap.media.find((x) => x && typeof x.url === "string" && /^https?:\/\//i.test(x.url)) : null;
   if (!m) {
-    kino.log("[latino]", "voe capture", "no media");
+    kino2.log("[latino]", "voe capture", "no media");
     return null;
   }
   const mime = m.mime || (/\.mp4(?:[?#]|$)/i.test(m.url) ? "video/mp4" : HLS_MIME);
   return { url: m.url, mime, headers: { Referer: embedUrl, ...m.headers || {} } };
 }
-async function extract6(embedUrl, req, kino) {
+async function extract6(embedUrl, req, kino2) {
   const log = (...a) => {
-    if (kino) kino.log("[latino]", "voe", ...a);
+    if (kino2) kino2.log("[latino]", "voe", ...a);
   };
   const first = await req(embedUrl, { headers: { Referer: embedUrl } });
   if (!first.ok) {
@@ -909,8 +909,8 @@ async function extract6(embedUrl, req, kino) {
   let html = first.text();
   const next = redirectOf(html);
   if (next) {
-    if (!fetchAllowed(kino, next)) {
-      if (canCapture(kino)) return capture(embedUrl, req, kino);
+    if (!fetchAllowed(kino2, next)) {
+      if (canCapture(kino2)) return capture(embedUrl, req, kino2);
       log("rotating host, no browser");
       return null;
     }
@@ -923,7 +923,7 @@ async function extract6(embedUrl, req, kino) {
       html = r.text();
     } catch (e) {
       if (!(e && e.code === "host_not_allowed")) throw e;
-      if (canCapture(kino)) return capture(embedUrl, req, kino);
+      if (canCapture(kino2)) return capture(embedUrl, req, kino2);
       log("host_not_allowed");
       return null;
     }
@@ -990,15 +990,15 @@ function renditions(meta) {
     return { name: name12, height: HEIGHT_OF[name12] ?? null, url: v.url };
   }).filter((v) => v.height !== HEIGHT_OF.mobile).sort((a, b) => order(a.height) - order(b.height));
 }
-async function extract7(embedUrl, req, kino) {
+async function extract7(embedUrl, req, kino2) {
   const r = await req(embedUrl, { headers: { Accept: "text/html", ...HEADERS } });
-  if (!r.ok) return miss(kino, "okru", "status " + r.status);
+  if (!r.ok) return miss(kino2, "okru", "status " + r.status);
   const meta = playerMetadata(r.text());
-  if (!meta) return miss(kino, "okru", "no player settings (removed or restricted video)");
+  if (!meta) return miss(kino2, "okru", "no player settings (removed or restricted video)");
   const [best] = renditions(meta);
   if (best) return { url: best.url, mime: "video/mp4", headers: HEADERS, ...best.height ? { quality: best.height + "p" } : {} };
   const hls = typeof meta.hlsManifestUrl === "string" && /^https?:\/\//i.test(meta.hlsManifestUrl) ? meta.hlsManifestUrl : null;
-  return hls ? { url: hls, mime: HLS_MIME, headers: HEADERS } : miss(kino, "okru", "no renditions");
+  return hls ? { url: hls, mime: HLS_MIME, headers: HEADERS } : miss(kino2, "okru", "no renditions");
 }
 
 // src/extractors/nupload.js
@@ -1008,18 +1008,18 @@ __export(nupload_exports, {
   extract: () => extract8
 });
 var HOSTS8 = ["nupload.me", "nupload.my"];
-async function extract8(embedUrl, req, kino) {
+async function extract8(embedUrl, req, kino2) {
   const origin = new URL(embedUrl).origin;
   const r = await req(embedUrl, { headers: { Referer: origin + "/" } });
-  if (!r.ok) return miss(kino, "nupload", "status " + r.status);
+  if (!r.ok) return miss(kino2, "nupload", "status " + r.status);
   const html = r.text();
   const arr = /([A-Za-z]+)\.forEach\s*\(function\s+\w+\s*\(value\)\s*\{[^}]+atob/.exec(html);
-  if (!arr) return miss(kino, "nupload", "no encoded address");
+  if (!arr) return miss(kino2, "nupload", "no encoded address");
   const name12 = arr[1];
   const off = new RegExp(name12 + "\\.forEach[^-]+-\\s*(\\d+)").exec(html);
   const list12 = new RegExp("var\\s+" + name12 + "\\s*=\\s*(\\[[^\\]]+\\])").exec(html);
   const sesz = /var sesz\s*=\s*"([^"]+)"/.exec(html);
-  if (!off || !list12 || !sesz) return miss(kino, "nupload", "encoded address incomplete");
+  if (!off || !list12 || !sesz) return miss(kino2, "nupload", "encoded address incomplete");
   let path = "";
   for (const v of JSON.parse(list12[1])) {
     path += String.fromCharCode(parseInt(atob(v).replace(/\D/g, ""), 10) - parseInt(off[1], 10));
@@ -1028,9 +1028,9 @@ async function extract8(embedUrl, req, kino) {
   try {
     url = new URL(path + "?s=" + sesz[1], origin).href;
   } catch (_) {
-    return miss(kino, "nupload", "bad address");
+    return miss(kino2, "nupload", "bad address");
   }
-  return /^https:\/\//i.test(url) ? { url, headers: { Referer: origin + "/", Origin: origin } } : miss(kino, "nupload", "not https");
+  return /^https:\/\//i.test(url) ? { url, headers: { Referer: origin + "/", Origin: origin } } : miss(kino2, "nupload", "not https");
 }
 
 // src/extractors/index.js
@@ -1790,23 +1790,23 @@ var SITE6 = "https://embed69.org";
 var ORIGIN6 = SITE6;
 var HEADERS2 = { Referer: "https://sololatino.net/" };
 var POW_CAP = 1e5;
-function solvePow(kino, challenge, difficulty, cap = POW_CAP) {
+function solvePow(kino2, challenge, difficulty, cap = POW_CAP) {
   const zeros = "0".repeat(difficulty);
-  for (let n = 0; n <= cap; n++) if (kino.crypto.hash("sha256", challenge + n).startsWith(zeros)) return n;
+  for (let n = 0; n <= cap; n++) if (kino2.crypto.hash("sha256", challenge + n).startsWith(zeros)) return n;
   return null;
 }
-function decryptLink(kino, keyHex, b64) {
+function decryptLink(kino2, keyHex, b64) {
   const raw = atob(b64);
   let ivHex = "";
   for (let i = 0; i < 16; i++) ivHex += raw.charCodeAt(i).toString(16).padStart(2, "0");
-  return kino.crypto.decrypt("aes-256-cbc", { key: keyHex, keyEncoding: "hex", iv: ivHex, ivEncoding: "hex", data: btoa(raw.slice(16)) });
+  return kino2.crypto.decrypt("aes-256-cbc", { key: keyHex, keyEncoding: "hex", iv: ivHex, ivEncoding: "hex", data: btoa(raw.slice(16)) });
 }
 var MAX_DIFFICULTY = 4;
 var quoted = (html, name12) => {
   const m = new RegExp(name12 + "\\s*=\\s*'([^']*)'").exec(html);
   return m ? m[1] : null;
 };
-async function list6(title, { kino, req }) {
+async function list6(title, { kino: kino2, req }) {
   if (!title.imdbId) return [];
   const tv = title.kind === "tv";
   if (tv && (title.season == null || title.episode == null)) return [];
@@ -1826,15 +1826,15 @@ async function list6(title, { kino, req }) {
       return [];
     }
     if (difficulty > MAX_DIFFICULTY) return [];
-    const n = solvePow(kino, challenge, difficulty);
+    const n = solvePow(kino2, challenge, difficulty);
     if (n == null) return [];
-    const keyHex = kino.crypto.hash("sha256", challenge + n + salt);
+    const keyHex = kino2.crypto.hash("sha256", challenge + n + salt);
     const rows3 = [];
     for (const l of langs) {
       for (const e of l && l.sortedEmbeds || []) {
         if (!e || e.servername === "download" || typeof e.link !== "string") continue;
         try {
-          rows3.push({ url: decryptLink(kino, keyHex, e.link), lang: l.video_language, server: e.servername });
+          rows3.push({ url: decryptLink(kino2, keyHex, e.link), lang: l.video_language, server: e.servername });
         } catch (_) {
         }
       }
@@ -2318,6 +2318,16 @@ var WORDS = {
     tabMovies: "Pel\xEDculas",
     tabSeries: "Series",
     brWatch: "Ver",
+    dEpisodeN: "Episodio {n}",
+    dSeasonN: "Temporada {n}",
+    dSeasonsN: "{n} temporadas",
+    dSeriesGo: "Ver episodios",
+    dMore: "M\xE1s opciones",
+    dCreators: "Creaci\xF3n: {v}",
+    dDirector: "Direcci\xF3n: {v}",
+    dCast: "Reparto",
+    dEpisodes: "Episodios",
+    dSimilar: "M\xE1s como esto",
     brInfo: "M\xE1s informaci\xF3n",
     brRecent: "Continuar viendo",
     brSearch: "Buscar",
@@ -2464,6 +2474,16 @@ var WORDS = {
     tabMovies: "Movies",
     tabSeries: "Series",
     brWatch: "Watch",
+    dEpisodeN: "Episode {n}",
+    dSeasonN: "Season {n}",
+    dSeasonsN: "{n} seasons",
+    dSeriesGo: "Watch episodes",
+    dMore: "More options",
+    dCreators: "Created by: {v}",
+    dDirector: "Directed by: {v}",
+    dCast: "Cast",
+    dEpisodes: "Episodes",
+    dSimilar: "More like this",
     brInfo: "More info",
     brRecent: "Continue watching",
     brSearch: "Search",
@@ -2505,15 +2525,15 @@ var WORDS = {
     g_reality: "Reality"
   }
 };
-function langOf(kino = globalThis.kino) {
-  return String(kino && kino.lang || "").toLowerCase().startsWith("en") ? "en" : "es";
+function langOf(kino2 = globalThis.kino) {
+  return String(kino2 && kino2.lang || "").toLowerCase().startsWith("en") ? "en" : "es";
 }
-function t(key, kino = globalThis.kino) {
-  const words = WORDS[langOf(kino)];
+function t(key, kino2 = globalThis.kino) {
+  const words = WORDS[langOf(kino2)];
   return words[key] ?? WORDS.es[key] ?? key;
 }
-function tf(key, vars, kino = globalThis.kino) {
-  return t(key, kino).replace(/\{(\w+)\}/g, (m, k) => vars && vars[k] != null ? String(vars[k]) : m);
+function tf(key, vars, kino2 = globalThis.kino) {
+  return t(key, kino2).replace(/\{(\w+)\}/g, (m, k) => vars && vars[k] != null ? String(vars[k]) : m);
 }
 var both = (key, vars) => {
   const one = (lang) => tf(key, vars && Object.fromEntries(Object.entries(vars).map(([k, v]) => [k, typeof v === "function" ? v(lang) : v])), { lang });
@@ -2531,24 +2551,24 @@ var LAST_TTL_MS = 6 * 3600 * 1e3;
 var EVENTS_TTL_MS = 12 * 3600 * 1e3;
 var MAX_EVENTS = 20;
 var MAX_ALTERNATIVES = 5;
-function readJson(kino, key) {
+function readJson(kino2, key) {
   try {
-    const v = JSON.parse(kino.storage.get(key) || "null");
+    const v = JSON.parse(kino2.storage.get(key) || "null");
     return v && typeof v === "object" && v.v === 1 ? v : null;
   } catch (_) {
     return null;
   }
 }
-function writeJson(kino, key, value, ttlMs) {
+function writeJson(kino2, key, value, ttlMs) {
   try {
-    kino.storage.set(key, JSON.stringify({ v: 1, ...value }), ttlMs ? { ttlMs } : void 0);
+    kino2.storage.set(key, JSON.stringify({ v: 1, ...value }), ttlMs ? { ttlMs } : void 0);
   } catch (_) {
   }
 }
 var serverIds = () => Object.keys(SERVER_LABEL);
 var isStr = (x) => typeof x === "string";
-function readPrefs(kino) {
-  const p = readJson(kino, PREFS_KEY);
+function readPrefs(kino2) {
+  const p = readJson(kino2, PREFS_KEY);
   const out = { avoid: [] };
   if (!p) return out;
   if (LANGS.includes(p.preferred)) out.preferred = p.preferred;
@@ -2559,21 +2579,21 @@ function readPrefs(kino) {
   }
   return out;
 }
-function writePrefs(kino, patch = {}) {
-  const next = { ...readPrefs(kino), ...patch && typeof patch === "object" ? patch : {} };
+function writePrefs(kino2, patch = {}) {
+  const next = { ...readPrefs(kino2), ...patch && typeof patch === "object" ? patch : {} };
   for (const k of Object.keys(next)) if (next[k] === null || next[k] === void 0) delete next[k];
-  writeJson(kino, PREFS_KEY, next);
+  writeJson(kino2, PREFS_KEY, next);
 }
-function clearPrefs(kino) {
+function clearPrefs(kino2) {
   try {
-    kino.storage.remove(PREFS_KEY);
+    kino2.storage.remove(PREFS_KEY);
   } catch (_) {
   }
 }
-function writeLast(kino, ref, rec) {
+function writeLast(kino2, ref, rec) {
   if (!isStr(ref) || !ref || !rec || typeof rec !== "object") return;
-  writeJson(kino, LATEST_KEY, { ref }, LAST_TTL_MS);
-  writeJson(kino, LAST_PREFIX + ref, {
+  writeJson(kino2, LATEST_KEY, { ref }, LAST_TTL_MS);
+  writeJson(kino2, LAST_PREFIX + ref, {
     at: Number(rec.at) || 0,
     total: Number(rec.total) || 0,
     order: isStr(rec.order) ? rec.order : "",
@@ -2581,36 +2601,36 @@ function writeLast(kino, ref, rec) {
     alternatives: Array.isArray(rec.alternatives) ? rec.alternatives.filter(isStr).slice(0, MAX_ALTERNATIVES) : []
   }, LAST_TTL_MS);
 }
-function readLatest(kino) {
-  const l = readJson(kino, LATEST_KEY);
-  return l && isStr(l.ref) ? readLast(kino, l.ref) : null;
+function readLatest(kino2) {
+  const l = readJson(kino2, LATEST_KEY);
+  return l && isStr(l.ref) ? readLast(kino2, l.ref) : null;
 }
-function readLast(kino, ref) {
+function readLast(kino2, ref) {
   if (!isStr(ref) || !ref) return null;
-  const r = readJson(kino, LAST_PREFIX + ref);
+  const r = readJson(kino2, LAST_PREFIX + ref);
   if (!r || !isStr(r.chosen) || !Array.isArray(r.alternatives)) return null;
   return { at: Number(r.at) || 0, total: Number(r.total) || 0, order: isStr(r.order) ? r.order : "", chosen: r.chosen, alternatives: r.alternatives.filter(isStr) };
 }
-function pushEvent(kino, ev) {
+function pushEvent(kino2, ev) {
   if (!ev || typeof ev !== "object" || !isStr(ev.type)) return;
   const rec = { t: Number(ev.t) || Date.now(), type: ev.type };
   if (isStr(ev.kind)) rec.kind = ev.kind;
   if (isStr(ev.label)) rec.label = ev.label;
   if (isStr(ev.ref) && ev.ref) rec.ref = ev.ref;
-  writeJson(kino, EVENTS_KEY, { events: [...readEvents(kino), rec].slice(-MAX_EVENTS) }, EVENTS_TTL_MS);
+  writeJson(kino2, EVENTS_KEY, { events: [...readEvents(kino2), rec].slice(-MAX_EVENTS) }, EVENTS_TTL_MS);
 }
-function readEvents(kino, ref) {
-  const r = readJson(kino, EVENTS_KEY);
+function readEvents(kino2, ref) {
+  const r = readJson(kino2, EVENTS_KEY);
   if (!r || !Array.isArray(r.events)) return [];
   const want = isStr(ref) ? ref : "";
   return r.events.filter((e) => e && isStr(e.type) && Number.isFinite(e.t) && (isStr(e.ref) ? e.ref : "") === want).slice(-MAX_EVENTS);
 }
 var REPORTED_PREFIX = "pp:rep:";
-function markReported(kino, ref) {
-  writeJson(kino, REPORTED_PREFIX + (isStr(ref) ? ref : ""), { at: Date.now() }, EVENTS_TTL_MS);
+function markReported(kino2, ref) {
+  writeJson(kino2, REPORTED_PREFIX + (isStr(ref) ? ref : ""), { at: Date.now() }, EVENTS_TTL_MS);
 }
-function wasReported(kino, ref) {
-  return !!readJson(kino, REPORTED_PREFIX + (isStr(ref) ? ref : ""));
+function wasReported(kino2, ref) {
+  return !!readJson(kino2, REPORTED_PREFIX + (isStr(ref) ? ref : ""));
 }
 
 // src/settings.js
@@ -2619,10 +2639,10 @@ function bool(v, fallback) {
   if (v === false || v === "false") return false;
   return fallback;
 }
-function readSettings(kino) {
+function readSettings(kino2) {
   const get = (key) => {
     try {
-      return kino && kino.config ? kino.config.get(key) : void 0;
+      return kino2 && kino2.config ? kino2.config.get(key) : void 0;
     } catch (_) {
       return void 0;
     }
@@ -2632,7 +2652,7 @@ function readSettings(kino) {
     const v = bool(get("src_" + s.id), void 0);
     if (v !== void 0) enabled[s.id] = v;
   }
-  const prefs = readPrefs(kino);
+  const prefs = readPrefs(kino2);
   const base = normalizeSettings({ preferred: prefs.preferred ?? get("preferred"), maxQuality: prefs.maxQuality ?? get("maxQuality"), enabled });
   return { ...base, homeRows: bool(get("homeRows"), true), liveSports: bool(get("liveSports"), true), avoid: prefs.avoid };
 }
@@ -2643,17 +2663,17 @@ var KEY = "health";
 var DOWN_AFTER = 3;
 var OFFLINE_RUN = 3;
 var MAX_LINE = 200;
-function readHealth(kino) {
+function readHealth(kino2) {
   try {
-    const h = JSON.parse(kino.storage.get(KEY) || "{}");
+    const h = JSON.parse(kino2.storage.get(KEY) || "{}");
     return h && typeof h === "object" && !Array.isArray(h) ? h : {};
   } catch (_) {
     return {};
   }
 }
-function recordRun(kino, results3) {
+function recordRun(kino2, results3) {
   try {
-    const h = readHealth(kino);
+    const h = readHealth(kino2);
     const at = Date.now();
     const offline = results3.length >= OFFLINE_RUN && results3.every((r) => !r.ok);
     for (const { id: id12, ok } of results3) {
@@ -2662,23 +2682,23 @@ function recordRun(kino, results3) {
       let reported = !ok && before.reported === true;
       if (!ok && fails >= DOWN_AFTER && !reported && !offline) {
         try {
-          kino.log.report("latino:source_down", id12);
+          kino2.log.report("latino:source_down", id12);
         } catch (_) {
         }
         reported = true;
       }
       h[id12] = { ok: !!ok, fails, at, ...reported ? { reported: true } : {} };
     }
-    kino.storage.set(KEY, JSON.stringify(h));
+    kino2.storage.set(KEY, JSON.stringify(h));
   } catch (_) {
   }
 }
-function healthLine(kino, health = readHealth(kino)) {
-  const settings = readSettings(kino);
+function healthLine(kino2, health = readHealth(kino2)) {
+  const settings = readSettings(kino2);
   const parts2 = SOURCES.map((s) => {
     const h = health[s.id];
     const state = !sourceOn(settings, s.id) ? "healthOff" : !h ? "healthNone" : h.ok ? "healthOk" : "healthFail";
-    return `${s.name} ${t(state, kino)}`;
+    return `${s.name} ${t(state, kino2)}`;
   });
   return parts2.join(" \xB7 ").slice(0, MAX_LINE);
 }
@@ -2728,40 +2748,40 @@ function normalizeSettings(s = {}) {
 var isOn = (enabled, id12) => (enabled || {})[id12] !== false;
 var cacheKey = (title, prefix = "emb:") => `${prefix}${title.kind}:${title.tmdbId}:${title.season ?? ""}:${title.episode ?? ""}`;
 var validEmbed = (e) => e && typeof e === "object" && typeof e.source === "string" && LANGS.includes(e.lang) && typeof e.server === "string" && typeof e.embedUrl === "string" && /^https?:\/\//i.test(e.embedUrl) && (e.quality == null || typeof e.quality === "string");
-function readCache(kino, key) {
+function readCache(kino2, key) {
   try {
-    const c = JSON.parse(kino.storage.get(key) || "null");
+    const c = JSON.parse(kino2.storage.get(key) || "null");
     if (!c || c.v !== 1 || !Array.isArray(c.done) || !Array.isArray(c.embeds) || !c.embeds.every(validEmbed)) return null;
     return c;
   } catch (_) {
     return null;
   }
 }
-function writeCache(kino, key, done, embeds, ttlMs = CACHE_TTL_MS) {
+function writeCache(kino2, key, done, embeds, ttlMs = CACHE_TTL_MS) {
   try {
-    kino.storage.set(key, JSON.stringify({ v: 1, done, embeds }), { ttlMs });
+    kino2.storage.set(key, JSON.stringify({ v: 1, done, embeds }), { ttlMs });
   } catch (_) {
   }
 }
-async function askSource(kino, source, title, start, pools, deadlineMs = SOURCE.deadlineMs) {
+async function askSource(kino2, source, title, start, pools, deadlineMs = SOURCE.deadlineMs) {
   try {
-    const req = makeRequester(kino, { budget: SOURCE.budget, deadline: start + deadlineMs, pools, concurrency: SOURCE.concurrency, maxMs: source.REQUEST_MS || 8e3 });
-    const out = await source.list(title, { kino, req });
+    const req = makeRequester(kino2, { budget: SOURCE.budget, deadline: start + deadlineMs, pools, concurrency: SOURCE.concurrency, maxMs: source.REQUEST_MS || 8e3 });
+    const out = await source.list(title, { kino: kino2, req });
     const embeds = (Array.isArray(out) ? out : []).filter(validEmbed);
     return { embeds, failed: null, degraded: req.degraded(), missing: embeds.length ? null : missingOf(out) };
   } catch (e) {
     const code = e && e.code || e && e.name || "error";
-    kino.log("[latino]", source.id, code);
+    kino2.log("[latino]", source.id, code);
     return { embeds: [], failed: code, missing: null };
   }
 }
-async function collect(kino, title, { enabled, sources = SOURCES, phaseMs = PHASE_MS, fresh = false, skip = [], cachePrefix = "emb:", ttlMs, call = requestPool(CALL_REQUESTS), enough = null, fallbackPass = false } = {}) {
+async function collect(kino2, title, { enabled, sources = SOURCES, phaseMs = PHASE_MS, fresh = false, skip = [], cachePrefix = "emb:", ttlMs, call = requestPool(CALL_REQUESTS), enough = null, fallbackPass = false } = {}) {
   const start = Date.now();
   const phase = requestPool(Math.min(PHASE_REQUESTS, call.left));
   const pools = [call, phase];
   const active = sources.filter((s) => isOn(enabled, s.id) && (!s.kinds || s.kinds.includes(title.kind)) && (fallbackPass ? s.fallback === true : !s.fallback));
   const key = cacheKey(title, cachePrefix);
-  const cached = fresh ? null : readCache(kino, key);
+  const cached = fresh ? null : readCache(kino2, key);
   const done = new Set(cached ? cached.done : []);
   const bySource = /* @__PURE__ */ new Map();
   for (const e of cached ? cached.embeds : []) {
@@ -2779,18 +2799,18 @@ async function collect(kino, title, { enabled, sources = SOURCES, phaseMs = PHAS
     const allAnswered = new Promise((r) => {
       allIn = r;
     });
-    for (const s of toAsk) askSource(kino, s, title, start, pools, fallbackPass ? Math.max(phaseMs, SOURCE.deadlineMs) : SOURCE.deadlineMs).then((r) => {
+    for (const s of toAsk) askSource(kino2, s, title, start, pools, fallbackPass ? Math.max(phaseMs, SOURCE.deadlineMs) : SOURCE.deadlineMs).then((r) => {
       answers.set(s.id, r);
       if (--pending === 0) allIn();
     });
     const sofar = () => [...bySource.values(), ...[...answers.values()].map((r) => r.embeds)].flat();
     let early = false;
-    const timeUp = waitFor(kino, Math.max(0, start + phaseMs - Date.now()), () => pending === 0 || (early = !!enough && Date.now() - start >= EARLY.ms && enough(sofar())));
+    const timeUp = waitFor(kino2, Math.max(0, start + phaseMs - Date.now()), () => pending === 0 || (early = !!enough && Date.now() - start >= EARLY.ms && enough(sofar())));
     await Promise.race([allAnswered, timeUp.catch(() => {
     })]);
     phase.left = 0;
     const cut2 = (s) => early && !answers.has(s.id);
-    recordRun(kino, toAsk.filter((s) => !cut2(s)).map((s) => ({ id: s.id, ok: !!answers.get(s.id) && !answers.get(s.id).failed })));
+    recordRun(kino2, toAsk.filter((s) => !cut2(s)).map((s) => ({ id: s.id, ok: !!answers.get(s.id) && !answers.get(s.id).failed })));
     for (const s of toAsk) {
       const r = answers.get(s.id);
       if (cut2(s)) {
@@ -2799,7 +2819,7 @@ async function collect(kino, title, { enabled, sources = SOURCES, phaseMs = PHAS
         continue;
       }
       if (!r) {
-        kino.log("[latino]", s.id, "late");
+        kino2.log("[latino]", s.id, "late");
         failed.push(s.id);
         continue;
       }
@@ -2822,34 +2842,34 @@ async function collect(kino, title, { enabled, sources = SOURCES, phaseMs = PHAS
   const everything = [...bySource.keys()].sort((a, b) => rank2(a) - rank2(b)).flatMap((id12) => bySource.get(id12));
   const seen = /* @__PURE__ */ new Set();
   const unique = everything.filter((e) => seen.has(e.embedUrl) ? false : (seen.add(e.embedUrl), true));
-  if (toAsk.length && unique.length) writeCache(kino, key, [...done], unique, ttlMs);
+  if (toAsk.length && unique.length) writeCache(kino2, key, [...done], unique, ttlMs);
   const on = new Set(active.map((s) => s.id));
   const embeds = unique.filter((e) => on.has(e.source));
   return { embeds, down: down && embeds.length === 0, missing: embeds.length ? null : missing, failed, cached: !!cached, key, answered: active.filter((s) => done.has(s.id) && !failed.includes(s.id)).map((s) => s.id), asked: toAsk.map((s) => s.id), contributed: new Set(unique.map((e) => e.source)) };
 }
-async function listEmbeds(kino, title, options3 = {}) {
-  return (await collect(kino, title, options3)).embeds;
+async function listEmbeds(kino2, title, options3 = {}) {
+  return (await collect(kino2, title, options3)).embeds;
 }
 var NEG_TTL_MS = 10 * 60 * 1e3;
 var negKey = (title, prefix = "emb:") => prefix.replace(/emb:$/, "embn:") + cacheKey(title, prefix).slice(prefix.length);
-function readNeg(kino, key) {
+function readNeg(kino2, key) {
   try {
-    const n = JSON.parse(kino.storage.get(key) || "null");
+    const n = JSON.parse(kino2.storage.get(key) || "null");
     return n && n.v === 1 && Array.isArray(n.skip) && Array.isArray(n.failed) ? n : null;
   } catch (_) {
     return null;
   }
 }
-async function listEmbedsDetailed(kino, title, options3 = {}) {
+async function listEmbedsDetailed(kino2, title, options3 = {}) {
   const key = negKey(title, options3.cachePrefix);
-  const neg = options3.fresh ? null : readNeg(kino, key);
-  const r = await collect(kino, title, neg ? { ...options3, skip: neg.skip } : options3);
+  const neg = options3.fresh ? null : readNeg(kino2, key);
+  const r = await collect(kino2, title, neg ? { ...options3, skip: neg.skip } : options3);
   const failed = [.../* @__PURE__ */ new Set([...neg ? neg.failed : [], ...r.failed])];
   const quiet = r.asked.filter((id12) => r.failed.includes(id12) || !r.contributed.has(id12));
   if (quiet.length) {
     const skip = [.../* @__PURE__ */ new Set([...neg ? neg.skip : [], ...quiet])];
     try {
-      kino.storage.set(key, JSON.stringify({ v: 1, skip, failed }), { ttlMs: NEG_TTL_MS });
+      kino2.storage.set(key, JSON.stringify({ v: 1, skip, failed }), { ttlMs: NEG_TTL_MS });
     } catch (_) {
     }
   }
@@ -2872,12 +2892,12 @@ function rank(embeds, { maxQuality = "auto", avoid = [] } = {}) {
   };
   return (embeds || []).map((e, i) => ({ e, i, k: key(e) })).sort((a, b) => a.k[0] - b.k[0] || a.k[1] - b.k[1] || a.k[2] - b.k[2] || a.i - b.i).map((x) => x.e);
 }
-function label(kino, e, sourceName) {
+function label(kino2, e, sourceName) {
   const id12 = serverOf(e);
-  const server = id12 === "direct" ? t("direct", kino) : SERVER_LABEL[id12] || e.server;
+  const server = id12 === "direct" ? t("direct", kino2) : SERVER_LABEL[id12] || e.server;
   const q = e.quality ? " " + e.quality : "";
-  const full = `${t(e.lang, kino)} \xB7 ${sourceName} \xB7 ${server}${q}`;
-  return full.length <= 48 ? full : `${t(e.lang, kino)} \xB7 ${server}${q}`.slice(0, 48);
+  const full = `${t(e.lang, kino2)} \xB7 ${sourceName} \xB7 ${server}${q}`;
+  return full.length <= 48 ? full : `${t(e.lang, kino2)} \xB7 ${server}${q}`.slice(0, 48);
 }
 function mimeOf(url) {
   let path;
@@ -2902,30 +2922,30 @@ function directStream(e, source) {
   const mime = mimeOf(e.embedUrl);
   return { url: e.embedUrl, ...mime ? { mime } : {}, headers: { "User-Agent": UA, Referer: origin.replace(/\/+$/, "") + "/" } };
 }
-async function defaultExtract(e, req, kino, source) {
+async function defaultExtract(e, req, kino2, source) {
   if (isDirect(e)) return directStream(e, source);
   const ex = extractorFor(e.embedUrl);
-  return ex ? ex.extract(e.embedUrl, req, kino) : null;
+  return ex ? ex.extract(e.embedUrl, req, kino2) : null;
 }
 defaultExtract.accepts = (e) => isDirect(e) || !!extractorFor(e.embedUrl);
-var callLimitMs = (kino) => kino && kino.browser ? BROWSER_CALL_MS : CALL_MS;
-var attemptMs = (kino, e) => serverOf(e) === "voe" && canCapture(kino) ? VOE_ATTEMPT_MS : EXTRACT.deadlineMs;
-async function attempt(kino, extract9, e, source, untilMs, pools = []) {
-  const deadline = Math.min(Date.now() + attemptMs(kino, e), untilMs);
-  const req = makeRequester(kino, { budget: EXTRACT.budget, deadline, pools });
-  const r = await within(kino, Promise.resolve().then(() => extract9(e, req, kino, source)), Math.max(0, Math.min(deadline + 500, untilMs) - Date.now()), null);
-  if (r.e) kino.log("[latino]", e.source, serverOf(e), r.e && r.e.code || "extract_failed");
-  else if (r.late) kino.log("[latino]", e.source, serverOf(e), "late");
+var callLimitMs = (kino2) => kino2 && kino2.browser ? BROWSER_CALL_MS : CALL_MS;
+var attemptMs = (kino2, e) => serverOf(e) === "voe" && canCapture(kino2) ? VOE_ATTEMPT_MS : EXTRACT.deadlineMs;
+async function attempt(kino2, extract9, e, source, untilMs, pools = []) {
+  const deadline = Math.min(Date.now() + attemptMs(kino2, e), untilMs);
+  const req = makeRequester(kino2, { budget: EXTRACT.budget, deadline, pools });
+  const r = await within(kino2, Promise.resolve().then(() => extract9(e, req, kino2, source)), Math.max(0, Math.min(deadline + 500, untilMs) - Date.now()), null);
+  if (r.e) kino2.log("[latino]", e.source, serverOf(e), r.e && r.e.code || "extract_failed");
+  else if (r.late) kino2.log("[latino]", e.source, serverOf(e), "late");
   const s = r.v;
   const ok = s && typeof s.url === "string" && s.url ? s : null;
-  if (!ok && !r.e && !r.late) kino.log("[latino]", e.source, serverOf(e), "no stream");
+  if (!ok && !r.e && !r.late) kino2.log("[latino]", e.source, serverOf(e), "no stream");
   return ok;
 }
-function toStream(kino, s, e, sourceName) {
+function toStream(kino2, s, e, sourceName) {
   const out = { url: s.url };
   if (s.mime) out.mime = s.mime;
   out.headers = { "User-Agent": UA, ...s.headers && typeof s.headers === "object" ? s.headers : {} };
-  out.label = label(kino, e, sourceName);
+  out.label = label(kino2, e, sourceName);
   const subs = Array.isArray(s.subtitles) ? s.subtitles.filter((x) => x && x.lang && x.url) : [];
   if (subs.length) out.subtitles = subs;
   if (Number.isFinite(s.durationMs) && s.durationMs > 0) out.durationMs = Math.round(s.durationMs);
@@ -2966,19 +2986,19 @@ function readRef(ref) {
   }
   return { source, lang, server, embedUrl, quality: q === "-" ? null : q };
 }
-async function resolveLazy(kino, ref, { sources = SOURCES, extract: extract9 = defaultExtract, untilMs } = {}) {
-  const fail = (detail) => kino.error("not_found", detail, { userMessage: t("copyFailed", kino) });
+async function resolveLazy(kino2, ref, { sources = SOURCES, extract: extract9 = defaultExtract, untilMs } = {}) {
+  const fail = (detail) => kino2.error("not_found", detail, { userMessage: t("copyFailed", kino2) });
   const e = readRef(ref);
   if (!e) throw fail("bad copy ref");
   const source = sources.find((s2) => s2.id === e.source);
   const accepts = extract9.accepts || (() => true);
   if (!accepts(e) || isDirect(e) && !source) throw fail("copy not playable: " + e.source + "/" + e.server);
-  const s = await attempt(kino, extract9, e, source, untilMs ?? Date.now() + attemptMs(kino, e));
+  const s = await attempt(kino2, extract9, e, source, untilMs ?? Date.now() + attemptMs(kino2, e));
   if (!s) throw fail("copy did not open: " + e.source + "/" + serverOf(e));
-  return toStream(kino, s, e, source ? source.name : e.source);
+  return toStream(kino2, s, e, source ? source.name : e.source);
 }
-async function resolveTitle(kino, title, settings, { sources = SOURCES, extract: extract9 = defaultExtract, phaseMs = PHASE_MS, callMs, ref } = {}) {
-  const ms = Math.min(callMs ?? Infinity, callLimitMs(kino));
+async function resolveTitle(kino2, title, settings, { sources = SOURCES, extract: extract9 = defaultExtract, phaseMs = PHASE_MS, callMs, ref } = {}) {
+  const ms = Math.min(callMs ?? Infinity, callLimitMs(kino2));
   const until = Date.now() + ms;
   const set = normalizeSettings(settings);
   const phase = Math.min(phaseMs, ms, Math.max(MIN_PHASE_MS, ms - 7e3));
@@ -2987,13 +3007,13 @@ async function resolveTitle(kino, title, settings, { sources = SOURCES, extract:
   const profiled = (e) => !e.server.startsWith("direct-") || !!((sourceOf(e) || {}).DIRECT || {})[e.server.slice("direct-".length)];
   const accepts = (e) => (extract9.accepts || (() => true))(e) && profiled(e);
   const enough = (es) => new Set(es.filter((e) => e.lang === set.preferred && accepts(e)).map((e) => e.embedUrl)).size >= EARLY.copies;
-  let { embeds, down, missing, cached, key } = await collect(kino, title, { enabled: set.enabled, sources, phaseMs: phase, call, enough });
+  let { embeds, down, missing, cached, key } = await collect(kino2, title, { enabled: set.enabled, sources, phaseMs: phase, call, enough });
   let playable = embeds.filter(accepts);
   if (!playable.length) {
     const fbSources = sources.filter((s) => s.fallback);
     const fbLeft = until - Date.now() - FALLBACK_RESERVE_MS;
     if (fbSources.length && fbLeft >= MIN_FALLBACK_MS) {
-      const fb = await collect(kino, title, { enabled: set.enabled, sources: fbSources, phaseMs: Math.min(FALLBACK_MS, fbLeft), call, cachePrefix: "fb:", fallbackPass: true });
+      const fb = await collect(kino2, title, { enabled: set.enabled, sources: fbSources, phaseMs: Math.min(FALLBACK_MS, fbLeft), call, cachePrefix: "fb:", fallbackPass: true });
       if (fb.embeds.length) {
         embeds = fb.embeds;
         playable = embeds.filter(accepts);
@@ -3006,12 +3026,12 @@ async function resolveTitle(kino, title, settings, { sources = SOURCES, extract:
   }
   const lang = pickLanguage(playable, set.preferred);
   if (!lang) {
-    if (down) throw kino.error("unavailable", "every source failed", { userMessage: t("sourcesDown", kino) });
+    if (down) throw kino2.error("unavailable", "every source failed", { userMessage: t("sourcesDown", kino2) });
     if (missing && title.kind === "tv" && !embeds.length) {
       const what = missing.seasonFound ? "episode" : "season";
-      throw kino.error("not_found", `no playable embed (0 listed): series found, ${what} missing`, { userMessage: missingMessage(kino, title, missing) });
+      throw kino2.error("not_found", `no playable embed (0 listed): series found, ${what} missing`, { userMessage: missingMessage(kino2, title, missing) });
     }
-    throw kino.error("not_found", `no playable embed (${embeds.length} listed)`, { userMessage: t("notFound", kino) });
+    throw kino2.error("not_found", `no playable embed (${embeds.length} listed)`, { userMessage: t("notFound", kino2) });
   }
   const pool = rank(playable.filter((e) => e.lang === lang), { maxQuality: set.maxQuality, avoid: settings && settings.avoid });
   const nameOf = (e) => (sourceOf(e) || {}).name || e.source;
@@ -3021,7 +3041,7 @@ async function resolveTitle(kino, title, settings, { sources = SOURCES, extract:
   for (const e of pool) {
     if (tries >= EXTRACT.tries || until - Date.now() < 1500) break;
     tries++;
-    const s = await attempt(kino, extract9, e, sourceOf(e), until, [call]);
+    const s = await attempt(kino2, extract9, e, sourceOf(e), until, [call]);
     if (!s) {
       failed.add(e);
       continue;
@@ -3032,37 +3052,37 @@ async function resolveTitle(kino, title, settings, { sources = SOURCES, extract:
   const rest = pool.filter((e) => !failed.has(e) && (!main || e !== main.e));
   if (!main) {
     const first = rest.shift();
-    const s = first && until - Date.now() >= 1500 ? await attempt(kino, extract9, first, sourceOf(first), until, [call]) : null;
+    const s = first && until - Date.now() >= 1500 ? await attempt(kino2, extract9, first, sourceOf(first), until, [call]) : null;
     if (s) {
-      noteChoice(kino, ref, { total: pool.length, order: set.preferred, chosen: label(kino, first, nameOf(first)), rest: rest.map((e) => label(kino, e, nameOf(e))) });
-      return withCopies(kino, toStream(kino, s, first, nameOf(first)), rest, nameOf);
+      noteChoice(kino2, ref, { total: pool.length, order: set.preferred, chosen: label(kino2, first, nameOf(first)), rest: rest.map((e) => label(kino2, e, nameOf(e))) });
+      return withCopies(kino2, toStream(kino2, s, first, nameOf(first)), rest, nameOf);
     }
     if (cached) {
       try {
-        kino.storage.remove(key);
+        kino2.storage.remove(key);
       } catch (_) {
       }
     }
-    throw kino.error("not_found", `no copy opened (${tries + (first ? 1 : 0)} tried)`, { userMessage: t("noPlayable", kino) });
+    throw kino2.error("not_found", `no copy opened (${tries + (first ? 1 : 0)} tried)`, { userMessage: t("noPlayable", kino2) });
   }
-  noteChoice(kino, ref, { total: pool.length, order: set.preferred, chosen: label(kino, main.e, nameOf(main.e)), rest: rest.map((e) => label(kino, e, nameOf(e))) });
-  return withCopies(kino, toStream(kino, main.s, main.e, nameOf(main.e)), rest, nameOf);
+  noteChoice(kino2, ref, { total: pool.length, order: set.preferred, chosen: label(kino2, main.e, nameOf(main.e)), rest: rest.map((e) => label(kino2, e, nameOf(e))) });
+  return withCopies(kino2, toStream(kino2, main.s, main.e, nameOf(main.e)), rest, nameOf);
 }
-function noteChoice(kino, ref, { total, order: order2, chosen, rest }) {
+function noteChoice(kino2, ref, { total, order: order2, chosen, rest }) {
   if (!ref) return;
   try {
-    writeLast(kino, ref, { at: Date.now(), total, order: order2, chosen, alternatives: rest.slice(0, 5) });
+    writeLast(kino2, ref, { at: Date.now(), total, order: order2, chosen, alternatives: rest.slice(0, 5) });
   } catch (_) {
   }
 }
-function missingMessage(kino, title, missing) {
+function missingMessage(kino2, title, missing) {
   const names = title.titles || {};
-  const name12 = (langOf(kino) === "en" ? names.en || names.original || names.esMX : names.esMX || names.original || names.en) || "";
+  const name12 = (langOf(kino2) === "en" ? names.en || names.original || names.esMX : names.esMX || names.original || names.en) || "";
   const vars = { season: title.season, episode: title.episode, title: name12 };
-  return tf(missing && missing.seasonFound ? "episodeMissing" : "seasonMissing", vars, kino);
+  return tf(missing && missing.seasonFound ? "episodeMissing" : "seasonMissing", vars, kino2);
 }
-function withCopies(kino, stream, rest, nameOf) {
-  const alternatives = rest.map((e) => ({ label: label(kino, e, nameOf(e)), ref: lazyRef(e) })).filter((a) => a.ref.length <= MAX_REF).slice(0, MAX_COPIES);
+function withCopies(kino2, stream, rest, nameOf) {
+  const alternatives = rest.map((e) => ({ label: label(kino2, e, nameOf(e)), ref: lazyRef(e) })).filter((a) => a.ref.length <= MAX_REF).slice(0, MAX_COPIES);
   return alternatives.length ? { ...stream, alternatives } : stream;
 }
 
@@ -3073,37 +3093,37 @@ var MAX_PAGE = 500;
 var memo = /* @__PURE__ */ new Map();
 var PAGE_MS = 1e4;
 var upTo = (cap, untilMs) => Math.min(cap, untilMs == null ? cap : untilMs - Date.now());
-async function listing3(kino, { site, kind, genre = null, page: page3 = 1, deadlineMs = PAGE_MS }) {
+async function listing3(kino2, { site, kind, genre = null, page: page3 = 1, deadlineMs = PAGE_MS }) {
   const key = `${site}:${kind}:${genre || ""}:${page3}`;
   const hit = memo.get(key);
   if (hit && Date.now() - hit.at < LIST_TTL_MS) return hit.items;
   const source = SITES[site];
-  const req = makeRequester(kino, { budget: 3, deadline: Date.now() + deadlineMs });
+  const req = makeRequester(kino2, { budget: 3, deadline: Date.now() + deadlineMs });
   const items = genre ? await source.byGenre(genre, kind, page3, { req }) : await source.latest(kind, page3, { req });
   if (memo.size > 80) memo.clear();
   if (items.length) memo.set(key, { at: Date.now(), items });
   return items;
 }
-var genreName = (kino, slug) => has("g_" + slug) ? t("g_" + slug, kino) : null;
-function seriesTitle(kino, slug) {
-  const g = genreName(kino, slug);
-  return t("seriesGenre", kino).replace("{g}", langOf(kino) === "es" ? g.toLowerCase() : g);
+var genreName = (kino2, slug) => has("g_" + slug) ? t("g_" + slug, kino2) : null;
+function seriesTitle(kino2, slug) {
+  const g = genreName(kino2, slug);
+  return t("seriesGenre", kino2).replace("{g}", langOf(kino2) === "es" ? g.toLowerCase() : g);
 }
-function dress(kino, raw) {
+function dress(kino2, raw) {
   const { genreSlugs = [], langs = [], ...item3 } = raw;
   const m = /^(lm|hs)-(\d+)$/.exec(item3.id || "");
   if (m && !(item3.ids && item3.ids.tmdb)) {
     let hit = null;
     try {
-      hit = kino.storage.get(`tmdb:${m[1]}:${m[2]}`);
+      hit = kino2.storage.get(`tmdb:${m[1]}:${m[2]}`);
     } catch (_) {
     }
     if (hit && /^\d+$/.test(hit)) item3.ids = { ...item3.ids || {}, tmdb: Number(hit) };
   }
-  const genres = genreSlugs.map((g) => genreName(kino, g)).filter(Boolean).slice(0, 5);
+  const genres = genreSlugs.map((g) => genreName(kino2, g)).filter(Boolean).slice(0, 5);
   if (genres.length) item3.genres = genres;
-  const badges = langs.slice(0, item3.quality ? 2 : 3).map((l) => t(l, kino));
-  if (item3.quality) badges.push(has("badge_" + item3.quality) ? t("badge_" + item3.quality, kino) : item3.quality);
+  const badges = langs.slice(0, item3.quality ? 2 : 3).map((l) => t(l, kino2));
+  if (item3.quality) badges.push(has("badge_" + item3.quality) ? t("badge_" + item3.quality, kino2) : item3.quality);
   if (badges.length) item3.badges = badges;
   if (langs.includes("lat")) item3.lang = "es-419";
   else if (langs.includes("esp")) item3.lang = "es-ES";
@@ -3130,26 +3150,26 @@ var dedup = (items) => {
   const seen = /* @__PURE__ */ new Set();
   return items.filter((i) => seen.has(i.id) ? false : (seen.add(i.id), true));
 };
-async function browsePage(kino, settings, ref, cursor, { untilMs } = {}) {
+async function browsePage(kino2, settings, ref, cursor, { untilMs } = {}) {
   const b = parseBrowseRef(ref);
-  if (!b) throw kino.error("not_found", "unknown browse ref");
+  if (!b) throw kino2.error("not_found", "unknown browse ref");
   const site = siteFor(settings, b);
   if (!site) return { items: [] };
   const page3 = pageOf(cursor);
   let raw;
   try {
-    raw = await listing3(kino, { ...b, site, page: page3, deadlineMs: upTo(PAGE_MS, untilMs) });
+    raw = await listing3(kino2, { ...b, site, page: page3, deadlineMs: upTo(PAGE_MS, untilMs) });
   } catch (e) {
-    kino.log("[latino]", "browse", site, e && e.code || "error");
-    throw kino.error("unavailable", `listing failed: ${site} page ${page3}`, { userMessage: t("sourcesDown", kino) });
+    kino2.log("[latino]", "browse", site, e && e.code || "error");
+    throw kino2.error("unavailable", `listing failed: ${site} page ${page3}`, { userMessage: t("sourcesDown", kino2) });
   }
-  const items = dedup(raw.map((i) => dress(kino, i)));
+  const items = dedup(raw.map((i) => dress(kino2, i)));
   return items.length && page3 < MAX_PAGE ? { items, next: String(page3 + 1) } : { items };
 }
 var fold = (s) => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 var PAGES_PER_CALL = 4;
 var SCOPED_DEADLINE_MS = 5e3;
-async function searchWithin(kino, settings, within2, q, cursor, { untilMs } = {}) {
+async function searchWithin(kino2, settings, within2, q, cursor, { untilMs } = {}) {
   const b = parseBrowseRef(within2);
   if (!b) return null;
   const words = fold(q).split(/[^a-z0-9ñ]+/).filter(Boolean);
@@ -3159,28 +3179,28 @@ async function searchWithin(kino, settings, within2, q, cursor, { untilMs } = {}
   const pages = [];
   for (let p = start; p < start + PAGES_PER_CALL && p <= MAX_PAGE; p++) pages.push(p);
   const deadlineMs = upTo(SCOPED_DEADLINE_MS, untilMs);
-  const got = await Promise.all(pages.map((page3) => listing3(kino, { ...b, site, page: page3, deadlineMs }).catch(() => null)));
+  const got = await Promise.all(pages.map((page3) => listing3(kino2, { ...b, site, page: page3, deadlineMs }).catch(() => null)));
   if (got.every((l) => l === null)) return null;
   const lists = got.map((l) => l || []);
   const hits = lists.flat().filter((i) => {
     const text5 = fold(i.title + " " + (i.originalTitle || ""));
     return words.every((w) => text5.includes(w));
   });
-  const items = dedup(hits.map((i) => dress(kino, i)));
+  const items = dedup(hits.map((i) => dress(kino2, i)));
   const more = lists[lists.length - 1].length > 0 && start + PAGES_PER_CALL <= MAX_PAGE;
   return more ? { items, next: String(start + PAGES_PER_CALL) } : { items };
 }
 var SITE_SEARCH_MS = 4e3;
-async function searchSites(kino, settings, q, { untilMs } = {}) {
+async function searchSites(kino2, settings, q, { untilMs } = {}) {
   if (!sourceOn(settings, "lamovie") || typeof q !== "string" || !q.trim()) return [];
   const ms = upTo(SITE_SEARCH_MS, untilMs);
   if (!(ms > 0)) return [];
   try {
-    const req = makeRequester(kino, { budget: 3, deadline: Date.now() + ms });
+    const req = makeRequester(kino2, { budget: 3, deadline: Date.now() + ms });
     const raw = await search(q.trim(), { req });
-    return dedup(raw.map((i) => dress(kino, i)));
+    return dedup(raw.map((i) => dress(kino2, i)));
   } catch (e) {
-    kino.log("[latino]", "search sites", e && e.code || "error");
+    kino2.log("[latino]", "search sites", e && e.code || "error");
     return [];
   }
 }
@@ -3246,16 +3266,16 @@ var TABS = {
     ].map((g) => genreRow(g, "tv"))
   ]
 };
-async function buildRows(kino, settings, defs, { untilMs, stragglerMs = STRAGGLER_MS } = {}) {
+async function buildRows(kino2, settings, defs, { untilMs, stragglerMs = STRAGGLER_MS } = {}) {
   const deadlineMs = upTo(PAGE_MS, untilMs);
-  const patience = makePatience(kino, defs.length, stragglerMs);
+  const patience = makePatience(kino2, defs.length, stragglerMs);
   const rows3 = await Promise.all(defs.map((d) => {
-    const row = buildRow(kino, settings, d, deadlineMs).finally(patience.rowSettled);
-    return withinRowTime(kino, row, deadlineMs + ROW_GRACE_MS, d.id, patience.over);
+    const row = buildRow(kino2, settings, d, deadlineMs).finally(patience.rowSettled);
+    return withinRowTime(kino2, row, deadlineMs + ROW_GRACE_MS, d.id, patience.over);
   }));
   return rows3.filter(Boolean);
 }
-function makePatience(kino, total, stragglerMs) {
+function makePatience(kino2, total, stragglerMs) {
   const quorum = Math.ceil(total * 2 / 3);
   const started = Date.now();
   let settled = 0;
@@ -3267,65 +3287,65 @@ function makePatience(kino, total, stragglerMs) {
     if (++settled !== quorum || quorum >= total) return;
     const grace = Math.min(Math.max(stragglerMs, Date.now() - started), SLEEP_CHUNK_MS);
     const from = Date.now();
-    kino.sleep(grace).then(() => resolve2(Date.now() - from >= grace - 50), () => resolve2(false));
+    kino2.sleep(grace).then(() => resolve2(Date.now() - from >= grace - 50), () => resolve2(false));
   };
   return { over, rowSettled };
 }
 var ROW_GRACE_MS = 600;
 var STRAGGLER_MS = 3e3;
 var SLEEP_CHUNK_MS = 4500;
-async function sleepUpTo(kino, ms) {
+async function sleepUpTo(kino2, ms) {
   let left = Math.max(ms, 0);
   while (left > 0) {
     const chunk = Math.min(left, SLEEP_CHUNK_MS);
-    await kino.sleep(chunk);
+    await kino2.sleep(chunk);
     left -= chunk;
   }
 }
-async function withinRowTime(kino, row, ms, id12, over) {
+async function withinRowTime(kino2, row, ms, id12, over) {
   const late = Symbol("late");
   const giveUp = Symbol("giveUp");
   const started = Date.now();
-  const contenders = [row, sleepUpTo(kino, ms).then(() => late)];
+  const contenders = [row, sleepUpTo(kino2, ms).then(() => late)];
   if (over) contenders.push(over.then((really) => really ? giveUp : new Promise(() => {
   })));
   const first = await Promise.race(contenders);
   if (first === late && Date.now() - started < ms - 50) return row;
   if (first === late || first === giveUp) {
-    kino.log("[latino]", "row", id12, first === late ? "skipped: its source did not answer in time" : "skipped: the other rows were in and it was still out");
+    kino2.log("[latino]", "row", id12, first === late ? "skipped: its source did not answer in time" : "skipped: the other rows were in and it was still out");
     row.catch(() => {
     });
     return null;
   }
   return first;
 }
-async function buildRow(kino, settings, d, deadlineMs) {
+async function buildRow(kino2, settings, d, deadlineMs) {
   {
     const site = siteFor(settings, { site: d.site, genre: d.genreSlug || null });
     if (!site) return null;
     try {
-      const raw = await listing3(kino, { site, kind: d.kind, genre: d.genreSlug || null, page: 1, deadlineMs });
-      const items = dedup(raw.map((i) => dress(kino, i))).slice(0, 60);
+      const raw = await listing3(kino2, { site, kind: d.kind, genre: d.genreSlug || null, page: 1, deadlineMs });
+      const items = dedup(raw.map((i) => dress(kino2, i))).slice(0, 60);
       if (!items.length) return null;
-      const title = d.titleKey ? t(d.titleKey, kino) : d.kind === "tv" ? seriesTitle(kino, d.genreSlug) : genreName(kino, d.genreSlug);
+      const title = d.titleKey ? t(d.titleKey, kino2) : d.kind === "tv" ? seriesTitle(kino2, d.genreSlug) : genreName(kino2, d.genreSlug);
       const ref = d.genreSlug && site !== d.site ? `${d.ref}:${site}` : d.ref;
       return { id: d.id, title, ref, genre: d.genre, items };
     } catch (e) {
-      kino.log("[latino]", "row", d.id, e && e.code || "error");
+      kino2.log("[latino]", "row", d.id, e && e.code || "error");
       return null;
     }
   }
 }
 var clip = (s, n = 300) => s.length <= n ? s : s.slice(0, s.lastIndexOf(" ", n - 1) > 0 ? s.lastIndexOf(" ", n - 1) : n - 1).replace(/[\s,.;:]+$/, "") + "\u2026";
-var tabs = (kino) => [
-  { id: "inicio", label: t("tabHome", kino) },
-  { id: "peliculas", label: t("tabMovies", kino) },
-  { id: "series", label: t("tabSeries", kino) }
+var tabs = (kino2) => [
+  { id: "inicio", label: t("tabHome", kino2) },
+  { id: "peliculas", label: t("tabMovies", kino2) },
+  { id: "series", label: t("tabSeries", kino2) }
 ];
-async function sectionPage(kino, settings, tab, { untilMs } = {}) {
+async function sectionPage(kino2, settings, tab, { untilMs } = {}) {
   const chosen = Object.prototype.hasOwnProperty.call(TABS, tab) ? tab : "inicio";
-  const rows3 = await buildRows(kino, settings, TABS[chosen], { untilMs });
-  const out = { tabs: tabs(kino), tab: chosen, rows: rows3 };
+  const rows3 = await buildRows(kino2, settings, TABS[chosen], { untilMs });
+  const out = { tabs: tabs(kino2), tab: chosen, rows: rows3 };
   if (chosen === "inicio") {
     const star = rows3.flatMap((r) => r.items).find((i) => i.backdrop && i.overview);
     if (star) out.hero = { title: star.title, text: clip(star.overview), image: star.backdrop };
@@ -3407,9 +3427,9 @@ var SERIES_ART = {
   // Lost
 };
 var tileArt = (table, genre) => `https://image.tmdb.org/t/p/${TILE_ART_SIZE}${table[genre]}`;
-function categoryTiles(kino) {
-  const movie = MOVIE_TILES.map((g) => ({ id: `${g}-movie`, title: genreName(kino, g), ref: `genre:${g}:movie`, art: tileArt(MOVIE_ART, g) }));
-  const tv = SERIES_TILES.map((g) => ({ id: `${g}-tv`, title: seriesTitle(kino, g), ref: `genre:${g}:tv`, art: tileArt(SERIES_ART, g) }));
+function categoryTiles(kino2) {
+  const movie = MOVIE_TILES.map((g) => ({ id: `${g}-movie`, title: genreName(kino2, g), ref: `genre:${g}:movie`, art: tileArt(MOVIE_ART, g) }));
+  const tv = SERIES_TILES.map((g) => ({ id: `${g}-tv`, title: seriesTitle(kino2, g), ref: `genre:${g}:tv`, art: tileArt(SERIES_ART, g) }));
   return [...movie, ...tv].slice(0, 24);
 }
 
@@ -3429,18 +3449,18 @@ function guessFromRef(site) {
   }
   return { title: slug.replace(/-/g, " ").trim(), year: year2 || null };
 }
-async function sitePostResult(kino, site, { untilMs } = {}) {
+async function sitePostResult(kino2, site, { untilMs } = {}) {
   const source = siteOf(site);
   if (!source || typeof source.post !== "function") return { post: null, failed: false };
   try {
-    const req = makeRequester(kino, { budget: 2, deadline: Math.min(Date.now() + 8e3, untilMs ?? Infinity) });
+    const req = makeRequester(kino2, { budget: 2, deadline: Math.min(Date.now() + 8e3, untilMs ?? Infinity) });
     return { post: await source.post(site, { req }), failed: false };
   } catch (e) {
-    kino.log("[latino]", "post", site.prefix, e && e.code || "error");
+    kino2.log("[latino]", "post", site.prefix, e && e.code || "error");
     return { post: null, failed: true };
   }
 }
-var sitePost = async (kino, site, options3) => (await sitePostResult(kino, site, options3)).post;
+var sitePost = async (kino2, site, options3) => (await sitePostResult(kino2, site, options3)).post;
 function pick3(results3, names, year2) {
   const wanted = new Set(names.map(slugify).filter(Boolean));
   const near = (r) => {
@@ -3459,47 +3479,47 @@ function pick3(results3, names, year2) {
   const prefix = list12.find((r) => namesOf(r).some((n) => [...wanted].some((w) => close(n, w))));
   return prefix && year2 ? prefix.id : null;
 }
-async function searchTmdb(kino, kind, names, year2, untilMs) {
+async function searchTmdb(kino2, kind, names, year2, untilMs) {
   const tried = /* @__PURE__ */ new Set();
   for (const q of names) {
     const key = slugify(q);
     if (!key || tried.has(key)) continue;
     tried.add(key);
-    const r = await tmdb(kino, `/search/${kind === "tv" ? "tv" : "movie"}`, { query: q, language: "es-MX" }, { untilMs });
+    const r = await tmdb(kino2, `/search/${kind === "tv" ? "tv" : "movie"}`, { query: q, language: "es-MX" }, { untilMs });
     const id12 = pick3(r && r.results, names, year2);
     if (id12) return id12;
   }
   return null;
 }
 var mapKey = (site) => `tmdb:${site.prefix}:${site.postId}`;
-async function tmdbIdFor(kino, site, { post: post3, postFailed = false, untilMs } = {}) {
+async function tmdbIdFor(kino2, site, { post: post3, postFailed = false, untilMs } = {}) {
   const key = mapKey(site);
   let cached = null;
   try {
-    cached = kino.storage.get(key);
+    cached = kino2.storage.get(key);
   } catch (_) {
   }
   if (cached === "none") return null;
   if (cached && /^\d+$/.test(cached)) return Number(cached);
   const remember = (v, ttlMs) => {
     try {
-      kino.storage.set(key, String(v), { ttlMs });
+      kino2.storage.set(key, String(v), { ttlMs });
     } catch (_) {
     }
   };
   try {
     const guess = guessFromRef(site);
-    let id12 = guess.title ? await searchTmdb(kino, site.kind, [guess.title], guess.year, untilMs) : null;
+    let id12 = guess.title ? await searchTmdb(kino2, site.kind, [guess.title], guess.year, untilMs) : null;
     let failed = false;
     if (!id12) {
-      const r = post3 !== void 0 ? { post: post3, failed: postFailed } : await sitePostResult(kino, site, { untilMs });
+      const r = post3 !== void 0 ? { post: post3, failed: postFailed } : await sitePostResult(kino2, site, { untilMs });
       failed = r.failed;
-      if (r.post) id12 = await searchTmdb(kino, site.kind, [r.post.title, r.post.originalTitle].filter(Boolean), Number(r.post.year) || guess.year, untilMs);
+      if (r.post) id12 = await searchTmdb(kino2, site.kind, [r.post.title, r.post.originalTitle].filter(Boolean), Number(r.post.year) || guess.year, untilMs);
     }
     if (id12 || !failed) remember(id12 || "none", id12 ? HIT_TTL_MS : MISS_TTL_MS);
     return id12;
   } catch (e) {
-    kino.log("[latino]", "tmdb match", e && e.code || "error");
+    kino2.log("[latino]", "tmdb match", e && e.code || "error");
     return null;
   }
 }
@@ -3530,22 +3550,22 @@ var AT_ONCE3 = 3;
 var CHECKED = [lamovie_exports, seriesflix_exports, embed69_exports];
 var isOn2 = (enabled, id12) => (enabled || {})[id12] !== false;
 var cacheKeyOf = (tmdbId, ids, prefix = "avail:") => `${prefix}${tmdbId}:${ids.join(",")}`;
-function readCache2(kino, key) {
+function readCache2(kino2, key) {
   try {
-    const c = JSON.parse(kino.storage.get(key) || "null");
+    const c = JSON.parse(kino2.storage.get(key) || "null");
     return c && c.v === 1 && Array.isArray(c.missing) && c.missing.every(Number.isInteger) ? c.missing : null;
   } catch (_) {
     return null;
   }
 }
-function writeCache2(kino, key, missing) {
+function writeCache2(kino2, key, missing) {
   try {
-    kino.storage.set(key, JSON.stringify({ v: 1, missing }), { ttlMs: TTL_MS });
+    kino2.storage.set(key, JSON.stringify({ v: 1, missing }), { ttlMs: TTL_MS });
   } catch (_) {
   }
 }
-function watched(kino, deadline, budget) {
-  const req = makeRequester(kino, { budget, deadline });
+function watched(kino2, deadline, budget) {
+  const req = makeRequester(kino2, { budget, deadline });
   const out = async (url, opts) => {
     const r = await req(url, opts);
     if (r.status === 429 || r.status >= 500) out.failed = true;
@@ -3555,37 +3575,37 @@ function watched(kino, deadline, budget) {
   out.exhausted = req.exhausted;
   return out;
 }
-async function guarded(kino, id12, fn, req, failedWhen = () => true) {
+async function guarded(kino2, id12, fn, req, failedWhen = () => true) {
   try {
     const v = await fn();
     return req.failed && failedWhen(v) ? null : v;
   } catch (e) {
-    kino.log("[latino]", "availability", id12, e && e.code || "error");
+    kino2.log("[latino]", "availability", id12, e && e.code || "error");
     return null;
   }
 }
-async function missingSeasons(kino, title, seasons, { enabled, untilMs, cachePrefix = "avail:" }) {
+async function missingSeasons(kino2, title, seasons, { enabled, untilMs, cachePrefix = "avail:" }) {
   const numbers = [...new Set(seasons)].filter((n) => Number.isInteger(n) && n >= 1).sort((a, b) => a - b);
   const on = CHECKED.filter((s) => isOn2(enabled, s.id) && !(s === embed69_exports && !title.imdbId));
   if (!numbers.length || !on.length) return [];
   const key = cacheKeyOf(title.tmdbId, on.map((s) => s.id), cachePrefix);
-  const cached = readCache2(kino, key);
+  const cached = readCache2(kino2, key);
   if (cached) return cached.filter((n) => numbers.includes(n));
   const deadline = Math.min(Date.now() + CHECK_MS, (untilMs ?? Infinity) - 300);
   if (deadline - Date.now() < MIN_MS) return [];
-  const r = await within(kino, check(kino, title, numbers, on, deadline), Math.max(0, deadline + 200 - Date.now()), null);
+  const r = await within(kino2, check(kino2, title, numbers, on, deadline), Math.max(0, deadline + 200 - Date.now()), null);
   const v = r.v;
   if (!v || r.e) return [];
-  if (v.complete) writeCache2(kino, key, v.missing);
+  if (v.complete) writeCache2(kino2, key, v.missing);
   return v.missing;
 }
-async function check(kino, title, numbers, on, deadline) {
+async function check(kino2, title, numbers, on, deadline) {
   const has2 = /* @__PURE__ */ new Set();
   let found = false;
   let complete = true;
   if (on.includes(lamovie_exports)) {
-    const req = watched(kino, deadline, 10);
-    const r = await guarded(kino, "lamovie", () => seasonList(title, { req }), req);
+    const req = watched(kino2, deadline, 10);
+    const r = await guarded(kino2, "lamovie", () => seasonList(title, { req }), req);
     if (!r) return null;
     if (r.found) {
       found = true;
@@ -3598,15 +3618,15 @@ async function check(kino, title, numbers, on, deadline) {
   const answers = [];
   const jobs = [];
   if (probed.length && on.includes(seriesflix_exports)) {
-    const req = watched(kino, deadline, 4 + probed.length);
-    jobs.push(guarded(kino, "seriesflix", () => seasonCheck(title, probed, { req }), req, (r) => !r || !r.found).then((r) => {
+    const req = watched(kino2, deadline, 4 + probed.length);
+    jobs.push(guarded(kino2, "seriesflix", () => seasonCheck(title, probed, { req }), req, (r) => !r || !r.found).then((r) => {
       if (r && r.found) found = true;
       answers.push(!r ? null : r.found ? r.has : Object.fromEntries(probed.map((n) => [n, false])));
     }));
   }
   if (probed.length && on.includes(embed69_exports)) {
-    const req = watched(kino, deadline, probed.length);
-    jobs.push(guarded(kino, "embed69", async () => {
+    const req = watched(kino2, deadline, probed.length);
+    jobs.push(guarded(kino2, "embed69", async () => {
       const out = {};
       for (let i = 0; i < probed.length; i += AT_ONCE3) {
         await Promise.all(probed.slice(i, i + AT_ONCE3).map(async (n) => {
@@ -3630,17 +3650,17 @@ async function check(kino, title, numbers, on, deadline) {
   }
   return { missing, complete };
 }
-function markTitle(title, kino) {
-  const words = t("notInSpanish", kino);
+function markTitle(title, kino2) {
+  const words = t("notInSpanish", kino2);
   const base = String(title || "").trim();
   if (!base) return words.charAt(0).toUpperCase() + words.slice(1);
   const tail = ` (${words})`;
   return (base.length + tail.length > MAX_TITLE ? base.slice(0, MAX_TITLE - tail.length - 1).trimEnd() + "\u2026" : base) + tail;
 }
-function markEpisodes(kino, out, missing) {
+function markEpisodes(kino2, out, missing) {
   if (!missing.length) return out;
   const gone = new Set(missing);
-  return { ...out, episodes: out.episodes.map((e) => gone.has(e.season) ? { ...e, title: markTitle(e.title, kino) } : e) };
+  return { ...out, episodes: out.episodes.map((e) => gone.has(e.season) ? { ...e, title: markTitle(e.title, kino2) } : e) };
 }
 
 // src/browse/model.js
@@ -3730,11 +3750,202 @@ function recentOf(keys, tabs2) {
 var LOGO_ASPECT = "3.33:1";
 var LOGO_DATA = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAZAAAAB4CAIAAABTvTPAAAAqZ0lEQVR42u19d3xcxbX/nJm5927VFkkuuGALjKsM2BjcsI2bkG0g8EKHhFAeDsQQ6jMJ8AIvoYRfwAFDQkxsiv3oIcQBhyQ8Eoh7xwb3XiVLssr2e2fm98dIirDx7r2rYmk9389++ADau7fNfOecM+ecL5wWDiMFBQWFjgCsHoGCgoIiLAUFBQVFWAoKCoqwFBQUFBRhKSgoKCjCUlBQUISloKCgoAhLQUFBQRGWgoKCIiwFBQUFRVgKCgoK2YC24G9BR7t5od6/gsKpQ1jQ8BEIMYRYh7pzQIg0WJhckZeCQg4TFiCEETIRigvBhdAB3AB+jDvKtAeEUkJEODcREkIYAAaAZC4FBYXcISxJVQkhEkJ0ImSEYQzU9dMpzcc4D2MhOgZlAUBciErGDljWZstal0zutSwC4AEQytpSUGi3M9dRPyyMEEMoynmRpk1zu0e7XF0IwQBMCAshLjrSTAcAihBBCACOcr4mmVwYi61NJimAC4CpoaGg0KEJiyAUFcILcJ3Pd6nH48c4LoQphGiIZKEOGHQXDXamB2NLiH8lEnPr6nZbVh7GirMUFDoqYRGEajnvr+sPBgJnaVod5xZCuGPy1LeCIQQI+TGu4fyF2tq/xWJejNVOooJCuwLxu9122Kqa87Eu1xPhcBjjWiFwbrEVaridhBA6wCS3GwCWJRIyEq+goNBhCIsgVCfEWLf70VBICJFs2dyt9kdbHKGEECMMgwAsTyYNAGVkKSh0DMKScau+mvZkKMQBLIRIzjvJCCGE4kKMNIxKztelUl4Ale6goNDeCQsQshByYfzzUChMSEoIgjFgDACQi75S460BABIiKcT5hrE2lTrMmK7sLAWFdl5LiBGKcX6d13uWpkWFIBizRMKqrbUiEauuTlgWwrlSigiAEJL3ZdXVsWgUAzCEDIDpfj9RoXcFBdS+E0dlBLpI0y7xeGo5pwBWNOrp08fo1k2YJlAa/eors6oKu92I847OVsKyAOPAyJFAKQCwSKRu3TpiGBEhzjWMcS7XJ/G4SnRQUGi/hCXT2ad5PAGMqxGCaDQ0fvxZs2YRt1swhnU9+vXXm2+/PVVeDpqGREc2QYQAgDOefLLwsst4KoUAgNJ9zz23/8UXscdjCnGZ1/uPREKFsRQU2qlLCAiZCHUiZJRhxIUgCAnOu954I/X7zZoaHo+nKit9gwaFL76YRaPQkR1DwJjH494BAwouucSqqeHxOItGeSLR5YYbtPx8ZFkJhPppWrGux4TAarwoKLRPwooLMVjXuxKSEgIQQhgLyxKWBYQgjIEQIT3B3Ii+YyySSQSAMAaMEec8lUIYo4bS7pEuF8utvDMFhZwiLIHQQF3HTXfHAL5BTzm2UXjMrTX8JwZICdFX09wquUFBAbXLGJZASEOoJyFMCEleLWjLwDHE1ySWJIRobyF8QMgSogshAYAazqnKb1BQaG+ExRByAxQQYh1T2Nw0uO6cWYAQFo/zePzbg/QA2O2WQf2TYF4JgYSoZ9Km/44QQ8gLECakknMNqRQHBYX2RFiAEEPID5AH8O+OMZwjANA0+S9ICCDEEWcBxlZtradfv/wJE7Dff8yx8q9V//d/sc2bqd8v2tbOEpYFhoEsq56qCAFNE5aFGrr6eQGCyiVUUGi3aQ3im+03gdJDr7ziKy4mXi/iHBtGzcqVFR9/TLxeO+QChFi1tV1vvLHXww+TE+fW97z77p2PPXb4f/+X5uW1jZ0lOMceT/Srr8reeqvzlVdy05TsefCVV6zKSuz1SmIVzWtG6qgwoI2bIGZXtJD1RZ7cGolvvWz7l5Txrm3+VDNfcduc5ZgzNkIIwTlv+uMAgDGWf2pE27WXkRU5eQAv5ucHMJZeIcKYR6NG9+56586CMcA4tn07i0axYWRMwgKMWSQSGDFi0FtvSXPmRDEsoBQhtOHqq2uXLSM+XxvZWQCCMcS5t18/pGkAwKLR2JYt2OVCDR3fPQAzq6pWZltXyJ3cCG7bNBGe1UPO7iJbdSjbn3hZX1L6ojT7P9U4vVv1GbZICR0hBCFkWVYikUilUpxzSqmuaVTT5J8455ZpplIpy7IAY13XXS4XpRQhxFrB5qD2xzXxelNlZcn9+6VLiF0uO2wlnxy3rM7XXlvvfFGazjWjtPPVV1f/61+kzZZi6d4SEtm4sf52MMYeTwuG/102evg0wkyl2mZWCyEwIW6XS0g338mBqWQyi8mg6zom5GRxFgBYpnnMLKKUUk2zc0nycIsxaM7dCQEYx6JRDJDdo6CaRinNfCCAlUrxbMcwABBCLMuqqalhjIXD4XOHDOk/cGD/AQNO69atoFOnYCBguFwAkEwma2tqjpSXHzx4cNNXX2366qttW7ZUVFYSQnw+H6WUMdaCb5w68p5A07Cu/9vgtHkdQgClemFh5mQIAIQQDQaB0jbNnhcCIYQ9HmiU/2oJtgIAM5Uq7Nz5nT/+0efzcc7Tr88Y47q6uqu/850jR45o9mZRczJmk7HY71599fzhw1OplFwtbbIVANx+883Lly6VN2XTpohGo//v178ePXas6eR0LQXGmK7rv3722d/Onh0Ohy3LopRWVVXdde+9P/zRjzI+AXn4a7///VO/+EUoHGaWld3dcc41Tdu4YcNN110HQjiyswil1VVVjzz++LU33JDKdBZK6cMzZ37w3nvBYNCppUMoNVOp6qNHA8FgSWnplEsuGXXhhWf26WNzidq+bdvizz//6E9/WvzFF5UVFXmBgKStNhehAIAGmQlAyKlNK775jtMPrrav9YEm/UUBQMh9w5bowkww7l1U5LZnZCXi8TawQTDGiXj8zLPOuvTyyynNpr/ZlGnTvvjHP3Benv01XAjRpWvXHj16nESXMBgMNr1gznkoFOpu+5JC4bDgHE6wnHc97TSbd9e9R4+f/Pd/P3TffQWFhZbteQEIcc4LCgttXrDXXnz5eE+/qrKyU6dON99223Xf+97AQYOasrZcro5nLumoSrvszD59zuzT5/u33LLxyy9fmzv3nTffrKqqCoVCMvjVVoQFIBhjdXXS9hENTmKWmZkt9c2W8xZYLCY4r6ctxkDXsa63FGclk0nDMGTRYroQKUAymWwDssYYx2KxSSUllFLTNKkTe5ZxTjCeWFLy1M9/bn+y1Xu7psk555yTNi/nYoxhQo6/YMuyOOecsYwW1rcensXdCYQ453fdc8/yJUv+9MEH4fx8R4/RkmdJe8Gcc8DYKTtQSqPRKOf8pltuue+//qt3UZEkYi6EDKvbtItlSB4DDBo8+JlZs269/fZfPvHEe++843K5DMNopqlF7TIIY9gwej30kLuoiCeTxO2u/OSTw/PnY7e7Y1c+yz2BaDQ4enTXm28WnAMhPBbb+9xz8V27iIzvtIRviDEWaQkLnWDtag1wxtwez9RLL20MANtfJCjGQoi+/foVn332imXL7HuF33gObU5YIET9nWZ1SSc6PJufavBOnps9e8P69YcOHXK5XC37DMH5rgil9GhVVZ++fZ9+9tmJkycjhJhlAcYYY5LthgznXHDet3//37/x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";
 
+// src/browse/detail.js
+var HTTPS2 = /^https:\/\//;
+var MAX_EPISODES = 80;
+var MAX_CAST = 12;
+var LEAD_MAX = 140;
+var TMDB_IMG = "https://image.tmdb.org/t/p/w342";
+var twin = (key, field = "text", vars) => {
+  const w = both(key, vars);
+  return { [field]: w.es, [field + "En"]: w.en };
+};
+var same = (text5) => ({ text: text5, textEn: text5 });
+var num = (v) => {
+  const n = parseInt(v, 10);
+  return Number.isFinite(n) ? n : 0;
+};
+var https = (v) => typeof v === "string" && HTTPS2.test(v) && v.length <= 2048 ? v : void 0;
+function titleRefOf(ref) {
+  const m = /^([ms]):(\d{1,10})$/.exec(String(ref || ""));
+  return m ? { kind: m[1] === "m" ? "movie" : "series", id: Number(m[2]) } : null;
+}
+var withOpen = (card) => card && titleRefOf(card.ref) && card.kind !== "live" ? { ...card, open: { screen: { args: { open: card.ref, t: String(card.title || "").slice(0, 100), k: card.kind } } } } : card;
+var hoursOf = (min) => {
+  const m = num(min);
+  return m > 0 ? m >= 60 ? `${Math.floor(m / 60)} h${m % 60 ? ` ${m % 60} min` : ""}` : `${m} min` : "";
+};
+var MONTHS = {
+  es: ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"],
+  en: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+};
+var dateText = (iso) => {
+  const [y, m, d] = String(iso).split("-").map(Number);
+  return m >= 1 && m <= 12 ? { es: `${d} ${MONTHS.es[m - 1]} ${y}`, en: `${MONTHS.en[m - 1]} ${d}, ${y}` } : { es: iso, en: iso };
+};
+async function loadDetail(args) {
+  const r = titleRefOf(args.open);
+  const kind = r ? r.kind : args.k === "movie" ? "movie" : "series";
+  let meta = null;
+  if (typeof kino.meta === "function") {
+    if (r) meta = await kino.meta({ type: kind, ids: { tmdb: r.id } }).catch(() => null);
+    if (!meta && kino.meta.byTitle === true && args.t) meta = await kino.meta({ type: kind, title: args.t }).catch(() => null);
+  }
+  if (!meta) throw Object.assign(new Error("no meta"), { code: "not_found" });
+  const ids = meta.ids || (r ? { tmdb: r.id } : {});
+  const d = {
+    kind,
+    title: String(meta.title || args.t || "").slice(0, 200),
+    overview: String(meta.overview || ""),
+    year: num(meta.year),
+    backdrop: https(meta.backdrop) || https(meta.poster),
+    logo: https(meta.logo),
+    genres: (meta.genres || []).filter((g) => typeof g === "string").slice(0, 4),
+    runtime: num(meta.runtimeMinutes),
+    tagline: String(meta.tagline || ""),
+    certification: String(meta.certification || ""),
+    directors: (meta.directors || []).slice(0, 3),
+    ratings: (meta.ratings || []).slice(0, 3),
+    cast: (meta.cast || []).slice(0, MAX_CAST),
+    ids,
+    episodes: [],
+    similar: []
+  };
+  if (kind === "series") {
+    d.episodes = (Array.isArray(meta.episodes) ? meta.episodes : []).filter((e) => num(e.season) >= 1 && num(e.number) >= 1).slice(0, 600).map((e) => ({ s: num(e.season), n: num(e.number), title: String(e.title || "").slice(0, 120), overview: String(e.overview || "").slice(0, 110), still: https(e.still), air: /^\d{4}-\d{2}-\d{2}/.test(String(e.airDate || "")) ? String(e.airDate).slice(0, 10) : "" }));
+  }
+  if (ids.tmdb && typeof kino.tmdb === "function") {
+    try {
+      const data = await kino.tmdb(`/${kind === "movie" ? "movie" : "tv"}/${ids.tmdb}/recommendations`, { language: "es-MX" });
+      d.similar = (data && data.results || []).filter((x) => x && x.id && (x.title || x.name) && x.poster_path).slice(0, 12).map((x) => ({
+        id: (kind === "movie" ? "m-" : "s-") + x.id,
+        ref: (kind === "movie" ? "m:" : "s:") + x.id,
+        kind,
+        title: String(x.title || x.name).slice(0, 200),
+        poster: TMDB_IMG + x.poster_path,
+        ids: { tmdb: x.id }
+      }));
+    } catch (_) {
+    }
+  }
+  return d;
+}
+var heroSkeleton = () => ({ type: "Skeleton", key: "heroSkeleton", shape: "block", height: { compact: 200, expanded: 320 } });
+var railSkeleton = () => ({
+  type: "Column",
+  key: "dskel1",
+  gap: 8,
+  children: [
+    { type: "Skeleton", shape: "line", width: 120 },
+    { type: "Row", gap: 12, children: [1, 2, 3].map((i) => ({ type: "Skeleton", shape: "card", key: `dsk${i}`, flex: 1 })) }
+  ]
+});
+var sectionTitle = (key) => ({ type: "Text", ...twin(key), style: "h4" });
+var episodeGo = (d, r) => ({ go: { title: { ref: r.ref, kind: "series", id: r.id, title: d.title } } });
+function episodeRow(d, r, ep) {
+  const facts = ep.air ? dateText(ep.air) : null;
+  const heading = ep.title ? { text: `${ep.n}. ${ep.title}`, textEn: `${ep.n}. ${ep.title}` } : twin("dEpisodeN", "text", { n: ep.n });
+  return {
+    type: "Row",
+    key: `ep-${ep.s}-${ep.n}`,
+    gap: 12,
+    crossAxisAlignment: "center",
+    onTap: episodeGo(d, r),
+    canRequestFocus: true,
+    children: [
+      { type: "Image", key: `epi-${ep.s}-${ep.n}`, width: 120, aspect: "16:9", fit: "cover", ...ep.still ? { url: ep.still } : {}, fallback: { type: "Skeleton", shape: "block", height: 64 } },
+      { type: "Column", flex: 1, gap: 4, children: [
+        { type: "Text", bold: true, maxLines: 2, ...heading },
+        ...facts ? [{ type: "Text", style: "caption", color: "muted", text: facts.es, textEn: facts.en }] : [],
+        ...ep.overview ? [{ type: "Text", style: "caption", color: "muted", maxLines: 2, ...same(ep.overview) }] : []
+      ] }
+    ]
+  };
+}
+function castItem(c) {
+  const name12 = String(c.name || "").slice(0, 60);
+  const initials = name12.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join("").toUpperCase();
+  return {
+    type: "Column",
+    key: "cast-" + name12.replace(/[^A-Za-z0-9]/g, "").slice(0, 24) + "-" + String(c.character || "").length,
+    width: 96,
+    gap: 4,
+    crossAxisAlignment: "center",
+    canRequestFocus: true,
+    children: [
+      { type: "CircleAvatar", radius: 32, ...https(c.photo) ? { image: https(c.photo) } : {}, text: initials, textEn: initials },
+      { type: "Text", ...same(name12), style: "caption", maxLines: 2 },
+      ...c.character ? [{ type: "Text", ...same(String(c.character).slice(0, 40)), style: "caption", color: "muted", maxLines: 1 }] : []
+    ]
+  };
+}
+function detailView({ r, entry, season, logo: logo2, back }) {
+  const d = entry && entry.d;
+  const appBar = { type: "AppBar", mergeWithKinoBar: true, dense: true, divider: false, leading: back, title: logo2 };
+  const body = [];
+  if (!entry) {
+    body.push(heroSkeleton(), railSkeleton());
+  } else if (!d) {
+    body.push({ type: "MaterialBanner", key: "detailFailed", role: "error", ...twin("brFailed"), action: { ...twin("brRetry", "label"), onTap: "dretry" } });
+  } else {
+    const series = d.kind === "series";
+    const seasons = [...new Set(d.episodes.map((e) => e.s))].sort((a, b) => a - b);
+    const shown = seasons.includes(season) ? season : seasons[0];
+    const toKino = { go: { title: { ref: r.ref, kind: d.kind, id: r.id, title: d.title } } };
+    const buttons = series ? [{ type: "ElevatedButton", key: "dplay", ...twin("dSeriesGo", "labelText"), icon: "play", autofocus: true, onPressed: toKino }] : [
+      { type: "ElevatedButton", key: "dplay", ...twin("brWatch", "labelText"), icon: "play", autofocus: true, onPressed: { go: { play: { ref: r.ref, kind: "movie", id: r.id, title: d.title } } } },
+      { type: "TextButton", key: "dmore", ...twin("dMore", "labelText"), onPressed: toKino }
+    ];
+    const lead = d.tagline || (d.overview.length <= LEAD_MAX ? d.overview : d.overview.slice(0, LEAD_MAX - 1).trimEnd() + "\u2026");
+    body.push({
+      type: "heroCard",
+      key: "dhero",
+      h: { compact: 240, expanded: 320 },
+      title: d.title,
+      titleEn: d.title,
+      ...lead ? same(lead) : {},
+      ...d.backdrop ? { image: d.backdrop } : {},
+      ...d.logo ? { logo: d.logo } : {},
+      buttons
+    });
+    const rating = d.ratings.find((x) => x.source === "imdb") || d.ratings.find((x) => x.source === "tmdb");
+    const facts = [];
+    if (rating) facts.push("\u2605 " + rating.value);
+    if (d.year) facts.push(String(d.year));
+    if (d.certification) facts.push(d.certification);
+    if (d.runtime) facts.push(hoursOf(d.runtime));
+    const es = facts.concat(series && seasons.length ? [both("dSeasonsN", { n: seasons.length }).es] : []);
+    const en = facts.concat(series && seasons.length ? [both("dSeasonsN", { n: seasons.length }).en] : []);
+    if (es.length) body.push({ type: "Text", key: "dfacts", style: "h4", text: es.join("  \xB7  "), textEn: en.join("  \xB7  ") });
+    if (d.genres.length) body.push({ type: "Row", key: "dgenres", gap: 8, children: d.genres.map((g, i) => ({ type: "Badge", key: "dg-" + i, ...same(g) })) });
+    if (d.overview) body.push({ type: "Text", key: "dsynopsis", canRequestFocus: true, ...same(d.overview) });
+    if (d.directors.length) body.push({ type: "Text", ...twin(series ? "dCreators" : "dDirector", "text", { v: d.directors.join(", ") }), color: "muted" });
+    if (d.cast.length) {
+      body.push(sectionTitle("dCast"));
+      body.push({ type: "SingleChildScrollView", key: "dcast", direction: "horizontal", children: [{ type: "Row", gap: 12, children: d.cast.map(castItem) }] });
+    }
+    if (series && seasons.length) {
+      body.push(seasons.length > 1 ? { type: "DropdownButton", key: "dseason", value: String(shown), onChanged: "season", options: seasons.map((s) => {
+        const w = both("dSeasonN", { n: s });
+        return { value: String(s), label: w.es, labelEn: w.en };
+      }) } : sectionTitle("dEpisodes"));
+      for (const ep of d.episodes.filter((e) => e.s === shown).slice(0, MAX_EPISODES)) body.push(episodeRow(d, r, ep));
+    }
+    if (d.similar.length) body.push({ type: "titleRail", key: "dsimilar", ...twin("dSimilar", "title"), items: d.similar.map(withOpen), size: "medium" });
+  }
+  return {
+    type: "Scaffold",
+    appBar,
+    body: { type: "SingleChildScrollView", key: "detail-page", children: [{ type: "Column", padding: { compact: 12, expanded: 24 }, gap: 16, children: body }] },
+    ...!entry ? { every: { ms: 1e3, event: "dtick" } } : {}
+  };
+}
+
 // src/browse/view.js
 var TAB_KEYS = { inicio: "tabHome", peliculas: "tabMovies", series: "tabSeries" };
 var POLL_MS = 1500;
 var SEARCH_CAP = 60;
-var twin = (key, field = "text", vars) => {
+var twin2 = (key, field = "text", vars) => {
   const w = both(key, vars);
   return { [field]: w.es, [field + "En"]: w.en };
 };
@@ -3749,8 +3960,8 @@ var logo = () => ({
   altEn: "Latino",
   fallback: { type: "Text", text: "Latino", textEn: "Latino", style: "h4" }
 });
-var tabBar = (active) => ({ type: "TabBar", key: "tabs", divider: false, value: active, onChanged: "tab", tabs: TAB_IDS.map((id12) => ({ value: id12, ...twin(TAB_KEYS[id12], "label") })) });
-var railSkeleton = (n) => ({
+var tabBar = (active) => ({ type: "TabBar", key: "tabs", divider: false, value: active, onChanged: "tab", tabs: TAB_IDS.map((id12) => ({ value: id12, ...twin2(TAB_KEYS[id12], "label") })) });
+var railSkeleton2 = (n) => ({
   type: "Column",
   key: "skel" + n,
   gap: 8,
@@ -3769,7 +3980,7 @@ var gridSkeleton = () => ({
     ...[1, 2].map((r) => ({ type: "Row", gap: 12, sizes: ["medium", "expanded"], key: `gw${r}`, children: [1, 2, 3, 4, 5, 6].map((i) => ({ type: "Skeleton", shape: "card", key: `gw${r}-${i}`, flex: 1 })) }))
   ]
 });
-var heroSkeleton = () => ({ type: "Skeleton", key: "heroSkeleton", shape: "block", height: { compact: 200, expanded: 320 } });
+var heroSkeleton2 = () => ({ type: "Skeleton", key: "heroSkeleton", shape: "block", height: { compact: 200, expanded: 320 } });
 var slideNode = (s) => ({
   type: "heroCard",
   key: "slide-" + s.id,
@@ -3782,15 +3993,15 @@ var slideNode = (s) => ({
     {
       type: "ElevatedButton",
       key: "watch-" + s.id,
-      ...twin("brWatch", "labelText"),
+      ...twin2("brWatch", "labelText"),
       icon: "play",
       onPressed: { go: { play: { ref: s.ref, kind: s.kind, id: s.id, title: s.title } } }
     },
     {
       type: "TextButton",
       key: "info-" + s.id,
-      ...twin("brInfo", "labelText"),
-      onPressed: { go: { title: { ref: s.ref, kind: s.kind, id: s.id, title: s.title } } }
+      ...twin2("brInfo", "labelText"),
+      onPressed: titleRefOf(s.ref) ? { go: { screen: { args: { open: s.ref, t: String(s.title).slice(0, 100), k: s.kind } } } } : { go: { title: { ref: s.ref, kind: s.kind, id: s.id, title: s.title } } }
     }
   ]
 });
@@ -3805,29 +4016,29 @@ var rail = (r, key, titleOverride) => ({
   key,
   ...titleOverride || { title: r.title },
   ...r.ref ? { ref: r.ref } : {},
-  items: r.items,
+  items: r.items.map(withOpen),
   size: "medium"
 });
 function browseView({ tab, data, recent, pending, failed, device = "phone" }) {
   const tv = device === "tv";
-  const gear = { type: "IconButton", key: "settingsButton", icon: "settings", ...twin("brSettings", "labelText"), ...twin("brSettings", "tooltip"), onPressed: { event: "go", arg: "settings" } };
+  const gear = { type: "IconButton", key: "settingsButton", icon: "settings", ...twin2("brSettings", "labelText"), ...twin2("brSettings", "tooltip"), onPressed: { event: "go", arg: "settings" } };
   const active = TAB_IDS.includes(tab) ? tab : TAB_IDS[0];
   const body = [];
   if (data) {
     if (data.slides.length > 0) body.push(hero(data.slides));
-    if (recent.length > 0) body.push(rail({ items: recent }, "recent", twin("brRecent", "title")));
+    if (recent.length > 0) body.push(rail({ items: recent }, "recent", twin2("brRecent", "title")));
     for (const r of data.rails) body.push(rail(r, "rail-" + String(r.id).replace(/[^A-Za-z0-9_-]/g, "_")));
-    if (data.rails.length === 0) body.push({ type: "Text", ...twin("brEmpty", "text"), color: "muted" });
+    if (data.rails.length === 0) body.push({ type: "Text", ...twin2("brEmpty", "text"), color: "muted" });
   } else if (failed) {
     body.push({
       type: "MaterialBanner",
       key: "loadFailed",
       role: "error",
-      ...twin("brFailed"),
-      action: { ...twin("brRetry", "label"), onTap: "retry" }
+      ...twin2("brFailed"),
+      action: { ...twin2("brRetry", "label"), onTap: "retry" }
     });
   } else {
-    body.push(heroSkeleton(), railSkeleton(1), railSkeleton(2), railSkeleton(3));
+    body.push(heroSkeleton2(), railSkeleton2(1), railSkeleton2(2), railSkeleton2(3));
   }
   return {
     type: "Scaffold",
@@ -3838,12 +4049,12 @@ function browseView({ tab, data, recent, pending, failed, device = "phone" }) {
       mergeWithKinoBar: true,
       dense: true,
       divider: false,
-      leading: { type: "IconButton", key: "close", icon: "close", ...twin("brClose", "labelText"), ...twin("brClose", "tooltip"), onPressed: { go: { close: true } } },
+      leading: { type: "IconButton", key: "close", icon: "close", ...twin2("brClose", "labelText"), ...twin2("brClose", "tooltip"), onPressed: { go: { close: true } } },
       // On a TV the search is a button of the bar (a floating one is hard to reach with a remote); elsewhere it floats.
-      actions: tv ? [{ type: "IconButton", key: "searchButton", icon: "search", ...twin("brSearch", "labelText"), ...twin("brSearch", "tooltip"), onPressed: "openSearch" }, gear] : [gear],
+      actions: tv ? [{ type: "IconButton", key: "searchButton", icon: "search", ...twin2("brSearch", "labelText"), ...twin2("brSearch", "tooltip"), onPressed: "openSearch" }, gear] : [gear],
       title: tv ? { type: "Row", key: "titleRow", gap: 24, crossAxisAlignment: "center", children: [logo(), tabBar(active)] } : logo()
     },
-    ...tv ? {} : { floatingActionButton: { type: "FloatingActionButton", key: "searchFab", icon: "search", ...twin("brSearch", "tooltip"), onPressed: "openSearch" } },
+    ...tv ? {} : { floatingActionButton: { type: "FloatingActionButton", key: "searchFab", icon: "search", ...twin2("brSearch", "tooltip"), onPressed: "openSearch" } },
     // The tabs stay pinned under the bar; only the rows scroll.
     body: { type: "Column", key: "page", children: [
       // The tabs line up with the bar's buttons and the cards below (a wide window and the TV pad their content by 24).
@@ -3861,7 +4072,7 @@ function settingsView() {
       mergeWithKinoBar: true,
       dense: true,
       divider: false,
-      leading: { type: "IconButton", key: "back", icon: "arrow_back", ...twin("brBack", "labelText"), ...twin("brBack", "tooltip"), onPressed: "back" },
+      leading: { type: "IconButton", key: "back", icon: "arrow_back", ...twin2("brBack", "labelText"), ...twin2("brBack", "tooltip"), onPressed: "back" },
       title: logo()
     },
     body: { type: "SingleChildScrollView", key: "settings-page", children: [{ type: "Column", padding: { compact: 12, expanded: 24 }, gap: 16, children: [{ type: "settings", key: "form" }] }] }
@@ -3875,24 +4086,24 @@ function searchView({ query, status: status3, items, history = [], device = "pho
     onSubmitted: "search",
     gap: 8,
     children: tv ? [{ type: "Row", key: "searchRow", gap: 16, crossAxisAlignment: "center", children: [
-      { type: "TextField", key: "q", kind: "text", value: query, ...twin("brSearchHint", "labelText"), maxLength: 100, autofocus: true, weight: 1 },
-      { type: "ElevatedButton", key: "searchGo", ...twin("brSearch", "labelText"), icon: "search", submit: true }
+      { type: "TextField", key: "q", kind: "text", value: query, ...twin2("brSearchHint", "labelText"), maxLength: 100, autofocus: true, weight: 1 },
+      { type: "ElevatedButton", key: "searchGo", ...twin2("brSearch", "labelText"), icon: "search", submit: true }
     ] }] : [
-      { type: "TextField", key: "q", kind: "text", value: query, ...twin("brSearchHint", "labelText"), maxLength: 100, autofocus: true },
-      { type: "ElevatedButton", key: "searchGo", ...twin("brSearch", "labelText"), icon: "search", submit: true }
+      { type: "TextField", key: "q", kind: "text", value: query, ...twin2("brSearchHint", "labelText"), maxLength: 100, autofocus: true },
+      { type: "ElevatedButton", key: "searchGo", ...twin2("brSearch", "labelText"), icon: "search", submit: true }
     ]
   });
   const body = tv ? [] : [searchForm()];
   if (status3 === "fail") {
-    body.push({ type: "MaterialBanner", key: "searchFailed", role: "error", ...twin("brSearchFailed"), action: { ...twin("brRetry", "label"), onTap: "sretry" } });
+    body.push({ type: "MaterialBanner", key: "searchFailed", role: "error", ...twin2("brSearchFailed"), action: { ...twin2("brRetry", "label"), onTap: "sretry" } });
   } else if (status3 === "done" && items) {
-    if (items.length === 0) body.push({ type: "Text", ...twin("brNoResults", "text"), color: "muted" });
-    else body.push({ type: "titleGrid", key: "results", columns: { compact: 3, expanded: 6 }, items: items.slice(0, SEARCH_CAP) });
+    if (items.length === 0) body.push({ type: "Text", ...twin2("brNoResults", "text"), color: "muted" });
+    else body.push({ type: "titleGrid", key: "results", columns: { compact: 3, expanded: 6 }, items: items.slice(0, SEARCH_CAP).map(withOpen) });
   } else if (status3 !== "idle") {
     body.push(gridSkeleton());
   } else if (history.length > 0) {
-    body.push({ type: "Text", ...twin("brSearchedBefore", "text"), style: "h4" });
-    body.push({ type: "titleGrid", key: "history", columns: { compact: 3, expanded: 6 }, items: history.slice(0, SEARCH_CAP) });
+    body.push({ type: "Text", ...twin2("brSearchedBefore", "text"), style: "h4" });
+    body.push({ type: "titleGrid", key: "history", columns: { compact: 3, expanded: 6 }, items: history.slice(0, SEARCH_CAP).map(withOpen) });
   }
   return {
     type: "Scaffold",
@@ -3901,23 +4112,27 @@ function searchView({ query, status: status3, items, history = [], device = "pho
       mergeWithKinoBar: true,
       dense: true,
       divider: false,
-      leading: { type: "IconButton", key: "back", icon: "arrow_back", ...twin("brBack", "labelText"), ...twin("brBack", "tooltip"), onPressed: "back" },
-      ...tv ? { title: searchForm() } : twin("brSearchTitle", "title")
+      leading: { type: "IconButton", key: "back", icon: "arrow_back", ...twin2("brBack", "labelText"), ...twin2("brBack", "tooltip"), onPressed: "back" },
+      ...tv ? { title: searchForm() } : twin2("brSearchTitle", "title")
     },
     body: { type: "SingleChildScrollView", key: "search-page", children: [{ type: "Column", padding: { compact: 12, expanded: 24 }, gap: 16, children: body }] },
     ...status3 === "loading" ? { every: { ms: 1e3, event: "stick" } } : {}
   };
+}
+function detailPage({ r, entry, season }) {
+  const back = { type: "IconButton", key: "back", icon: "arrow_back", ...twin2("brBack", "labelText"), ...twin2("brBack", "tooltip"), onPressed: "back" };
+  return detailView({ r, entry, season, logo: logo(), back });
 }
 
 // src/browse/metaCache.js
 var KEY2 = "meta1";
 var MAX = 120;
 var CALL_MS2 = 8e3;
-var HTTPS2 = /^https:\/\//;
-function makeMetaCache({ kino, clock = { now: () => Date.now() } }) {
+var HTTPS3 = /^https:\/\//;
+function makeMetaCache({ kino: kino2, clock = { now: () => Date.now() } }) {
   const usable = () => {
     try {
-      return typeof kino.meta === "function" && kino.meta.byTitle === true;
+      return typeof kino2.meta === "function" && kino2.meta.byTitle === true;
     } catch (_) {
       return false;
     }
@@ -3926,7 +4141,7 @@ function makeMetaCache({ kino, clock = { now: () => Date.now() } }) {
   function read() {
     if (book) return book;
     try {
-      const o = JSON.parse(kino.storage.get(KEY2) || "null");
+      const o = JSON.parse(kino2.storage.get(KEY2) || "null");
       book = o && typeof o === "object" && !Array.isArray(o) ? o : {};
     } catch (_) {
       book = {};
@@ -3937,14 +4152,14 @@ function makeMetaCache({ kino, clock = { now: () => Date.now() } }) {
     try {
       const ids = Object.keys(book);
       if (ids.length > MAX) for (const id12 of ids.slice(0, ids.length - MAX)) delete book[id12];
-      kino.storage.set(KEY2, JSON.stringify(book));
+      kino2.storage.set(KEY2, JSON.stringify(book));
     } catch (_) {
     }
   }
   function known(id12) {
     const e = read()[id12];
     if (!e) return {};
-    return { ...e.t > 0 ? { tmdb: e.t } : {}, ...e.l && HTTPS2.test(e.l) ? { logo: e.l } : {} };
+    return { ...e.t > 0 ? { tmdb: e.t } : {}, ...e.l && HTTPS3.test(e.l) ? { logo: e.l } : {} };
   }
   function dress2(cards) {
     return cards.map((c) => {
@@ -3962,7 +4177,7 @@ function makeMetaCache({ kino, clock = { now: () => Date.now() } }) {
       if (!c || typeof c.id !== "string" || Object.hasOwn(b, c.id) || c.ids && c.ids.tmdb && c.noLogo) continue;
       const year2 = c.year !== void 0 ? { year: c.year } : {};
       try {
-        const a = await kino.meta({ type: c.kind === "series" ? "series" : "movie", title: c.title, ...year2 });
+        const a = await kino2.meta({ type: c.kind === "series" ? "series" : "movie", title: c.title, ...year2 });
         b[c.id] = { t: a && a.ids && Number.isInteger(a.ids.tmdb) ? a.ids.tmdb : 0, l: a && typeof a.logo === "string" ? a.logo : "" };
       } catch (e) {
         if (e && e.code === "rate_limited") break;
@@ -3985,8 +4200,8 @@ var RECENT_KEY = "recent1";
 var RECENT_MAX = 12;
 var HIST_KEY = "searchHist1";
 var HIST_MAX = 24;
-function makeBrowse({ kino, loadTab, searchTitles: searchTitles2 }) {
-  const meta = makeMetaCache({ kino });
+function makeBrowse({ kino: kino2, loadTab, searchTitles: searchTitles2 }) {
+  const meta = makeMetaCache({ kino: kino2 });
   const enrich = (data) => data ? {
     slides: data.slides.map((s) => {
       const k = meta.known(s.id);
@@ -3997,20 +4212,20 @@ function makeBrowse({ kino, loadTab, searchTitles: searchTitles2 }) {
   const memo2 = /* @__PURE__ */ new Map();
   const log = (...a) => {
     try {
-      kino.log("[latino]", ...a);
+      kino2.log("[latino]", ...a);
     } catch (_) {
     }
   };
   const get = (k) => {
     try {
-      return kino.storage.get(k);
+      return kino2.storage.get(k);
     } catch (_) {
       return null;
     }
   };
   const set = (k, v, opts) => {
     try {
-      kino.storage.set(k, v, opts);
+      kino2.storage.set(k, v, opts);
     } catch (_) {
     }
   };
@@ -4082,6 +4297,8 @@ function makeBrowse({ kino, loadTab, searchTitles: searchTitles2 }) {
     }
   }
   let found = null;
+  const details2 = /* @__PURE__ */ new Map();
+  const paramsOf = (route) => route && route.params && typeof route.params === "object" ? route.params : {};
   const tabFromArgs = (route) => {
     const a = route && route.args && typeof route.args === "object" ? route.args : {};
     return TAB_IDS.includes(a.tab) ? a.tab : null;
@@ -4093,6 +4310,11 @@ function makeBrowse({ kino, loadTab, searchTitles: searchTitles2 }) {
   function view(ctx) {
     const st = ctx.state && typeof ctx.state === "object" ? ctx.state : {};
     if (ctx.route && ctx.route.name === "settings") return settingsView();
+    if (ctx.route && ctx.route.name === "detail") {
+      const p = paramsOf(ctx.route);
+      const t2 = titleRefOf(p.open);
+      if (t2) return detailPage({ r: { ref: p.open, id: (t2.kind === "movie" ? "m-" : "s-") + t2.id }, entry: details2.get(p.open) || null, season: Number(st.season) || 0 });
+    }
     if (ctx.route && ctx.route.name === "search") {
       const query = typeof st.sq === "string" ? st.sq : "";
       const items = found && found.q === query ? found.items : null;
@@ -4118,7 +4340,33 @@ function makeBrowse({ kino, loadTab, searchTitles: searchTitles2 }) {
     open({ route, state, device }) {
       const tab = tabFromArgs(route) ?? (TAB_IDS.includes(state.tab) ? state.tab : stored() ?? TAB_IDS[0]);
       for (const t2 of TAB_IDS) dataOf(t2);
-      return { state: { tab, pending: needed(tab, device), failed: null } };
+      const out = { state: { tab, pending: needed(tab, device), failed: null } };
+      const a = route && route.args && typeof route.args === "object" ? route.args : {};
+      if (typeof a.open === "string" && titleRefOf(a.open)) {
+        out.route = { push: "detail", params: { open: a.open, t: typeof a.t === "string" ? a.t.slice(0, 100) : "", k: a.k === "movie" ? "movie" : "series" } };
+        out.state.season = null;
+      }
+      return out;
+    },
+    // The page's timer: loads the title once, then no timer.
+    async dtick({ route }) {
+      const p = paramsOf(route);
+      if (typeof p.open !== "string" || details2.has(p.open)) return { state: { dv: Date.now() } };
+      try {
+        details2.set(p.open, { d: await loadDetail({ open: p.open, t: p.t, k: p.k }) });
+      } catch (e) {
+        log("browse detail", e && e.code || "error");
+        details2.set(p.open, { d: null });
+      }
+      return { state: { dv: Date.now() } };
+    },
+    dretry({ route }) {
+      details2.delete(paramsOf(route).open);
+      return { state: { dv: Date.now() } };
+    },
+    season({ value, arg }) {
+      const n = parseInt(value != null ? value : arg, 10);
+      return n > 0 ? { state: { season: n } } : null;
     },
     tab({ value, arg, state }) {
       const tab = TAB_IDS.includes(value) ? value : TAB_IDS.includes(arg) ? arg : null;
@@ -4242,7 +4490,7 @@ function fromLabel(label3) {
   const quality = /^\d{3,4}p$/.test(tail[tail.length - 1]) ? tail.pop() : null;
   return { parsed: true, lang, site: parts2.length === 3 ? parts2[1] : null, server: tail.join(" ") || null, quality };
 }
-function copyTab(kino, ctx) {
+function copyTab(kino2, ctx) {
   const playing = ctx && ctx.playing || {};
   const stats = ctx && ctx.stats || {};
   const lines = [];
@@ -4255,7 +4503,7 @@ function copyTab(kino, ctx) {
   if (rows3.site) lines.push(text(both("copySite", { v: String(rows3.site).slice(0, LABEL_MAX) })));
   if (rows3.server) lines.push(text(both("copyServer", { v: String(SERVER_LABEL[rows3.server] || rows3.server).slice(0, LABEL_MAX) })));
   if (rows3.quality) lines.push(text(both("copyQuality", { v: String(rows3.quality).slice(0, LABEL_MAX) })));
-  const last = (ctx && ctx.ref ? readLast(kino, plainRef(ctx.ref)) : null) || readLatest(kino);
+  const last = (ctx && ctx.ref ? readLast(kino2, plainRef(ctx.ref)) : null) || readLatest(kino2);
   if (last && last.total > 0) {
     if (playing.label && last.chosen && last.chosen !== String(playing.label)) lines.push(text(both("copyManual", { v: last.chosen.slice(0, 100) })));
     else lines.push(text(last.total === 1 ? both("copyChosenOne") : both("copyChosen", { n: last.total })));
@@ -4281,10 +4529,10 @@ function copyTab(kino, ctx) {
 var MAX_OVERVIEW = 150;
 var cut = (s) => s.length <= MAX_OVERVIEW ? s : s.slice(0, MAX_OVERVIEW - 1).trimEnd() + "\u2026";
 var text2 = (p) => ({ type: "text", text: p.es, textEn: p.en });
-async function summaryTab(kino, ctx, { untilMs } = {}) {
+async function summaryTab(kino2, ctx, { untilMs } = {}) {
   const id12 = titleTmdbId(ctx);
-  if (!ctx || ctx.kind === "live" || !id12 || typeof kino.tmdb !== "function") return null;
-  const s = await summaryOf(kino, ctx.kind === "episode" ? "tv" : "movie", id12, { untilMs });
+  if (!ctx || ctx.kind === "live" || !id12 || typeof kino2.tmdb !== "function") return null;
+  const s = await summaryOf(kino2, ctx.kind === "episode" ? "tv" : "movie", id12, { untilMs });
   if (!s) return null;
   const col = [];
   const head = [];
@@ -4307,7 +4555,7 @@ var text3 = (m) => ({ type: "text", text: m.es, textEn: m.en });
 var status = (m) => ({ type: "status", text: m.es, textEn: m.en });
 var pair = (f) => ({ es: f("es"), en: f("en") });
 var siteLabel = (id12) => (sourceById(id12) || {}).name || id12;
-async function availTab(kino, ctx, { untilMs } = {}) {
+async function availTab(kino2, ctx, { untilMs } = {}) {
   const tmdbId = titleTmdbId(ctx);
   if (!tmdbId) return { elements: [status(both("availNoTmdb"))] };
   const isMovie = ctx.kind === "movie";
@@ -4315,15 +4563,15 @@ async function availTab(kino, ctx, { untilMs } = {}) {
   const season = at ? at.season : ctx.season ?? null;
   const episode = at ? at.episode : ctx.episode ?? null;
   const end = Math.min(untilMs ?? Infinity, Date.now() + BUDGET_MS);
-  const settings = readSettings(kino);
+  const settings = readSettings(kino2);
   const enabled = normalizeSettings({ enabled: settings.enabled }).enabled;
-  const title = await titleContext(kino, { kind: isMovie ? "movie" : "tv", tmdbId, season, episode }, { untilMs: end });
+  const title = await titleContext(kino2, { kind: isMovie ? "movie" : "tv", tmdbId, season, episode }, { untilMs: end });
   let partial = false;
   const elements = [];
   if (isMovie || season != null && episode != null) {
     if (!isMovie) elements.push({ type: "text", text: `T${season} \xB7 E${episode}`, textEn: `S${season} \xB7 E${episode}` });
     const phaseMs = Math.max(1e3, end - Date.now() - SETTLE_MS);
-    const { embeds, failed, answered } = await listEmbedsDetailed(kino, title, { enabled, phaseMs, cachePrefix: PANEL_EMB, ttlMs: PANEL_TTL_MS, call: requestPool(PANEL_CALL_REQUESTS) });
+    const { embeds, failed, answered } = await listEmbedsDetailed(kino2, title, { enabled, phaseMs, cachePrefix: PANEL_EMB, ttlMs: PANEL_TTL_MS, call: requestPool(PANEL_CALL_REQUESTS) });
     if (failed.length) partial = true;
     const bySite = /* @__PURE__ */ new Map();
     for (const e of embeds) {
@@ -4341,15 +4589,15 @@ async function availTab(kino, ctx, { untilMs } = {}) {
   }
   if (!isMovie) {
     try {
-      const { episodes: episodes2 } = await episodeList(kino, tmdbId, { untilMs: end });
+      const { episodes: episodes2 } = await episodeList(kino2, tmdbId, { untilMs: end });
       const seasons = [...new Set(episodes2.map((e) => e.season))];
-      const gone = await missingSeasons(kino, title, seasons, { enabled, untilMs: end, cachePrefix: PANEL_AVAIL });
+      const gone = await missingSeasons(kino2, title, seasons, { enabled, untilMs: end, cachePrefix: PANEL_AVAIL });
       if (gone.length) elements.push(text3(both("availSeasons", { v: gone.join(", ") })));
       if (season != null && gone.includes(season)) elements.push(text3(both("availSeasonGone")));
     } catch (e) {
       partial = true;
       try {
-        kino.log("[latino]", "panel avail", e && e.code || "error");
+        kino2.log("[latino]", "panel avail", e && e.code || "error");
       } catch (_) {
       }
     }
@@ -4373,9 +4621,9 @@ function qualityLabel(q) {
   if (q === "auto") return both("qAuto");
   return q === "480p" ? both("qUpTo480") : both("qUpTo", { v: q });
 }
-function prefsTab(kino, ctx) {
+function prefsTab(kino2, ctx) {
   const panelValues = ctx && ctx.values && ctx.values.plugin || {};
-  const current = readSettings(kino);
+  const current = readSettings(kino2);
   const quality = current.maxQuality === "auto" ? both("prefAutoQ") : both("prefUpTo", { v: current.maxQuality });
   const parts2 = [
     both("prefFirst", { v: (l) => t(LANG_KEY[current.preferred], { lang: l }) }),
@@ -4434,25 +4682,25 @@ function patchOf(panelValues, stored) {
   if (touched) patch.avoid = [...avoid];
   return patch;
 }
-function reconcile(kino, ctx) {
+function reconcile(kino2, ctx) {
   try {
     const panelValues = ctx && ctx.values && ctx.values.plugin;
     if (!panelValues || typeof panelValues !== "object") return;
     if (!allKeys().some((k) => k in panelValues)) {
-      clearPrefs(kino);
+      clearPrefs(kino2);
       return;
     }
-    const stored = readPrefs(kino);
+    const stored = readPrefs(kino2);
     const patch = patchOf(panelValues, stored);
     const differs = Object.keys(patch).some((k) => JSON.stringify(patch[k]) !== JSON.stringify(k === "avoid" ? stored.avoid : stored[k]));
-    if (differs) writePrefs(kino, patch);
+    if (differs) writePrefs(kino2, patch);
   } catch (_) {
   }
 }
-function prefsAction(kino, ev, ctx) {
+function prefsAction(kino2, ev, ctx) {
   const key = ev && ev.key;
   if (key === "reset" && ev.trigger === "press") {
-    clearPrefs(kino);
+    clearPrefs(kino2);
     const values = Object.fromEntries(allKeys().map((k) => [k, null]));
     return { values, save: allKeys() };
   }
@@ -4464,12 +4712,12 @@ function prefsAction(kino, ev, ctx) {
   else if (key === "maxQuality" && PANEL_QUALITIES.includes(value)) patch = { maxQuality: value };
   else if (key.startsWith(AVOID) && serverIds2().includes(key.slice(AVOID.length)) && (typeof value === "boolean" || value === "true" || value === "false")) {
     const id12 = key.slice(AVOID.length);
-    const avoid = new Set(readPrefs(kino).avoid);
+    const avoid = new Set(readPrefs(kino2).avoid);
     if (bool2(value)) avoid.add(id12);
     else avoid.delete(id12);
     patch = { avoid: [...avoid] };
   } else return null;
-  writePrefs(kino, patch);
+  writePrefs(kino2, patch);
   return { values: { [key]: value }, save: [key], message: t("prefSaved", { lang: ctx && typeof ctx.lang === "string" && ctx.lang.toLowerCase().startsWith("en") ? "en" : "es" }) };
 }
 
@@ -4479,8 +4727,8 @@ var PHASE_MS2 = 6e3;
 var TITLE_MAX = 60;
 var inflight = /* @__PURE__ */ new Map();
 var line = (m) => ({ type: "text", text: m.es, textEn: m.en });
-async function seasonEpisodes(kino, id12, season, untilMs) {
-  const s = await tmdb(kino, `/tv/${id12}/season/${season}`, { language: "es-MX" }, { untilMs });
+async function seasonEpisodes(kino2, id12, season, untilMs) {
+  const s = await tmdb(kino2, `/tv/${id12}/season/${season}`, { language: "es-MX" }, { untilMs });
   return s && Array.isArray(s.episodes) ? s.episodes : null;
 }
 var tailOf = (ep) => {
@@ -4488,26 +4736,26 @@ var tailOf = (ep) => {
   const mins = Number.isFinite(ep.runtime) && ep.runtime > 0 ? ` \xB7 ${Math.round(ep.runtime)} min` : "";
   return name12 + mins;
 };
-async function nextEpisode(kino, at, untilMs) {
-  const eps = await seasonEpisodes(kino, at.id, at.season, untilMs);
+async function nextEpisode(kino2, at, untilMs) {
+  const eps = await seasonEpisodes(kino2, at.id, at.season, untilMs);
   if (!eps) return null;
-  const same = eps.find((e) => e.episode_number === at.episode + 1);
-  if (same) return { season: at.season, ep: same, nextSeason: false };
+  const same2 = eps.find((e) => e.episode_number === at.episode + 1);
+  if (same2) return { season: at.season, ep: same2, nextSeason: false };
   try {
-    const more = await seasonEpisodes(kino, at.id, at.season + 1, untilMs);
+    const more = await seasonEpisodes(kino2, at.id, at.season + 1, untilMs);
     const first = more && more.filter((e) => e.episode_number >= 1).sort((a, b) => a.episode_number - b.episode_number)[0];
     return first ? { season: at.season + 1, ep: first, nextSeason: true } : { end: at.season };
   } catch (e) {
     return e && e.code === "not_found" ? { end: at.season } : null;
   }
 }
-function lookup(kino, id12, season, episode, untilMs) {
+function lookup(kino2, id12, season, episode, untilMs) {
   const key = `${PANEL_EMB}tv:${id12}:${season}:${episode}`;
   if (!inflight.has(key)) {
     const run = (async () => {
-      const title = await titleContext(kino, { kind: "tv", tmdbId: id12, season, episode }, { untilMs });
-      const enabled = normalizeSettings({ enabled: readSettings(kino).enabled }).enabled;
-      return listEmbedsDetailed(kino, title, { enabled, phaseMs: PHASE_MS2, cachePrefix: PANEL_EMB, ttlMs: PANEL_TTL_MS, call: requestPool(PANEL_CALL_REQUESTS) });
+      const title = await titleContext(kino2, { kind: "tv", tmdbId: id12, season, episode }, { untilMs });
+      const enabled = normalizeSettings({ enabled: readSettings(kino2).enabled }).enabled;
+      return listEmbedsDetailed(kino2, title, { enabled, phaseMs: PHASE_MS2, cachePrefix: PANEL_EMB, ttlMs: PANEL_TTL_MS, call: requestPool(PANEL_CALL_REQUESTS) });
     })().finally(() => inflight.delete(key));
     inflight.set(key, run);
   }
@@ -4519,42 +4767,42 @@ function availabilityLine(r) {
   if (r.embeds.length) return line(both("nextSubOnly"));
   return r.failed.length || !r.answered.length ? null : line(both("nextNone"));
 }
-var why = (kino, reason) => {
+var why = (kino2, reason) => {
   try {
-    kino.log("[latino]", "strip", reason);
+    kino2.log("[latino]", "strip", reason);
   } catch (_) {
   }
 };
-async function nextStrip(kino, ctx, { untilMs = Date.now() + 6e3, probeMs = PROBE_MS } = {}) {
+async function nextStrip(kino2, ctx, { untilMs = Date.now() + 6e3, probeMs = PROBE_MS } = {}) {
   try {
     if (!ctx || ctx.kind !== "episode") return [];
-    if (!kino || typeof kino.tmdb !== "function") {
-      why(kino, "no_tmdb");
+    if (!kino2 || typeof kino2.tmdb !== "function") {
+      why(kino2, "no_tmdb");
       return [];
     }
     const at = episodeOf(ctx);
     if (!at) {
-      why(kino, "no_position");
+      why(kino2, "no_position");
       return [];
     }
-    const next = await nextEpisode(kino, at, untilMs);
+    const next = await nextEpisode(kino2, at, untilMs);
     if (!next) {
-      why(kino, "no_season_data");
+      why(kino2, "no_season_data");
       return [];
     }
     if (next.end) return [line(both("nextEnd", { s: next.end }))];
-    const num = next.ep.episode_number;
-    const head = line(both(next.nextSeason ? "nextSeason" : "nextEp", { s: next.season, e: num, tail: tailOf(next.ep) }));
-    const r = await within(kino, lookup(kino, at.id, next.season, num, untilMs), Math.max(0, Math.min(probeMs, untilMs - Date.now())), null);
+    const num2 = next.ep.episode_number;
+    const head = line(both(next.nextSeason ? "nextSeason" : "nextEp", { s: next.season, e: num2, tail: tailOf(next.ep) }));
+    const r = await within(kino2, lookup(kino2, at.id, next.season, num2, untilMs), Math.max(0, Math.min(probeMs, untilMs - Date.now())), null);
     if (r.late) return [head, line(both("nextChecking"))];
     if (r.e || !r.v) {
-      why(kino, "lookup_" + (r.e && r.e.code || "failed"));
+      why(kino2, "lookup_" + (r.e && r.e.code || "failed"));
       return [head];
     }
     const avail = availabilityLine(r.v);
     return avail ? [head, avail] : [head];
   } catch (e) {
-    why(kino, "error_" + (e && e.code || "unknown"));
+    why(kino2, "error_" + (e && e.code || "unknown"));
     return [];
   }
 }
@@ -4565,15 +4813,15 @@ var KIND_KEY = { timeout: "failTimeout", network: "failNetwork", not_found: "fai
 var MAX_TRIED = 5;
 var text4 = (m) => ({ type: "text", text: m.es, textEn: m.en });
 var status2 = (m) => ({ type: "status", text: m.es, textEn: m.en });
-function recordPlayerEvent(kino, ev, ctx) {
+function recordPlayerEvent(kino2, ev, ctx) {
   try {
     if (!ev || ev.type !== "failed" && ev.type !== "copyChanged") return;
-    pushEvent(kino, { t: Date.now(), type: ev.type, kind: ev.kind, label: ev.label, ref: ctx && ctx.ref });
+    pushEvent(kino2, { t: Date.now(), type: ev.type, kind: ev.kind, label: ev.label, ref: ctx && ctx.ref });
   } catch (_) {
   }
 }
-function failTab(kino, ctx) {
-  const events = readEvents(kino, ctx && ctx.ref);
+function failTab(kino2, ctx) {
+  const events = readEvents(kino2, ctx && ctx.ref);
   const failures = events.filter((e) => e.type === "failed");
   const last = failures[failures.length - 1];
   const elements = [];
@@ -4591,15 +4839,15 @@ function failTab(kino, ctx) {
   elements.push({ type: "button", key: "report", label: label3.es, labelEn: label3.en, confirm: confirm.es, confirmEn: confirm.en });
   return { elements };
 }
-function failAction(kino, ev, ctx) {
+function failAction(kino2, ev, ctx) {
   if (!ev || ev.key !== "report" || ev.trigger !== "press") return null;
   const lang = ctx && typeof ctx.lang === "string" && ctx.lang.toLowerCase().startsWith("en") ? "en" : "es";
   const say = (key) => ({ message: both(key)[lang] });
-  const report = kino && kino.log && kino.log.report;
+  const report = kino2 && kino2.log && kino2.log.report;
   if (typeof report !== "function") return say("failReportOff");
   const ref = ctx && ctx.ref;
-  if (wasReported(kino, ref)) return say("failAlready");
-  const events = readEvents(kino, ref);
+  if (wasReported(kino2, ref)) return say("failAlready");
+  const events = readEvents(kino2, ref);
   const failures = events.filter((e) => e.type === "failed");
   const kind = (failures[failures.length - 1] || {}).kind;
   try {
@@ -4607,7 +4855,7 @@ function failAction(kino, ev, ctx) {
   } catch (_) {
     return say("failReportOff");
   }
-  markReported(kino, ref);
+  markReported(kino2, ref);
   return say("failReported");
 }
 
@@ -4615,26 +4863,26 @@ function failAction(kino, ev, ctx) {
 var TITLE_MAX2 = 60;
 var DEFAULT_TAB = "copy";
 var TABS2 = [
-  { id: "copy", label: "tabCopy", when: () => true, load: async (kino, ctx) => copyTab(kino, ctx) },
-  { id: "summary", label: "tabSummary", when: (kino, ctx) => ctx.kind !== "live" && !!titleTmdbId(ctx) && typeof kino.tmdb === "function", load: (kino, ctx, dl) => summaryTab(kino, ctx, { untilMs: dl.end }) },
-  { id: "avail", label: "tabAvail", when: (kino, ctx) => ctx.kind !== "live", load: (kino, ctx, dl) => availTab(kino, ctx, { untilMs: dl.end }) },
-  { id: "prefs", label: "tabPrefs", when: () => true, load: (kino, ctx) => prefsTab(kino, ctx) },
-  { id: "fail", label: "tabFail", when: () => true, load: (kino, ctx) => failTab(kino, ctx) }
+  { id: "copy", label: "tabCopy", when: () => true, load: async (kino2, ctx) => copyTab(kino2, ctx) },
+  { id: "summary", label: "tabSummary", when: (kino2, ctx) => ctx.kind !== "live" && !!titleTmdbId(ctx) && typeof kino2.tmdb === "function", load: (kino2, ctx, dl) => summaryTab(kino2, ctx, { untilMs: dl.end }) },
+  { id: "avail", label: "tabAvail", when: (kino2, ctx) => ctx.kind !== "live", load: (kino2, ctx, dl) => availTab(kino2, ctx, { untilMs: dl.end }) },
+  { id: "prefs", label: "tabPrefs", when: () => true, load: (kino2, ctx) => prefsTab(kino2, ctx) },
+  { id: "fail", label: "tabFail", when: () => true, load: (kino2, ctx) => failTab(kino2, ctx) }
 ];
 async function panel(ctx) {
-  const kino = globalThis.kino;
+  const kino2 = globalThis.kino;
   ctx = ctx || {};
-  const dl = callDeadline(kino, "panel");
-  reconcile(kino, ctx);
-  const available = TABS2.filter((x) => x.when(kino, ctx));
+  const dl = callDeadline(kino2, "panel");
+  reconcile(kino2, ctx);
+  const available = TABS2.filter((x) => x.when(kino2, ctx));
   const active = available.find((x) => x.id === ctx.tab) || available.find((x) => x.id === DEFAULT_TAB);
-  const strip = nextStrip(kino, ctx, { untilMs: Math.min(dl.end, Date.now() + 6e3) }).catch(() => []);
+  const strip = nextStrip(kino2, ctx, { untilMs: Math.min(dl.end, Date.now() + 6e3) }).catch(() => []);
   let body = null;
   try {
-    if (active.load) body = await active.load(kino, ctx, dl);
+    if (active.load) body = await active.load(kino2, ctx, dl);
   } catch (e) {
     try {
-      kino.log("[latino]", "panel tab", active.id, e && e.code || "error");
+      kino2.log("[latino]", "panel tab", active.id, e && e.code || "error");
     } catch (_) {
     }
   }
@@ -4656,8 +4904,8 @@ async function panel(ctx) {
 }
 async function panelAction(ev, ctx) {
   try {
-    const kino = globalThis.kino;
-    return prefsAction(kino, ev, ctx) || failAction(kino, ev, ctx);
+    const kino2 = globalThis.kino;
+    return prefsAction(kino2, ev, ctx) || failAction(kino2, ev, ctx);
   } catch (_) {
     return null;
   }
@@ -4673,30 +4921,30 @@ async function playerEvent(ev, ctx) {
 
 // src/plugin.js
 var getKino = () => globalThis.kino;
-var notFound = (kino, detail) => kino.error("not_found", detail, { userMessage: t("notFound", kino) });
+var notFound = (kino2, detail) => kino2.error("not_found", detail, { userMessage: t("notFound", kino2) });
 var TMDB_FAILURES = /* @__PURE__ */ new Set(["timeout", "network", "unavailable", "rate_limited"]);
-var tmdbFailure = (kino, e) => e && TMDB_FAILURES.has(e.code) ? kino.error("unavailable", "tmdb: " + e.code, { userMessage: t("tmdbDown", kino) }) : e;
+var tmdbFailure = (kino2, e) => e && TMDB_FAILURES.has(e.code) ? kino2.error("unavailable", "tmdb: " + e.code, { userMessage: t("tmdbDown", kino2) }) : e;
 var RESOLVE_RESERVE_MS = 1e4;
 async function search2(query) {
-  const kino = getKino();
+  const kino2 = getKino();
   const q = typeof query === "string" ? query : query && query.q || "";
   if (query && typeof query === "object" && query.within) {
-    const dl2 = callDeadline(kino, "scopedSearch");
-    return searchWithin(kino, readSettings(kino), query.within, q, query.cursor, { untilMs: dl2.end });
+    const dl2 = callDeadline(kino2, "scopedSearch");
+    return searchWithin(kino2, readSettings(kino2), query.within, q, query.cursor, { untilMs: dl2.end });
   }
-  const dl = callDeadline(kino, "search");
+  const dl = callDeadline(kino2, "search");
   let fallback = null;
   const startFallback = () => {
-    fallback = fallback || searchSites(kino, readSettings(kino), q, { untilMs: dl.end - 500 });
+    fallback = fallback || searchSites(kino2, readSettings(kino2), q, { untilMs: dl.end - 500 });
   };
   let items;
   try {
-    items = await searchTitles(kino, q, { untilMs: dl.end, onFirstFailure: startFallback });
+    items = await searchTitles(kino2, q, { untilMs: dl.end, onFirstFailure: startFallback });
   } catch (e) {
-    kino.log("[latino]", "search tmdb", e && e.code || "error");
+    kino2.log("[latino]", "search tmdb", e && e.code || "error");
     startFallback();
     const found = await fallback;
-    if (!found.length) throw tmdbFailure(kino, e);
+    if (!found.length) throw tmdbFailure(kino2, e);
     items = found;
   }
   const lean = query && (query.type === "movie" || query.type === "series") ? query.type : null;
@@ -4707,42 +4955,42 @@ var HOME_KEY = "home1";
 var HOME_STALE_MS = 12 * 3600 * 1e3;
 var HOME_CACHE_MAX = 60 * 1024;
 var HOME_GUARD_MS = 12e3;
-function saveHome(kino, rows3) {
+function saveHome(kino2, rows3) {
   try {
     for (let per = 20; per >= 4; per -= 4) {
       const text5 = JSON.stringify({ at: Date.now(), rows: rows3.map((r) => ({ ...r, items: r.items.slice(0, per) })) });
       if (text5.length <= HOME_CACHE_MAX) {
-        kino.storage.set(HOME_KEY, text5, { ttlMs: HOME_STALE_MS });
+        kino2.storage.set(HOME_KEY, text5, { ttlMs: HOME_STALE_MS });
         return;
       }
     }
   } catch (_) {
   }
 }
-function savedHome(kino) {
+function savedHome(kino2) {
   try {
-    const s = JSON.parse(kino.storage.get(HOME_KEY) || "null");
+    const s = JSON.parse(kino2.storage.get(HOME_KEY) || "null");
     return s && Array.isArray(s.rows) && s.rows.length && Date.now() - s.at < HOME_STALE_MS ? s.rows : null;
   } catch (_) {
     return null;
   }
 }
-async function guardAfter(kino, ms) {
-  for (let left = ms; left > 0; left -= 4500) await kino.sleep(Math.min(left, 4500));
+async function guardAfter(kino2, ms) {
+  for (let left = ms; left > 0; left -= 4500) await kino2.sleep(Math.min(left, 4500));
   return null;
 }
 async function home() {
-  const kino = getKino();
-  const settings = readSettings(kino);
+  const kino2 = getKino();
+  const settings = readSettings(kino2);
   if (!settings.homeRows) return [];
-  const saved = savedHome(kino);
-  const fresh = buildRows(kino, settings, HOME_ROWS, { untilMs: callDeadline(kino, "home").end }).then((rows4) => {
-    if (rows4.length) saveHome(kino, rows4);
+  const saved = savedHome(kino2);
+  const fresh = buildRows(kino2, settings, HOME_ROWS, { untilMs: callDeadline(kino2, "home").end }).then((rows4) => {
+    if (rows4.length) saveHome(kino2, rows4);
     return rows4;
   });
   let rows3;
   try {
-    rows3 = saved ? await Promise.race([fresh, guardAfter(kino, HOME_GUARD_MS)]) : await fresh;
+    rows3 = saved ? await Promise.race([fresh, guardAfter(kino2, HOME_GUARD_MS)]) : await fresh;
   } catch (e) {
     if (saved) return saved;
     throw e;
@@ -4752,12 +5000,12 @@ async function home() {
   return rows3 && rows3.length ? rows3 : saved || rows3 || [];
 }
 async function browse(ref, cursor) {
-  const kino = getKino();
-  return browsePage(kino, readSettings(kino), ref, cursor, { untilMs: callDeadline(kino, "browse").end });
+  const kino2 = getKino();
+  return browsePage(kino2, readSettings(kino2), ref, cursor, { untilMs: callDeadline(kino2, "browse").end });
 }
 async function section(arg) {
-  const kino = getKino();
-  return sectionPage(kino, readSettings(kino), arg && arg.tab, { untilMs: callDeadline(kino, "section").end });
+  const kino2 = getKino();
+  return sectionPage(kino2, readSettings(kino2), arg && arg.tab, { untilMs: callDeadline(kino2, "section").end });
 }
 async function categories() {
   return categoryTiles(getKino());
@@ -4767,60 +5015,60 @@ var tmdbRef = (ref, prefix) => {
   return m ? Number(m[1]) : null;
 };
 async function episodes(ref) {
-  const kino = getKino();
-  const untilMs = callDeadline(kino, "episodes").end;
+  const kino2 = getKino();
+  const untilMs = callDeadline(kino2, "episodes").end;
   let id12 = tmdbRef(String(ref || ""), "s");
   if (id12 == null) {
     const site = parseSiteRef(ref);
-    if (!site || site.kind !== "tv") throw notFound(kino, "not a series ref");
-    id12 = await tmdbIdFor(kino, site, { untilMs });
-    if (id12 == null) throw notFound(kino, "series not on TMDB");
+    if (!site || site.kind !== "tv") throw notFound(kino2, "not a series ref");
+    id12 = await tmdbIdFor(kino2, site, { untilMs });
+    if (id12 == null) throw notFound(kino2, "series not on TMDB");
   }
   let out;
   try {
-    out = await episodeList(kino, id12, { untilMs });
+    out = await episodeList(kino2, id12, { untilMs });
   } catch (e) {
-    kino.log("[latino]", "episodes tmdb", e && e.code || "error");
-    throw tmdbFailure(kino, e);
+    kino2.log("[latino]", "episodes tmdb", e && e.code || "error");
+    throw tmdbFailure(kino2, e);
   }
-  out = await markUnavailable(kino, id12, out, untilMs);
+  out = await markUnavailable(kino2, id12, out, untilMs);
   return { ...out, series: { ...out.series, ids: { tmdb: id12 } } };
 }
-async function markUnavailable(kino, tmdbId, out, untilMs) {
+async function markUnavailable(kino2, tmdbId, out, untilMs) {
   try {
     const seasons = [...new Set(out.episodes.map((e) => e.season))];
     if (!seasons.length) return out;
-    const title = await titleContext(kino, { kind: "tv", tmdbId }, { untilMs: untilMs - 3e3 });
-    const { enabled } = readSettings(kino);
-    return markEpisodes(kino, out, await missingSeasons(kino, title, seasons, { enabled, untilMs }));
+    const title = await titleContext(kino2, { kind: "tv", tmdbId }, { untilMs: untilMs - 3e3 });
+    const { enabled } = readSettings(kino2);
+    return markEpisodes(kino2, out, await missingSeasons(kino2, title, seasons, { enabled, untilMs }));
   } catch (e) {
-    kino.log("[latino]", "availability", e && e.code || "error");
+    kino2.log("[latino]", "availability", e && e.code || "error");
     return out;
   }
 }
 var DETAIL_FIELDS = ["title", "overview", "poster", "backdrop", "year", "genres", "rating", "runtimeMinutes"];
 async function details(ref) {
-  const kino = getKino();
+  const kino2 = getKino();
   const site = parseSiteRef(ref);
   if (!site) return null;
-  const untilMs = callDeadline(kino, "details").end;
-  const { post: post3, failed } = await sitePostResult(kino, site, { untilMs });
+  const untilMs = callDeadline(kino2, "details").end;
+  const { post: post3, failed } = await sitePostResult(kino2, site, { untilMs });
   const info = {};
   if (post3) {
-    const item3 = dress(kino, post3);
+    const item3 = dress(kino2, post3);
     for (const k of DETAIL_FIELDS) if (item3[k] !== void 0 && item3[k] !== "") info[k] = item3[k];
   }
-  const tmdb2 = await tmdbIdFor(kino, site, { post: post3, postFailed: failed, untilMs });
+  const tmdb2 = await tmdbIdFor(kino2, site, { post: post3, postFailed: failed, untilMs });
   if (tmdb2) info.ids = { tmdb: tmdb2 };
   return Object.keys(info).length ? info : null;
 }
-async function contextFor(kino, ref, untilMs) {
+async function contextFor(kino2, ref, untilMs) {
   const tmdbTitle = async (args) => {
     try {
-      return await titleContext(kino, args, { untilMs });
+      return await titleContext(kino2, args, { untilMs });
     } catch (e) {
-      kino.log("[latino]", "tmdb context", e && e.code || "error");
-      throw tmdbFailure(kino, e);
+      kino2.log("[latino]", "tmdb context", e && e.code || "error");
+      throw tmdbFailure(kino2, e);
     }
   };
   let m = /^m:(\d{1,10})$/.exec(ref);
@@ -4829,24 +5077,24 @@ async function contextFor(kino, ref, untilMs) {
   if (m) return tmdbTitle({ kind: "tv", tmdbId: Number(m[1]), season: Number(m[2]), episode: Number(m[3]) });
   const site = parseSiteRef(ref);
   if (!site || site.kind !== "movie") return null;
-  const id12 = await tmdbIdFor(kino, site, { untilMs });
+  const id12 = await tmdbIdFor(kino2, site, { untilMs });
   if (id12 != null) {
     try {
-      return await titleContext(kino, { kind: "movie", tmdbId: id12 }, { untilMs });
+      return await titleContext(kino2, { kind: "movie", tmdbId: id12 }, { untilMs });
     } catch (e) {
-      kino.log("[latino]", "tmdb context", e && e.code || "error");
+      kino2.log("[latino]", "tmdb context", e && e.code || "error");
     }
   }
-  return siteContext(site, await sitePost(kino, site, { untilMs }));
+  return siteContext(site, await sitePost(kino2, site, { untilMs }));
 }
 async function resolve(ref) {
-  const kino = getKino();
+  const kino2 = getKino();
   const r = String(ref || "");
-  if (r.startsWith("x|")) return resolveLazy(kino, r);
-  const dl = callDeadline(kino, "resolve");
-  const title = await contextFor(kino, r, dl.end - RESOLVE_RESERVE_MS);
-  if (!title) throw notFound(kino, "not a playable ref");
-  const out = await resolveTitle(kino, title, readSettings(kino), { callMs: dl.left(), ref: r });
+  if (r.startsWith("x|")) return resolveLazy(kino2, r);
+  const dl = callDeadline(kino2, "resolve");
+  const title = await contextFor(kino2, r, dl.end - RESOLVE_RESERVE_MS);
+  if (!title) throw notFound(kino2, "not a playable ref");
+  const out = await resolveTitle(kino2, title, readSettings(kino2), { callMs: dl.left(), ref: r });
   try {
     browseScreen().notePlayed(r);
   } catch (_) {
@@ -4857,8 +5105,8 @@ var browseInstance = null;
 var browseScreen = () => browseInstance ?? (browseInstance = makeBrowse({
   kino: getKino(),
   loadTab: (tab) => {
-    const kino = getKino();
-    return sectionPage(kino, readSettings(kino), tab, { untilMs: callDeadline(kino, "section").end });
+    const kino2 = getKino();
+    return sectionPage(kino2, readSettings(kino2), tab, { untilMs: callDeadline(kino2, "section").end });
   },
   searchTitles: (q) => search2({ q })
 }));
@@ -4873,8 +5121,8 @@ async function screenEvent(ev) {
 var SPORTS_LIST = "https://raw.githubusercontent.com/linhpy89/linh/refs/heads/linh/full.m3u";
 var SPORTS_REFRESH_HOURS = 3;
 async function liveCategories() {
-  const kino = getKino();
-  const on = readSettings(kino).liveSports;
+  const kino2 = getKino();
+  const on = readSettings(kino2).liveSports;
   if (!on) return [];
   return [{ playlist: { url: SPORTS_LIST, format: "m3u", genre: "deportes", refreshHours: SPORTS_REFRESH_HOURS } }];
 }
@@ -4885,55 +5133,55 @@ var PREFERENCE_KEYS = kino_plugin_default.settings.filter((s) => !["section", "s
 var PROBE_TMDB_ID = 550;
 var fill = (text5, vars) => text5.replace(/\{(\w+)\}/g, (_, k) => String(vars[k]));
 async function settingsStatus() {
-  const kino = getKino();
-  return { health: healthLine(kino, readHealth(kino)) };
+  const kino2 = getKino();
+  return { health: healthLine(kino2, readHealth(kino2)) };
 }
-async function probe(kino) {
-  const dl = callDeadline(kino, "action");
-  const settings = readSettings(kino);
+async function probe(kino2) {
+  const dl = callDeadline(kino2, "action");
+  const settings = readSettings(kino2);
   const asked = SOURCES.filter((s) => sourceOn(settings, s.id) && (!s.kinds || s.kinds.includes("movie")));
-  if (!asked.length) return { message: t("probeNone", kino) };
+  if (!asked.length) return { message: t("probeNone", kino2) };
   let title;
   try {
-    title = await titleContext(kino, { kind: "movie", tmdbId: PROBE_TMDB_ID }, { untilMs: dl.end - 1e4 });
+    title = await titleContext(kino2, { kind: "movie", tmdbId: PROBE_TMDB_ID }, { untilMs: dl.end - 1e4 });
   } catch (e) {
-    kino.log("[latino]", "probe tmdb", e && e.code || "error");
-    return { message: t("probeNoTmdb", kino) };
+    kino2.log("[latino]", "probe tmdb", e && e.code || "error");
+    return { message: t("probeNoTmdb", kino2) };
   }
-  await listEmbeds(kino, title, { enabled: normalizeSettings({ enabled: settings.enabled }).enabled, fresh: true });
-  const health = readHealth(kino);
+  await listEmbeds(kino2, title, { enabled: normalizeSettings({ enabled: settings.enabled }).enabled, fresh: true });
+  const health = readHealth(kino2);
   const fail = asked.filter((s) => health[s.id] && !health[s.id].ok).length;
-  return { message: fill(t("probeDone", kino), { ok: asked.length - fail, fail }) };
+  return { message: fill(t("probeDone", kino2), { ok: asked.length - fail, fail }) };
 }
-function clearCache(kino) {
+function clearCache(kino2) {
   let n = 0;
-  for (const key of kino.storage.keys()) {
+  for (const key of kino2.storage.keys()) {
     if (["emb:", "embn:", "tmdb:", "avail:", "pp:last:", "pp:latest", "pa2:"].some((p) => key.startsWith(p))) {
-      kino.storage.remove(key);
+      kino2.storage.remove(key);
       n++;
     }
   }
-  return { message: n === 1 ? t("cacheClearedOne", kino) : fill(t("cacheCleared", kino), { n }) };
+  return { message: n === 1 ? t("cacheClearedOne", kino2) : fill(t("cacheCleared", kino2), { n }) };
 }
 async function action(key) {
-  const kino = getKino();
-  if (key === "probe") return probe(kino);
-  if (key === "clearCache") return clearCache(kino);
+  const kino2 = getKino();
+  if (key === "probe") return probe(kino2);
+  if (key === "clearCache") return clearCache(kino2);
   if (key === "resetPrefs") {
-    clearPrefs(kino);
-    return { message: t("prefsReset", kino), clearSettings: PREFERENCE_KEYS };
+    clearPrefs(kino2);
+    return { message: t("prefsReset", kino2), clearSettings: PREFERENCE_KEYS };
   }
   return null;
 }
 async function validateSettings(values) {
-  const kino = getKino();
+  const kino2 = getKino();
   const enabled = {};
   for (const s of SOURCES) {
     const v = values && values["src_" + s.id];
     if (typeof v === "boolean") enabled[s.id] = v;
   }
   const on = normalizeSettings({ enabled }).enabled;
-  return SOURCES.some((s) => on[s.id] !== false) ? null : t("keepOneSource", kino);
+  return SOURCES.some((s) => on[s.id] !== false) ? null : t("keepOneSource", kino2);
 }
 export {
   SPORTS_LIST,

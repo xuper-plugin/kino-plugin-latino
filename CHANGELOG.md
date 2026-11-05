@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.4.0
+
+- The browse screen has its own title page: a card, a slide or a result opens a banner with the title's logo, its facts, synopsis, cast, the seasons with every episode and its still, and similar titles. Back returns to the list. Kino's own page stays one press away ("Más opciones" on a movie, "Ver episodios" on a series, and an episode), where the player's sources, favourites, lists and downloads live. A title that is not a TMDB one keeps opening Kino's page.
+
 ## 2.3.1
 
 - Fix: the browse screen's featured slider no longer closes the app on Kino 0.9.81. Its pager keeps the number of slides of its first drawing, and the screen went from the kept copy (4 slides) to the fresh page (up to 6). The slider's key now carries its slide count, so a different count is a new pager, and the kept copy keeps every slide.
