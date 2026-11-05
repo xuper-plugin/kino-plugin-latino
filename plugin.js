@@ -367,7 +367,7 @@ __export(streamwish_exports, {
 var kino_plugin_default = {
   id: "latino",
   name: "Latino",
-  version: "2.4.3",
+  version: "2.4.4",
   apiVersion: 9,
   panel: {
     label: "Latino",
@@ -3794,6 +3794,13 @@ function pushOf(arg) {
   if (!a || typeof a.open !== "string" || typeof a.i !== "string" || a.k !== "movie" && a.k !== "series") return null;
   return { push: "detail", params: { open: a.open, i: a.i, t: typeof a.t === "string" ? a.t.slice(0, 100) : "", k: a.k, d: Number(a.d) || 0, y: Number(a.y) || 0 } };
 }
+function backdropsOf(images, first) {
+  const base = "https://image.tmdb.org/t/p/w780";
+  const list12 = (images && images.backdrops || []).filter((b) => b && typeof b.file_path === "string" && b.file_path.startsWith("/") && b.width >= 1e3).sort((a, b) => (b.vote_average || 0) - (a.vote_average || 0)).map((b) => base + b.file_path);
+  const out = [];
+  for (const u of [first, ...list12]) if (u && !out.some((x) => x.slice(x.lastIndexOf("/")) === u.slice(u.lastIndexOf("/")))) out.push(u);
+  return out.slice(0, 6);
+}
 function openArgs(card) {
   const r = titleRefOf(card.ref);
   const tmdb2 = r ? r.id : card.ids && Number.isInteger(card.ids.tmdb) ? card.ids.tmdb : 0;
@@ -3846,6 +3853,16 @@ async function loadDetail(args) {
   }
   if (ids.tmdb && typeof kino.tmdb === "function") {
     try {
+      const credits = await kino.tmdb(`/${kind === "movie" ? "movie" : "tv"}/${ids.tmdb}/credits`, { language: "es-MX" });
+      const cast = (credits && credits.cast || []).filter((c) => c && c.name).slice(0, MAX_CAST).map((c) => ({ name: String(c.name), character: String(c.character || ""), photo: typeof c.profile_path === "string" && c.profile_path.startsWith("/") ? "https://image.tmdb.org/t/p/w185" + c.profile_path : void 0 }));
+      if (cast.length) d.cast = cast;
+    } catch (_) {
+    }
+    try {
+      d.images = backdropsOf(await kino.tmdb(`/${kind === "movie" ? "movie" : "tv"}/${ids.tmdb}/images`, { include_image_language: "null,es,en" }), d.backdrop);
+    } catch (_) {
+    }
+    try {
       const data = await kino.tmdb(`/${kind === "movie" ? "movie" : "tv"}/${ids.tmdb}/recommendations`, { language: "es-MX" });
       d.similar = (data && data.results || []).filter((x) => x && x.id && (x.title || x.name) && x.poster_path).slice(0, 12).map((x) => ({
         id: (kind === "movie" ? "m-" : "s-") + x.id,
@@ -3883,7 +3900,7 @@ function episodeRow(d, r, ep) {
     onTap: episodeGo(d, r),
     canRequestFocus: true,
     children: [
-      { type: "Image", key: `epi-${ep.s}-${ep.n}`, width: 120, aspect: "16:9", fit: "cover", ...ep.still ? { url: ep.still } : {}, fallback: { type: "Skeleton", shape: "block", height: 64 } },
+      { type: "Image", key: `epi-${ep.s}-${ep.n}`, width: 120, aspect: "16:9", fit: "cover", radius: "medium", ...ep.still ? { url: ep.still } : {}, fallback: { type: "Skeleton", shape: "block", height: 64 } },
       { type: "Column", flex: 1, gap: 4, children: [
         { type: "Text", bold: true, maxLines: 2, ...heading },
         ...facts ? [{ type: "Text", style: "caption", color: "muted", text: facts.es, textEn: facts.en }] : [],
@@ -3930,17 +3947,19 @@ function detailView({ r, entry, season, logo: logo2, back }) {
       { type: "TextButton", key: "dmore", ...twin("dMore", "labelText"), onPressed: toKino }
     ];
     const lead = d.tagline || (d.overview.length <= LEAD_MAX ? d.overview : d.overview.slice(0, LEAD_MAX - 1).trimEnd() + "\u2026");
-    hero2 = {
+    const images = (d.images && d.images.length ? d.images : [d.backdrop || ""]).slice(0, 6);
+    const slide = (image, i) => ({
       type: "heroCard",
-      key: "dhero",
+      key: i ? "dhero-" + i : "dhero",
       h: { compact: 240, expanded: 320 },
       title: d.title,
       titleEn: d.title,
       ...lead ? same(lead) : {},
-      ...d.backdrop ? { image: d.backdrop } : {},
+      ...image ? { image } : {},
       ...d.logo ? { logo: d.logo } : {},
-      buttons
-    };
+      buttons: i ? buttons.map((b) => ({ ...b, key: b.key + "-" + i, autofocus: false })) : buttons
+    });
+    hero2 = images.length > 1 ? { type: "PageView", key: "hero" + images.length, autoPlayMs: 6e3, children: images.map(slide) } : slide(images[0], 0);
     const rating = d.ratings.find((x) => x.source === "imdb") || d.ratings.find((x) => x.source === "tmdb");
     const facts = [];
     if (rating) facts.push("\u2605 " + rating.value);
@@ -4080,6 +4099,8 @@ function browseView({ tab, data, recent, pending, failed, device = "phone" }) {
   } else {
     body.push(heroSkeleton2(), railSkeleton2(1), railSkeleton2(2), railSkeleton2(3));
   }
+  const isBanner = (n) => !!n && (n.type === "heroCard" || n.key === "heroSkeleton" || n.type === "PageView" && String(n.key).startsWith("hero"));
+  const banner = body.length > 0 && isBanner(body[0]) ? body.shift() : null;
   return {
     type: "Scaffold",
     appBar: {
@@ -4099,7 +4120,7 @@ function browseView({ tab, data, recent, pending, failed, device = "phone" }) {
     body: { type: "Column", key: "page", children: [
       // The tabs line up with the bar's buttons and the cards below (a wide window and the TV pad their content by 24).
       ...tv ? [] : [{ type: "Column", key: "tabsRow", padding: { compact: 0, expanded: 24 }, children: [tabBar(active)] }],
-      { type: "SingleChildScrollView", key: "browse-" + active, flex: 1, children: [{ type: "Column", padding: { compact: 12, expanded: 24 }, gap: 16, children: body }] }
+      { type: "SingleChildScrollView", key: "browse-" + active, flex: 1, children: [...banner ? [banner] : [], { type: "Column", padding: { compact: 12, expanded: 24 }, gap: 16, children: body }] }
     ] },
     ...pending ? { every: { ms: POLL_MS, event: "tick" } } : {}
   };

@@ -49,6 +49,17 @@ export function pushOf(arg) {
   return { push: "detail", params: { open: a.open, i: a.i, t: typeof a.t === "string" ? a.t.slice(0, 100) : "", k: a.k, d: Number(a.d) || 0, y: Number(a.y) || 0 } };
 }
 
+
+/** TMDB's backdrops of a title (wide pictures), best voted first: the banner becomes a slider when there is more than one. [first] is the one Kino already gave. */
+function backdropsOf(images, first) {
+  const base = "https://image.tmdb.org/t/p/w780";
+  const list = ((images && images.backdrops) || []).filter((b) => b && typeof b.file_path === "string" && b.file_path.startsWith("/") && b.width >= 1000)
+    .sort((a, b) => (b.vote_average || 0) - (a.vote_average || 0)).map((b) => base + b.file_path);
+  const out = [];
+  for (const u of [first, ...list]) if (u && !out.some((x) => x.slice(x.lastIndexOf("/")) === u.slice(u.lastIndexOf("/")))) out.push(u);
+  return out.slice(0, 6);
+}
+
 /** What the page needs of a card: its ref and id (Kino's page and the play go carry them back), its name, kind and year, and its TMDB id when it has one. */
 export function openArgs(card) {
   const r = titleRefOf(card.ref);
@@ -111,6 +122,15 @@ export async function loadDetail(args) {
       .map((e) => ({ s: num(e.season), n: num(e.number), title: String(e.title || "").slice(0, 120), overview: String(e.overview || "").slice(0, 110), still: https(e.still), air: /^\d{4}-\d{2}-\d{2}/.test(String(e.airDate || "")) ? String(e.airDate).slice(0, 10) : "" }));
   }
   if (ids.tmdb && typeof kino.tmdb === "function") {
+    // Kino's answer carries the cast as names only when TMDB has one: the photos come from TMDB's credits.
+    try {
+      const credits = await kino.tmdb(`/${kind === "movie" ? "movie" : "tv"}/${ids.tmdb}/credits`, { language: "es-MX" });
+      const cast = ((credits && credits.cast) || []).filter((c) => c && c.name).slice(0, MAX_CAST).map((c) => ({ name: String(c.name), character: String(c.character || ""), photo: typeof c.profile_path === "string" && c.profile_path.startsWith("/") ? "https://image.tmdb.org/t/p/w185" + c.profile_path : undefined }));
+      if (cast.length) d.cast = cast;
+    } catch (_) { /* the names stay */ }
+    try {
+      d.images = backdropsOf(await kino.tmdb(`/${kind === "movie" ? "movie" : "tv"}/${ids.tmdb}/images`, { include_image_language: "null,es,en" }), d.backdrop);
+    } catch (_) { /* the one picture stays */ }
     try {
       const data = await kino.tmdb(`/${kind === "movie" ? "movie" : "tv"}/${ids.tmdb}/recommendations`, { language: "es-MX" });
       d.similar = ((data && data.results) || []).filter((x) => x && x.id && (x.title || x.name) && x.poster_path).slice(0, 12).map((x) => ({
@@ -141,7 +161,7 @@ function episodeRow(d, r, ep) {
   return {
     type: "Row", key: `ep-${ep.s}-${ep.n}`, gap: 12, crossAxisAlignment: "center", onTap: episodeGo(d, r), canRequestFocus: true,
     children: [
-      { type: "Image", key: `epi-${ep.s}-${ep.n}`, width: 120, aspect: "16:9", fit: "cover", ...(ep.still ? { url: ep.still } : {}), fallback: { type: "Skeleton", shape: "block", height: 64 } },
+      { type: "Image", key: `epi-${ep.s}-${ep.n}`, width: 120, aspect: "16:9", fit: "cover", radius: "medium", ...(ep.still ? { url: ep.still } : {}), fallback: { type: "Skeleton", shape: "block", height: 64 } },
       { type: "Column", flex: 1, gap: 4, children: [
         { type: "Text", bold: true, maxLines: 2, ...heading },
         ...(facts ? [{ type: "Text", style: "caption", color: "muted", text: facts.es, textEn: facts.en }] : []),
@@ -190,10 +210,13 @@ export function detailView({ r, entry, season, logo, back }) {
         { type: "TextButton", key: "dmore", ...twin("dMore", "labelText"), onPressed: toKino },
       ];
     const lead = d.tagline || (d.overview.length <= LEAD_MAX ? d.overview : d.overview.slice(0, LEAD_MAX - 1).trimEnd() + "…");
-    hero = ({
-      type: "heroCard", key: "dhero", h: { compact: 240, expanded: 320 }, title: d.title, titleEn: d.title, ...(lead ? same(lead) : {}),
-      ...(d.backdrop ? { image: d.backdrop } : {}), ...(d.logo ? { logo: d.logo } : {}), buttons,
+    const images = (d.images && d.images.length ? d.images : [d.backdrop || ""]).slice(0, 6);
+    const slide = (image, i) => ({
+      type: "heroCard", key: i ? "dhero-" + i : "dhero", h: { compact: 240, expanded: 320 }, title: d.title, titleEn: d.title, ...(lead ? same(lead) : {}),
+      ...(image ? { image } : {}), ...(d.logo ? { logo: d.logo } : {}), buttons: i ? buttons.map((b) => ({ ...b, key: b.key + "-" + i, autofocus: false })) : buttons,
     });
+    // The key carries the number of slides: Kino's pager keeps the count of its first drawing.
+    hero = images.length > 1 ? { type: "PageView", key: "hero" + images.length, autoPlayMs: 6000, children: images.map(slide) } : slide(images[0], 0);
     const rating = d.ratings.find((x) => x.source === "imdb") || d.ratings.find((x) => x.source === "tmdb");
     const facts = [];
     if (rating) facts.push("★ " + rating.value);
