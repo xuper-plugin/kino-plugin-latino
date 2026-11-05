@@ -367,7 +367,7 @@ __export(streamwish_exports, {
 var kino_plugin_default = {
   id: "latino",
   name: "Latino",
-  version: "2.4.1",
+  version: "2.4.2",
   apiVersion: 9,
   panel: {
     label: "Latino",
@@ -2329,6 +2329,7 @@ var WORDS = {
     dEpisodes: "Episodios",
     dSimilar: "M\xE1s como esto",
     dSeeInKino: "Ver en Kino",
+    brMore: "Ver m\xE1s",
     brInfo: "M\xE1s informaci\xF3n",
     brRecent: "Continuar viendo",
     brSearch: "Buscar",
@@ -2486,6 +2487,7 @@ var WORDS = {
     dEpisodes: "Episodes",
     dSimilar: "More like this",
     dSeeInKino: "Open in Kino",
+    brMore: "See more",
     brInfo: "More info",
     brRecent: "Continue watching",
     brSearch: "Search",
@@ -3772,7 +3774,26 @@ function titleRefOf(ref) {
   const m = /^([ms]):(\d{1,10})$/.exec(String(ref || ""));
   return m ? { kind: m[1] === "m" ? "movie" : "series", id: Number(m[2]) } : null;
 }
-var withOpen = (card) => card && (card.kind === "movie" || card.kind === "series") && typeof card.ref === "string" && card.ref.length < 600 && typeof card.id === "string" ? { ...card, open: { screen: { args: openArgs(card) } } } : card;
+var opensPage = (card) => !!card && (card.kind === "movie" || card.kind === "series") && typeof card.ref === "string" && card.ref.length < 600 && typeof card.id === "string";
+var cardNode = (card, size, scope) => ({
+  type: "titleCard",
+  key: `${scope}-${card.id}`,
+  size,
+  item: card,
+  ...opensPage(card) ? { onTap: { event: "openTitle", arg: JSON.stringify(openArgs(card)) } } : {}
+});
+var cardRow = (items, key, size) => ({ type: "SingleChildScrollView", key: key + "-s", direction: "horizontal", children: [{ type: "Row", key: key + "-r", gap: 12, children: items.map((c) => cardNode(c, size, key)) }] });
+var cardGrid = (items, key) => ({ type: "GridView", key, columns: { compact: 3, expanded: 6 }, children: items.map((c) => cardNode(c, "medium", key)) });
+function pushOf(arg) {
+  let a = null;
+  try {
+    a = JSON.parse(String(arg));
+  } catch (_) {
+    a = null;
+  }
+  if (!a || typeof a.open !== "string" || typeof a.i !== "string" || a.k !== "movie" && a.k !== "series") return null;
+  return { push: "detail", params: { open: a.open, i: a.i, t: typeof a.t === "string" ? a.t.slice(0, 100) : "", k: a.k, d: Number(a.d) || 0, y: Number(a.y) || 0 } };
+}
 function openArgs(card) {
   const r = titleRefOf(card.ref);
   const tmdb2 = r ? r.id : card.ids && Number.isInteger(card.ids.tmdb) ? card.ids.tmdb : 0;
@@ -3941,7 +3962,10 @@ function detailView({ r, entry, season, logo: logo2, back }) {
       }) } : sectionTitle("dEpisodes"));
       for (const ep of d.episodes.filter((e) => e.s === shown).slice(0, MAX_EPISODES)) body.push(episodeRow(d, r, ep));
     }
-    if (d.similar.length) body.push({ type: "titleRail", key: "dsimilar", ...twin("dSimilar", "title"), items: d.similar.map(withOpen), size: "medium" });
+    if (d.similar.length) {
+      body.push(sectionTitle("dSimilar"));
+      body.push(cardRow(d.similar, "dsimilar", "small"));
+    }
   }
   return {
     type: "Scaffold",
@@ -4022,12 +4046,16 @@ var hero = (slides) => slides.length === 1 ? slideNode(slides[0]) : {
   children: slides.map(slideNode)
 };
 var rail = (r, key, titleOverride) => ({
-  type: "titleRail",
+  type: "Column",
   key,
-  ...titleOverride || { title: r.title },
-  ...r.ref ? { ref: r.ref } : {},
-  items: r.items.map(withOpen),
-  size: "medium"
+  gap: 8,
+  children: [
+    { type: "Row", key: key + "-h", crossAxisAlignment: "center", children: [
+      { type: "Text", style: "h4", flex: 1, text: titleOverride ? titleOverride.title : r.title, textEn: titleOverride ? titleOverride.titleEn : r.title },
+      ...r.ref ? [{ type: "TextButton", key: key + "-more", ...twin2("brMore", "labelText"), onPressed: { go: { browse: { ref: r.ref, title: r.title } } } }] : []
+    ] },
+    cardRow(r.items, key, "medium")
+  ]
 });
 function browseView({ tab, data, recent, pending, failed, device = "phone" }) {
   const tv = device === "tv";
@@ -4108,12 +4136,12 @@ function searchView({ query, status: status3, items, history = [], device = "pho
     body.push({ type: "MaterialBanner", key: "searchFailed", role: "error", ...twin2("brSearchFailed"), action: { ...twin2("brRetry", "label"), onTap: "sretry" } });
   } else if (status3 === "done" && items) {
     if (items.length === 0) body.push({ type: "Text", ...twin2("brNoResults", "text"), color: "muted" });
-    else body.push({ type: "titleGrid", key: "results", columns: { compact: 3, expanded: 6 }, items: items.slice(0, SEARCH_CAP).map(withOpen) });
+    else body.push(cardGrid(items.slice(0, SEARCH_CAP), "results"));
   } else if (status3 !== "idle") {
     body.push(gridSkeleton());
   } else if (history.length > 0) {
     body.push({ type: "Text", ...twin2("brSearchedBefore", "text"), style: "h4" });
-    body.push({ type: "titleGrid", key: "history", columns: { compact: 3, expanded: 6 }, items: history.slice(0, SEARCH_CAP).map(withOpen) });
+    body.push(cardGrid(history.slice(0, SEARCH_CAP), "history"));
   }
   return {
     type: "Scaffold",
@@ -4358,6 +4386,11 @@ function makeBrowse({ kino: kino2, loadTab, searchTitles: searchTitles2 }) {
         out.state.season = null;
       }
       return out;
+    },
+    // A card of the list was tapped: its page goes over the list.
+    openTitle({ arg }) {
+      const route = pushOf(arg);
+      return route ? { route, state: { season: null } } : null;
     },
     // The page's timer: loads the title once, then no timer.
     async dtick({ route }) {

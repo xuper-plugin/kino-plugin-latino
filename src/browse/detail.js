@@ -27,9 +27,27 @@ export function titleRefOf(ref) {
 }
 
 /** A card with the `open` that starts the screen again on its page; a card without a TMDB title ref keeps Kino's own page. */
-export const withOpen = (card) => (card && (card.kind === "movie" || card.kind === "series") && typeof card.ref === "string" && card.ref.length < 600 && typeof card.id === "string"
-  ? { ...card, open: { screen: { args: openArgs(card) } } }
-  : card);
+const opensPage = (card) => !!card && (card.kind === "movie" || card.kind === "series") && typeof card.ref === "string" && card.ref.length < 600 && typeof card.id === "string";
+
+/** One poster card; a movie or a series opens its page through the screen's own `openTitle` event (the card's tap), anything else keeps Kino's page. */
+export const cardNode = (card, size, scope) => ({
+  type: "titleCard", key: `${scope}-${card.id}`, size, item: card,
+  ...(opensPage(card) ? { onTap: { event: "openTitle", arg: JSON.stringify(openArgs(card)) } } : {}),
+});
+
+/** A horizontal row of poster cards under [key]. */
+export const cardRow = (items, key, size) => ({ type: "SingleChildScrollView", key: key + "-s", direction: "horizontal", children: [{ type: "Row", key: key + "-r", gap: 12, children: items.map((c) => cardNode(c, size, key)) }] });
+
+/** A grid of poster cards. */
+export const cardGrid = (items, key) => ({ type: "GridView", key, columns: { compact: 3, expanded: 6 }, children: items.map((c) => cardNode(c, "medium", key)) });
+
+/** The args an `openTitle` event carries back into a route push: only the fields `openArgs` writes. */
+export function pushOf(arg) {
+  let a = null;
+  try { a = JSON.parse(String(arg)); } catch (_) { a = null; }
+  if (!a || typeof a.open !== "string" || typeof a.i !== "string" || (a.k !== "movie" && a.k !== "series")) return null;
+  return { push: "detail", params: { open: a.open, i: a.i, t: typeof a.t === "string" ? a.t.slice(0, 100) : "", k: a.k, d: Number(a.d) || 0, y: Number(a.y) || 0 } };
+}
 
 /** What the page needs of a card: its ref and id (Kino's page and the play go carry them back), its name, kind and year, and its TMDB id when it has one. */
 export function openArgs(card) {
@@ -196,7 +214,10 @@ export function detailView({ r, entry, season, logo, back }) {
         : sectionTitle("dEpisodes"));
       for (const ep of d.episodes.filter((e) => e.s === shown).slice(0, MAX_EPISODES)) body.push(episodeRow(d, r, ep));
     }
-    if (d.similar.length) body.push({ type: "titleRail", key: "dsimilar", ...twin("dSimilar", "title"), items: d.similar.map(withOpen), size: "medium" });
+    if (d.similar.length) {
+      body.push(sectionTitle("dSimilar"));
+      body.push(cardRow(d.similar, "dsimilar", "small"));
+    }
   }
   return {
     type: "Scaffold", appBar,

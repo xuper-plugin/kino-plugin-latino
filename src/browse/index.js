@@ -10,7 +10,7 @@
 // The state holds only `tab`, `pending` and `failed` (a few bytes); the trees live here, in memory.
 import { tabOf, recentOf, cardOf, playedKey, TAB_IDS } from "./model.js";
 import { browseView, searchView, settingsView, detailPage } from "./view.js";
-import { loadDetail } from "./detail.js";
+import { loadDetail, pushOf } from "./detail.js";
 import { makeMetaCache } from "./metaCache.js";
 
 const TAB_KEY = "browseTab";
@@ -150,6 +150,11 @@ export function makeBrowse({ kino, loadTab, searchTitles }) {
         out.state.season = null;
       }
       return out;
+    },
+    // A card of the list was tapped: its page goes over the list.
+    openTitle({ arg }) {
+      const route = pushOf(arg);
+      return route ? { route, state: { season: null } } : null;
     },
     // The page's timer: loads the title once, then no timer.
     async dtick({ route }) {

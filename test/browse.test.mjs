@@ -9,6 +9,8 @@ import manifest from "../kino-plugin.json" with { type: "json" };
 const all = (n, out = []) => { if (!n || typeof n !== "object") return out; out.push(n); for (const c of childNodes(n)) all(c, out); return out; };
 const byKey = (tree, key) => all(tree).find((n) => n.key === key) ?? null;
 const types = (tree) => all(tree).map((n) => n.type);
+/** A row of the list: a column of its heading and its poster cards (the plugin draws them itself so a card's tap can open its own page). */
+const rails = (tree) => all(tree).filter((n) => n.type === "col" && typeof n.key === "string" && (n.key === "recent" || n.key.startsWith("rail-")));
 
 const item = (kind, n, extra = {}) => ({
   id: `${kind}-${n}`, ref: `lm:${n}:${kind}:slug-${n}`, title: `Título ${kind} ${n}`, kind: kind === "tv" ? "series" : "movie",
@@ -58,7 +60,7 @@ test("before anything is kept: skeletons for the slider and the rails, three tab
   const r = await h.render();
   assert.deepEqual(r.dropped, []);
   assert.ok(types(r.tree).includes("skeleton"));
-  assert.ok(!types(r.tree).includes("pageView") && !types(r.tree).includes("titleRail"));
+  assert.ok(!types(r.tree).includes("pageView") && rails(r.tree).length === 0);
   assert.deepEqual(byKey(r.tree, "tabs").tabs.map((t) => t.value), ["inicio", "peliculas", "series"]);
   assert.equal((r.every || []).length, 0);
 });
@@ -75,7 +77,7 @@ test("open on a phone queues the active tab first then the others; the timer loa
   assert.ok(types(r.tree).includes("pageView"), "the featured slider");
   assert.equal(all(r.tree).find((n) => n.type === "pageView").autoPlayMs, 6000);
   assert.match(all(r.tree).find((n) => n.type === "pageView").key, /^hero\d+$/, "the slider's key carries its slide count");
-  assert.equal(all(r.tree).filter((n) => n.type === "titleRail").length, 2);
+  assert.equal(rails(r.tree).length, 2);
   await h.send("tick", { timer: true });
   await h.send("tick", { timer: true });
   assert.deepEqual(h.loaded, ["inicio", "peliculas", "series"]);
@@ -105,7 +107,7 @@ test("a tab loaded before paints at once on the next opening from its kept copy"
   await second.send("open");
   const r = await second.render();
   assert.deepEqual(r.dropped, []);
-  assert.ok(types(r.tree).includes("titleRail") && !types(r.tree).includes("skeleton"));
+  assert.ok(rails(r.tree).length > 0 && !types(r.tree).includes("skeleton"));
 });
 
 test("a tab that cannot load says so with a retry; the retry loads it again", async () => {
@@ -120,7 +122,7 @@ test("a tab that cannot load says so with a retry; the retry loads it again", as
   await h.send("retry");
   assert.equal(h.state.pending[0], "inicio");
   await h.send("tick", { timer: true });
-  assert.ok(types((await h.render()).tree).includes("titleRail"));
+  assert.ok(rails((await h.render()).tree).length > 0);
 });
 
 test("Continuar viendo: played titles come first, newest first, by ref or TMDB id; one that is not on screen is not shown", async () => {
@@ -133,10 +135,9 @@ test("Continuar viendo: played titles come first, newest first, by ref or TMDB i
   h.browse.notePlayed("x|lazy|copy");
   const r = await h.render();
   assert.deepEqual(r.dropped, []);
-  const rail = byKey(r.tree, "recent");
-  assert.equal(rail.title, "Continuar viendo");
-  assert.deepEqual(rail.items.map((i) => i.id), ["movie-1", "movie-3"]);
-  assert.equal(all(r.tree).filter((n) => n.type === "titleRail")[0].key, "recent");
+  assert.equal(byKey(r.tree, "recent-h").children[0].text, "Continuar viendo");
+  assert.deepEqual(all(byKey(r.tree, "recent-r")).filter((n) => n.type === "titleCard").map((n) => n.item.id), ["movie-1", "movie-3"]);
+  assert.equal(rails(r.tree)[0].key, "recent");
 });
 
 test("the floating button opens the search page; words show skeletons then a grid; empty page paints earlier finds; back returns", async () => {
@@ -157,14 +158,15 @@ test("the floating button opens the search page; words show skeletons then a gri
   assert.deepEqual(h.searched, ["dune"]);
   const done = await h.render();
   assert.deepEqual(done.dropped, []);
-  const grid = byKey(done.tree, "results");
-  assert.equal(grid.items.length, 2);
-  assert.equal(grid.items[1].adult, true, "Kino hides it unless the 18+ code is unlocked");
+  const cards = (key) => all(byKey(done.tree, key)).filter((n) => n.type === "titleCard");
+  const grid = cards("results");
+  assert.equal(grid.length, 2);
+  assert.equal(grid[1].item.adult, true, "Kino hides it unless the 18+ code is unlocked");
   await h.send("back");
   assert.equal(h.route(), "main");
   await h.send("openSearch");
   const again = await h.render();
-  assert.equal(byKey(again.tree, "history").items.length, 1, "the adult one was not kept");
+  assert.equal(all(byKey(again.tree, "history")).filter((n) => n.type === "titleCard").length, 1, "the adult one was not kept");
   await h.send("search", { value: { q: "otra" } });
   assert.equal(byKey((await h.render()).tree, "history"), null, "a real search replaces it");
 });

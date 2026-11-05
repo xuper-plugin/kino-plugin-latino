@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.4.2
+
+- Fix: a card of the list opens the new title page on every Kino that reads screens. The rows and the search grid are now drawn card by card, each with its own tap, instead of Kino's row component (whose items cannot open a page of the plugin's own); each row keeps its "Ver más".
+
 ## 2.4.1
 
 - Fix: the title page opens for the catalog's own titles too (their refs are not TMDB ones): it asks Kino for the title by its TMDB id when the card has one, else by its name and year, and a title Kino cannot match shows a retry and "Ver en Kino".
