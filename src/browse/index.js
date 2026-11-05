@@ -10,7 +10,7 @@
 // The state holds only `tab`, `pending` and `failed` (a few bytes); the trees live here, in memory.
 import { tabOf, recentOf, cardOf, playedKey, TAB_IDS } from "./model.js";
 import { browseView, searchView, settingsView, detailPage } from "./view.js";
-import { loadDetail, titleRefOf } from "./detail.js";
+import { loadDetail } from "./detail.js";
 import { makeMetaCache } from "./metaCache.js";
 
 const TAB_KEY = "browseTab";
@@ -114,8 +114,9 @@ export function makeBrowse({ kino, loadTab, searchTitles }) {
     if (ctx.route && ctx.route.name === "settings") return settingsView();
     if (ctx.route && ctx.route.name === "detail") {
       const p = paramsOf(ctx.route);
-      const t = titleRefOf(p.open);
-      if (t) return detailPage({ r: { ref: p.open, id: (t.kind === "movie" ? "m-" : "s-") + t.id }, entry: details.get(p.open) || null, season: Number(st.season) || 0 });
+      if (typeof p.open === "string" && typeof p.i === "string") {
+        return detailPage({ r: { ref: p.open, id: p.i, kind: p.k === "movie" ? "movie" : "series", title: typeof p.t === "string" ? p.t : "" }, entry: details.get(p.open) || null, season: Number(st.season) || 0 });
+      }
     }
     if (ctx.route && ctx.route.name === "search") {
       const query = typeof st.sq === "string" ? st.sq : "";
@@ -144,8 +145,8 @@ export function makeBrowse({ kino, loadTab, searchTitles }) {
       const out = { state: { tab, pending: needed(tab, device), failed: null } };
       // A card, a slide or a result asked for a title: its page goes over the list, so Back returns to it.
       const a = route && route.args && typeof route.args === "object" ? route.args : {};
-      if (typeof a.open === "string" && titleRefOf(a.open)) {
-        out.route = { push: "detail", params: { open: a.open, t: typeof a.t === "string" ? a.t.slice(0, 100) : "", k: a.k === "movie" ? "movie" : "series" } };
+      if (typeof a.open === "string" && typeof a.i === "string" && (a.k === "movie" || a.k === "series")) {
+        out.route = { push: "detail", params: { open: a.open, i: a.i, t: typeof a.t === "string" ? a.t.slice(0, 100) : "", k: a.k, d: Number(a.d) || 0, y: Number(a.y) || 0 } };
         out.state.season = null;
       }
       return out;
@@ -155,7 +156,7 @@ export function makeBrowse({ kino, loadTab, searchTitles }) {
       const p = paramsOf(route);
       if (typeof p.open !== "string" || details.has(p.open)) return { state: { dv: Date.now() } };
       try {
-        details.set(p.open, { d: await loadDetail({ open: p.open, t: p.t, k: p.k }) });
+        details.set(p.open, { d: await loadDetail({ t: p.t, k: p.k, d: p.d, y: p.y }) });
       } catch (e) {
         log("browse detail", (e && e.code) || "error");
         details.set(p.open, { d: null });

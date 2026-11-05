@@ -27,9 +27,17 @@ export function titleRefOf(ref) {
 }
 
 /** A card with the `open` that starts the screen again on its page; a card without a TMDB title ref keeps Kino's own page. */
-export const withOpen = (card) => (card && titleRefOf(card.ref) && card.kind !== "live"
-  ? { ...card, open: { screen: { args: { open: card.ref, t: String(card.title || "").slice(0, 100), k: card.kind } } } }
+export const withOpen = (card) => (card && (card.kind === "movie" || card.kind === "series") && typeof card.ref === "string" && card.ref.length < 600 && typeof card.id === "string"
+  ? { ...card, open: { screen: { args: openArgs(card) } } }
   : card);
+
+/** What the page needs of a card: its ref and id (Kino's page and the play go carry them back), its name, kind and year, and its TMDB id when it has one. */
+export function openArgs(card) {
+  const r = titleRefOf(card.ref);
+  const tmdb = r ? r.id : card.ids && Number.isInteger(card.ids.tmdb) ? card.ids.tmdb : 0;
+  const year = card.year ? num(card.year) : 0;
+  return { open: card.ref, i: card.id, t: String(card.title || "").slice(0, 100), k: card.kind, ...(tmdb ? { d: tmdb } : {}), ...(year ? { y: year } : {}) };
+}
 
 const hoursOf = (min) => {
   const m = num(min);
@@ -46,19 +54,20 @@ const dateText = (iso) => {
 };
 
 /**
- * What the page shows for [args] (`{ open: ref, t: title, k: kind }`): Kino's own answer for the title's ids (its TMDB id from
- * the ref, else its name), plus TMDB's similar titles. Throws when Kino knows nothing about it.
+ * What the page shows for [args] (`{ t: title, k: kind, d?: TMDB id, y?: year }`): Kino's own answer for the title's TMDB id when the
+ * card has one, else for its name and year, plus TMDB's similar titles. Throws when Kino knows nothing about it.
  */
 export async function loadDetail(args) {
-  const r = titleRefOf(args.open);
-  const kind = r ? r.kind : args.k === "movie" ? "movie" : "series";
+  const kind = args.k === "movie" ? "movie" : "series";
+  const tmdbId = Number(args.d) || 0;
+  const year = Number(args.y) || 0;
   let meta = null;
   if (typeof kino.meta === "function") {
-    if (r) meta = await kino.meta({ type: kind, ids: { tmdb: r.id } }).catch(() => null);
-    if (!meta && kino.meta.byTitle === true && args.t) meta = await kino.meta({ type: kind, title: args.t }).catch(() => null);
+    if (tmdbId) meta = await kino.meta({ type: kind, ids: { tmdb: tmdbId } }).catch(() => null);
+    if (!meta && kino.meta.byTitle === true && args.t) meta = await kino.meta({ type: kind, title: String(args.t), ...(year >= 1870 && year <= 2100 ? { year } : {}) }).catch(() => null);
   }
   if (!meta) throw Object.assign(new Error("no meta"), { code: "not_found" });
-  const ids = meta.ids || (r ? { tmdb: r.id } : {});
+  const ids = meta.ids || (tmdbId ? { tmdb: tmdbId } : {});
   const d = {
     kind,
     title: String(meta.title || args.t || "").slice(0, 200),
@@ -148,11 +157,12 @@ export function detailView({ r, entry, season, logo, back }) {
     body.push(heroSkeleton(), railSkeleton());
   } else if (!d) {
     body.push({ type: "MaterialBanner", key: "detailFailed", role: "error", ...twin("brFailed"), action: { ...twin("brRetry", "label"), onTap: "dretry" } });
+    body.push({ type: "ElevatedButton", key: "dkino", icon: "play", ...twin("dSeeInKino", "labelText"), onPressed: { go: { title: { ref: r.ref, kind: r.kind, id: r.id, title: r.title } } } });
   } else {
     const series = d.kind === "series";
     const seasons = [...new Set(d.episodes.map((e) => e.s))].sort((a, b) => a - b);
     const shown = seasons.includes(season) ? season : seasons[0];
-    const toKino = { go: { title: { ref: r.ref, kind: d.kind, id: r.id, title: d.title } } };
+    const toKino = { go: { title: { ref: r.ref, kind: d.kind, id: r.id, title: r.title || d.title } } };
     const buttons = series
       ? [{ type: "ElevatedButton", key: "dplay", ...twin("dSeriesGo", "labelText"), icon: "play", autofocus: true, onPressed: toKino }]
       : [

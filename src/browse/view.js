@@ -3,7 +3,7 @@
 import { both } from "../i18n.js";
 import { TAB_IDS } from "./model.js";
 import { LOGO_DATA, LOGO_ASPECT } from "./logo.js";
-import { detailView, titleRefOf, withOpen } from "./detail.js";
+import { detailView, openArgs, withOpen } from "./detail.js";
 
 const TAB_KEYS = { inicio: "tabHome", peliculas: "tabMovies", series: "tabSeries" };
 const POLL_MS = 1_500;
@@ -46,8 +46,8 @@ const slideNode = (s) => ({
     { type: "ElevatedButton", key: "watch-" + s.id, ...twin("brWatch", "labelText"), icon: "play",
       onPressed: { go: { play: { ref: s.ref, kind: s.kind, id: s.id, title: s.title } } } },
     { type: "TextButton", key: "info-" + s.id, ...twin("brInfo", "labelText"),
-      onPressed: titleRefOf(s.ref)
-        ? { go: { screen: { args: { open: s.ref, t: String(s.title).slice(0, 100), k: s.kind } } } }
+      onPressed: s.kind === "movie" || s.kind === "series"
+        ? { go: { screen: { args: openArgs(s) } } }
         : { go: { title: { ref: s.ref, kind: s.kind, id: s.id, title: s.title } } } },
   ],
 });

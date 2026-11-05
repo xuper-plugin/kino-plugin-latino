@@ -367,7 +367,7 @@ __export(streamwish_exports, {
 var kino_plugin_default = {
   id: "latino",
   name: "Latino",
-  version: "2.4.0",
+  version: "2.4.1",
   apiVersion: 9,
   panel: {
     label: "Latino",
@@ -2328,6 +2328,7 @@ var WORDS = {
     dCast: "Reparto",
     dEpisodes: "Episodios",
     dSimilar: "M\xE1s como esto",
+    dSeeInKino: "Ver en Kino",
     brInfo: "M\xE1s informaci\xF3n",
     brRecent: "Continuar viendo",
     brSearch: "Buscar",
@@ -2484,6 +2485,7 @@ var WORDS = {
     dCast: "Cast",
     dEpisodes: "Episodes",
     dSimilar: "More like this",
+    dSeeInKino: "Open in Kino",
     brInfo: "More info",
     brRecent: "Continue watching",
     brSearch: "Search",
@@ -3770,7 +3772,13 @@ function titleRefOf(ref) {
   const m = /^([ms]):(\d{1,10})$/.exec(String(ref || ""));
   return m ? { kind: m[1] === "m" ? "movie" : "series", id: Number(m[2]) } : null;
 }
-var withOpen = (card) => card && titleRefOf(card.ref) && card.kind !== "live" ? { ...card, open: { screen: { args: { open: card.ref, t: String(card.title || "").slice(0, 100), k: card.kind } } } } : card;
+var withOpen = (card) => card && (card.kind === "movie" || card.kind === "series") && typeof card.ref === "string" && card.ref.length < 600 && typeof card.id === "string" ? { ...card, open: { screen: { args: openArgs(card) } } } : card;
+function openArgs(card) {
+  const r = titleRefOf(card.ref);
+  const tmdb2 = r ? r.id : card.ids && Number.isInteger(card.ids.tmdb) ? card.ids.tmdb : 0;
+  const year2 = card.year ? num(card.year) : 0;
+  return { open: card.ref, i: card.id, t: String(card.title || "").slice(0, 100), k: card.kind, ...tmdb2 ? { d: tmdb2 } : {}, ...year2 ? { y: year2 } : {} };
+}
 var hoursOf = (min) => {
   const m = num(min);
   return m > 0 ? m >= 60 ? `${Math.floor(m / 60)} h${m % 60 ? ` ${m % 60} min` : ""}` : `${m} min` : "";
@@ -3784,15 +3792,16 @@ var dateText = (iso) => {
   return m >= 1 && m <= 12 ? { es: `${d} ${MONTHS.es[m - 1]} ${y}`, en: `${MONTHS.en[m - 1]} ${d}, ${y}` } : { es: iso, en: iso };
 };
 async function loadDetail(args) {
-  const r = titleRefOf(args.open);
-  const kind = r ? r.kind : args.k === "movie" ? "movie" : "series";
+  const kind = args.k === "movie" ? "movie" : "series";
+  const tmdbId = Number(args.d) || 0;
+  const year2 = Number(args.y) || 0;
   let meta = null;
   if (typeof kino.meta === "function") {
-    if (r) meta = await kino.meta({ type: kind, ids: { tmdb: r.id } }).catch(() => null);
-    if (!meta && kino.meta.byTitle === true && args.t) meta = await kino.meta({ type: kind, title: args.t }).catch(() => null);
+    if (tmdbId) meta = await kino.meta({ type: kind, ids: { tmdb: tmdbId } }).catch(() => null);
+    if (!meta && kino.meta.byTitle === true && args.t) meta = await kino.meta({ type: kind, title: String(args.t), ...year2 >= 1870 && year2 <= 2100 ? { year: year2 } : {} }).catch(() => null);
   }
   if (!meta) throw Object.assign(new Error("no meta"), { code: "not_found" });
-  const ids = meta.ids || (r ? { tmdb: r.id } : {});
+  const ids = meta.ids || (tmdbId ? { tmdb: tmdbId } : {});
   const d = {
     kind,
     title: String(meta.title || args.t || "").slice(0, 200),
@@ -3887,11 +3896,12 @@ function detailView({ r, entry, season, logo: logo2, back }) {
     body.push(heroSkeleton(), railSkeleton());
   } else if (!d) {
     body.push({ type: "MaterialBanner", key: "detailFailed", role: "error", ...twin("brFailed"), action: { ...twin("brRetry", "label"), onTap: "dretry" } });
+    body.push({ type: "ElevatedButton", key: "dkino", icon: "play", ...twin("dSeeInKino", "labelText"), onPressed: { go: { title: { ref: r.ref, kind: r.kind, id: r.id, title: r.title } } } });
   } else {
     const series = d.kind === "series";
     const seasons = [...new Set(d.episodes.map((e) => e.s))].sort((a, b) => a - b);
     const shown = seasons.includes(season) ? season : seasons[0];
-    const toKino = { go: { title: { ref: r.ref, kind: d.kind, id: r.id, title: d.title } } };
+    const toKino = { go: { title: { ref: r.ref, kind: d.kind, id: r.id, title: r.title || d.title } } };
     const buttons = series ? [{ type: "ElevatedButton", key: "dplay", ...twin("dSeriesGo", "labelText"), icon: "play", autofocus: true, onPressed: toKino }] : [
       { type: "ElevatedButton", key: "dplay", ...twin("brWatch", "labelText"), icon: "play", autofocus: true, onPressed: { go: { play: { ref: r.ref, kind: "movie", id: r.id, title: d.title } } } },
       { type: "TextButton", key: "dmore", ...twin("dMore", "labelText"), onPressed: toKino }
@@ -4001,7 +4011,7 @@ var slideNode = (s) => ({
       type: "TextButton",
       key: "info-" + s.id,
       ...twin2("brInfo", "labelText"),
-      onPressed: titleRefOf(s.ref) ? { go: { screen: { args: { open: s.ref, t: String(s.title).slice(0, 100), k: s.kind } } } } : { go: { title: { ref: s.ref, kind: s.kind, id: s.id, title: s.title } } }
+      onPressed: s.kind === "movie" || s.kind === "series" ? { go: { screen: { args: openArgs(s) } } } : { go: { title: { ref: s.ref, kind: s.kind, id: s.id, title: s.title } } }
     }
   ]
 });
@@ -4312,8 +4322,9 @@ function makeBrowse({ kino: kino2, loadTab, searchTitles: searchTitles2 }) {
     if (ctx.route && ctx.route.name === "settings") return settingsView();
     if (ctx.route && ctx.route.name === "detail") {
       const p = paramsOf(ctx.route);
-      const t2 = titleRefOf(p.open);
-      if (t2) return detailPage({ r: { ref: p.open, id: (t2.kind === "movie" ? "m-" : "s-") + t2.id }, entry: details2.get(p.open) || null, season: Number(st.season) || 0 });
+      if (typeof p.open === "string" && typeof p.i === "string") {
+        return detailPage({ r: { ref: p.open, id: p.i, kind: p.k === "movie" ? "movie" : "series", title: typeof p.t === "string" ? p.t : "" }, entry: details2.get(p.open) || null, season: Number(st.season) || 0 });
+      }
     }
     if (ctx.route && ctx.route.name === "search") {
       const query = typeof st.sq === "string" ? st.sq : "";
@@ -4342,8 +4353,8 @@ function makeBrowse({ kino: kino2, loadTab, searchTitles: searchTitles2 }) {
       for (const t2 of TAB_IDS) dataOf(t2);
       const out = { state: { tab, pending: needed(tab, device), failed: null } };
       const a = route && route.args && typeof route.args === "object" ? route.args : {};
-      if (typeof a.open === "string" && titleRefOf(a.open)) {
-        out.route = { push: "detail", params: { open: a.open, t: typeof a.t === "string" ? a.t.slice(0, 100) : "", k: a.k === "movie" ? "movie" : "series" } };
+      if (typeof a.open === "string" && typeof a.i === "string" && (a.k === "movie" || a.k === "series")) {
+        out.route = { push: "detail", params: { open: a.open, i: a.i, t: typeof a.t === "string" ? a.t.slice(0, 100) : "", k: a.k, d: Number(a.d) || 0, y: Number(a.y) || 0 } };
         out.state.season = null;
       }
       return out;
@@ -4353,7 +4364,7 @@ function makeBrowse({ kino: kino2, loadTab, searchTitles: searchTitles2 }) {
       const p = paramsOf(route);
       if (typeof p.open !== "string" || details2.has(p.open)) return { state: { dv: Date.now() } };
       try {
-        details2.set(p.open, { d: await loadDetail({ open: p.open, t: p.t, k: p.k }) });
+        details2.set(p.open, { d: await loadDetail({ t: p.t, k: p.k, d: p.d, y: p.y }) });
       } catch (e) {
         log("browse detail", e && e.code || "error");
         details2.set(p.open, { d: null });

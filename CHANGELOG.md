@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.4.1
+
+- Fix: the title page opens for the catalog's own titles too (their refs are not TMDB ones): it asks Kino for the title by its TMDB id when the card has one, else by its name and year, and a title Kino cannot match shows a retry and "Ver en Kino".
+
 ## 2.4.0
 
 - The browse screen has its own title page: a card, a slide or a result opens a banner with the title's logo, its facts, synopsis, cast, the seasons with every episode and its still, and similar titles. Back returns to the list. Kino's own page stays one press away ("Más opciones" on a movie, "Ver episodios" on a series, and an episode), where the player's sources, favourites, lists and downloads live. A title that is not a TMDB one keeps opening Kino's page.
