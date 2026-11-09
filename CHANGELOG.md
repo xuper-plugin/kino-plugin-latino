@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.4.6
+
+- Seriesflix works again: the site moved from seriesflixhd.pw to seriesflixhd.boats (every old name redirects there and Kino checks every hop, so the new origin is declared and asked directly).
+
 ## 2.4.5
 
 - Faster opening: the Inicio tab is drawn at once from the rows Home already kept, and a tab's kept copy is shown for up to 7 days (refreshed behind) instead of falling back to skeletons after 12 hours.
