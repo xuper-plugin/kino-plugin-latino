@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.4.5
+
+- Faster opening: the Inicio tab is drawn at once from the rows Home already kept, and a tab's kept copy is shown for up to 7 days (refreshed behind) instead of falling back to skeletons after 12 hours.
+
 ## 2.4.4
 
 - The title page's banner is a slider of the title's pictures (TMDB backdrops) when there is more than one.

@@ -367,7 +367,7 @@ __export(streamwish_exports, {
 var kino_plugin_default = {
   id: "latino",
   name: "Latino",
-  version: "2.4.4",
+  version: "2.4.5",
   apiVersion: 9,
   panel: {
     label: "Latino",
