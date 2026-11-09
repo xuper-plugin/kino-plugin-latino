@@ -4255,7 +4255,8 @@ function makeMetaCache({ kino: kino2, clock = { now: () => Date.now() } }) {
 // src/browse/index.js
 var TAB_KEY = "browseTab";
 var SNAP_PREFIX = "browse1:";
-var SNAP_TTL_MS = 12 * 3600 * 1e3;
+var SNAP_TTL_MS = 7 * 24 * 3600 * 1e3;
+var HOME_KEY = "home1";
 var SNAP_MAX = 20 * 1024;
 var RECENT_KEY = "recent1";
 var RECENT_MAX = 12;
@@ -4308,6 +4309,15 @@ function makeBrowse({ kino: kino2, loadTab, searchTitles: searchTitles2 }) {
       }
     }
   }
+  function homeSeed(tab) {
+    if (tab !== "inicio") return null;
+    try {
+      const o = JSON.parse(get(HOME_KEY) || "null");
+      return o && Array.isArray(o.rows) && o.rows.length ? tabOf({ rows: o.rows }) : null;
+    } catch (_) {
+      return null;
+    }
+  }
   const stored = () => {
     const t2 = get(TAB_KEY);
     return TAB_IDS.includes(t2) ? t2 : null;
@@ -4315,7 +4325,7 @@ function makeBrowse({ kino: kino2, loadTab, searchTitles: searchTitles2 }) {
   const remember = (tab) => set(TAB_KEY, tab);
   function dataOf(tab) {
     if (memo2.has(tab)) return memo2.get(tab).data;
-    const snap = readSnap(tab);
+    const snap = readSnap(tab) || homeSeed(tab);
     if (snap) {
       memo2.set(tab, { data: snap, whole: false });
       return snap;
@@ -5018,7 +5028,7 @@ async function search2(query) {
   const sorted = lean ? [...items.filter((i) => i.kind === lean), ...items.filter((i) => i.kind !== lean)] : items;
   return sorted.slice(0, 100);
 }
-var HOME_KEY = "home1";
+var HOME_KEY2 = "home1";
 var HOME_STALE_MS = 12 * 3600 * 1e3;
 var HOME_CACHE_MAX = 60 * 1024;
 var HOME_GUARD_MS = 12e3;
@@ -5027,7 +5037,7 @@ function saveHome(kino2, rows3) {
     for (let per = 20; per >= 4; per -= 4) {
       const text5 = JSON.stringify({ at: Date.now(), rows: rows3.map((r) => ({ ...r, items: r.items.slice(0, per) })) });
       if (text5.length <= HOME_CACHE_MAX) {
-        kino2.storage.set(HOME_KEY, text5, { ttlMs: HOME_STALE_MS });
+        kino2.storage.set(HOME_KEY2, text5, { ttlMs: HOME_STALE_MS });
         return;
       }
     }
@@ -5036,7 +5046,7 @@ function saveHome(kino2, rows3) {
 }
 function savedHome(kino2) {
   try {
-    const s = JSON.parse(kino2.storage.get(HOME_KEY) || "null");
+    const s = JSON.parse(kino2.storage.get(HOME_KEY2) || "null");
     return s && Array.isArray(s.rows) && s.rows.length && Date.now() - s.at < HOME_STALE_MS ? s.rows : null;
   } catch (_) {
     return null;
