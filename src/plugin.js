@@ -351,3 +351,10 @@ export async function validateSettings(values) {
   return SOURCES.some((s) => on[s.id] !== false) ? null : t("keepOneSource", kino);
 }
 export { panel, panelAction, playerEvent } from "./panel/index.js";
+
+// Kino waits for every request a call left running before it delivers the call's answer (quickjs-kt joins the pending async work), so a Home that
+// gave up on a slow row at its own budget was still held until that row's request ended, or retried: measured on users' devices Home ran 21-34 s
+// with rows logged as "skipped: its source did not answer in time", and Kino threw the whole answer away at 20 s. Asking Kino to drop what a call
+// leaves running (the prelude reads this flag after every call; Kino 0.9.55 and later, an older one ignores it) lets the answer leave at the budget.
+globalThis.__kinoDropPendingFetches = true;
+

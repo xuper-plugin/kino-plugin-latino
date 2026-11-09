@@ -367,7 +367,7 @@ __export(streamwish_exports, {
 var kino_plugin_default = {
   id: "latino",
   name: "Latino",
-  version: "2.4.6",
+  version: "2.4.7",
   apiVersion: 9,
   panel: {
     label: "Latino",
@@ -5261,6 +5261,7 @@ async function validateSettings(values) {
   const on = normalizeSettings({ enabled }).enabled;
   return SOURCES.some((s) => on[s.id] !== false) ? null : t("keepOneSource", kino2);
 }
+globalThis.__kinoDropPendingFetches = true;
 export {
   SPORTS_LIST,
   action,
