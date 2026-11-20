@@ -7,7 +7,7 @@
 
 import { SOURCES } from "./sources/index.js";
 import { serverFromHost, HLS_MIME } from "./util/servers.js";
-import { resolveViaHelper } from "./resolve-door.js";
+import { resolveViaHelper, resolverInstalled } from "./resolve-door.js";
 import { makeRequester, requestPool, UA } from "./util/http.js";
 import { t, tf, langOf } from "./i18n.js";
 import { missingOf } from "./sources/wpapi.js";
@@ -468,6 +468,9 @@ export async function resolveTitle(kino, title, settings, { sources = SOURCES, e
     }
     // Nothing opened: embeds from the cache may be stale, so the next call asks the sources again.
     if (cached) { try { kino.storage.remove(key); } catch (_) { /* no cache to drop */ } }
+    // Latino falls back to its own WebView capture, so it degrades without the engine rather than failing; but
+    // when even that opened nothing AND the resolver is not installed, the one useful thing to say is: install it.
+    if (!(await resolverInstalled(kino))) throw kino.error("unavailable", "resolver missing", { userMessage: t("needResolver", kino) });
     throw kino.error("not_found", `no copy opened (${tries + (first ? 1 : 0)} tried)`, { userMessage: t("noPlayable", kino) });
   }
   noteChoice(kino, ref, { total: pool.length, order: set.preferred, chosen: label(kino, main.e, nameOf(main.e)), rest: rest.map((e) => label(kino, e, nameOf(e))) });

@@ -1486,12 +1486,20 @@ async function resolveViaHelper(e, kino2, source) {
     ...subtitles.length ? { subtitles } : {}
   };
 }
+async function resolverInstalled(kino2) {
+  try {
+    await kino2.plugins.call(RESOLVER_ALIAS, "normalizeHost", { url: "https://probe.invalid/" });
+    return true;
+  } catch (err) {
+    return (err && err.code) !== "provider_missing";
+  }
+}
 
 // kino-plugin.json
 var kino_plugin_default = {
   id: "latino",
   name: "Latino",
-  version: "2.5.1",
+  version: "2.5.2",
   apiVersion: 20,
   recommends: [
     "xuper-plugin/kino-plugin-kino-resolver"
@@ -1943,6 +1951,7 @@ var WORDS = {
     sourcesDown: "Las fuentes en espa\xF1ol no responden ahora.",
     tmdbDown: "TMDB no responde ahora. Intenta de nuevo en un rato.",
     noPlayable: "Encontr\xE9 el t\xEDtulo, pero ninguna copia abri\xF3. Intenta de nuevo en un rato.",
+    needResolver: "Para reproducir, abre Latino desde el men\xFA e instala el motor de reproducci\xF3n que te pedir\xE1.",
     copyFailed: "Esta copia no abri\xF3. Prueba con otro servidor.",
     lat: "Latino",
     esp: "Castellano",
@@ -2101,6 +2110,7 @@ var WORDS = {
     sourcesDown: "The Spanish sources aren't answering right now.",
     tmdbDown: "TMDB isn't answering right now. Try again in a while.",
     noPlayable: "I found the title, but no copy opened. Try again in a while.",
+    needResolver: "To play, open Latino from the menu and install the playback engine it asks for.",
     copyFailed: "This copy didn't open. Try another server.",
     lat: "Latin Spanish",
     esp: "Spain Spanish",
@@ -2815,6 +2825,7 @@ async function resolveTitle(kino2, title, settings, { sources = SOURCES, extract
       } catch (_) {
       }
     }
+    if (!await resolverInstalled(kino2)) throw kino2.error("unavailable", "resolver missing", { userMessage: t("needResolver", kino2) });
     throw kino2.error("not_found", `no copy opened (${tries + (first ? 1 : 0)} tried)`, { userMessage: t("noPlayable", kino2) });
   }
   noteChoice(kino2, ref, { total: pool.length, order: set.preferred, chosen: label(kino2, main.e, nameOf(main.e)), rest: rest.map((e) => label(kino2, e, nameOf(e))) });
