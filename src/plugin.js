@@ -12,6 +12,7 @@
 
 import { titleContext, searchTitles, episodeList } from "./tmdb.js";
 import { resolveTitle, resolveLazy, listEmbeds, normalizeSettings } from "./resolver.js";
+import { RESOLVER_REPO } from "./resolve-door.js";
 import { readSettings, sourceOn } from "./settings.js";
 import { SOURCES } from "./sources/index.js";
 import { healthLine, readHealth } from "./health.js";
@@ -257,10 +258,30 @@ const browseScreen = () => (browseInstance ??= makeBrowse({
   searchTitles: (q) => search({ q }),
 }));
 
+/** The install gate: shown as the first screen while the kino-resolver (the playback engine Latino now
+ *  delegates every hoster to) is not installed. Once it is, screen() goes straight to the browse screen. */
+function installGateView() {
+  return {
+    type: "Scaffold", key: "latino-install",
+    body: { type: "SingleChildScrollView", key: "installScroll", children: [
+      { type: "Column", padding: 24, gap: 16, crossAxisAlignment: "stretch", children: [
+        { type: "Text", text: "Necesitas el motor de reproducción", textEn: "You need the playback engine", style: "h3" },
+        { type: "Text", color: "secondary",
+          text: "Latino reproduce a través de Kino Resolver (gratis). Instálalo una vez y sirve para este y para otros plugins de sitios.",
+          textEn: "Latino plays through Kino Resolver (free). Install it once and it works here and in other site plugins." },
+        { type: "ElevatedButton", key: "installResolver", labelText: "Instalar Kino Resolver", labelTextEn: "Install Kino Resolver",
+          onPressed: { go: { installPlugin: { repo: RESOLVER_REPO } } } },
+      ] },
+    ] },
+  };
+}
+
 /** `screen(ctx)`: the plugin's own browse screen (a pure view: it draws what it holds and never waits for a source). */
 export async function screen(ctx) {
   await null;
-  return browseScreen().view(ctx && typeof ctx === "object" ? ctx : {});
+  const c = ctx && typeof ctx === "object" ? ctx : {};
+  if (!(c.installed && c.installed[RESOLVER_REPO])) return installGateView();
+  return browseScreen().view(c);
 }
 
 /** `screenEvent(ev)`: the screen's events (its timers load a tab or a search, one per call). */

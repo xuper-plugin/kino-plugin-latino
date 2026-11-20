@@ -2,7 +2,6 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { SOURCES } from "../src/sources/index.js";
-import { HOSTS as EXTRACTOR_HOSTS } from "../src/extractors/index.js";
 import { readSettings } from "../src/settings.js";
 import { hostDeclared } from "../src/util/hosts.js";
 import { fetchAnyHost, validateManifest } from "../sdk/contract.mjs";
@@ -37,8 +36,8 @@ const fromSource = () => {
 test("hosts audit: every hostname in src/ that can be fetched is declared", () => {
   const found = fromSource();
   for (const s of SOURCES) for (const h of s.HOSTS || []) found.add(h);
-  for (const h of EXTRACTOR_HOSTS) found.add(h);
-  // Known redirect targets and hosts only reached through other pages.
+  // Hoster hosts: resolution now lives in the kino-resolver, but these stay declared so Latino's own WebView
+  // capture fallback (for a gated host the resolver's inline pass can't crack) can still open them.
   for (const h of ["nupload.my", "vibuxer.com", "morencius.com", "a.goodstream.one", "cdn.goodstream.one", "archive.org", "ia800000.us.archive.org",
     "ok.ru", "m.ok.ru"]) found.add(h);
   // VOE's and Nupload's rotating domains are never fetched: VOE goes through the hidden browser (or fetchAnyHost),

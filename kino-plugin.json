@@ -1,8 +1,18 @@
 {
   "id": "latino",
   "name": "Latino",
-  "version": "2.4.7",
-  "apiVersion": 9,
+  "version": "2.5.0",
+  "apiVersion": 20,
+  "recommends": [
+    "xuper-plugin/kino-plugin-kino-resolver"
+  ],
+  "consumes": {
+    "resolver": {
+      "repo": "xuper-plugin/kino-plugin-kino-resolver",
+      "door": "resolver",
+      "calls": ["resolve", "normalizeHost"]
+    }
+  },
   "panel": {
     "label": "Latino",
     "labelEn": "Latino",
@@ -93,7 +103,8 @@
     "resolve",
     "scopedSearch",
     "download",
-    "channels"
+    "channels",
+    "screen"
   ],
   "streamHosts": "any",
   "categories": [
@@ -303,31 +314,19 @@
     }
   ],
   "liveStreamHosts": "any",
-  "enhancements": {
-    "14": {
-      "capabilities": [
-        "screen"
-      ],
-      "screen": {
-        "label": "Latino",
-        "labelEn": "Latino",
-        "icon": "movie",
-        "menuOpens": "screen",
-        "opensFrom": [
-          "menu",
-          "settings"
-        ],
-        "settingsButton": {
-          "label": "Abrir Latino",
-          "labelEn": "Open Latino"
-        },
-        "settingsIn": "screen"
-      }
+  "screen": {
+    "label": "Latino",
+    "labelEn": "Latino",
+    "icon": "movie",
+    "menuOpens": "screen",
+    "opensFrom": [
+      "menu",
+      "settings"
+    ],
+    "settingsButton": {
+      "label": "Abrir Latino",
+      "labelEn": "Open Latino"
     },
-    "19": {
-      "capabilities": [
-        "screen"
-      ]
-    }
+    "settingsIn": "screen"
   }
 }

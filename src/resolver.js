@@ -6,14 +6,14 @@
 // most 45 s. A copy gets 6 s to open, except a VOE copy on a Kino that can capture: 14 s (a 12 s capture, see voe.js).
 
 import { SOURCES } from "./sources/index.js";
-import { extractorFor } from "./extractors/index.js";
-import { HLS_MIME } from "./extractors/shared.js";
+import { serverFromHost, HLS_MIME } from "./util/servers.js";
+import { resolveViaHelper } from "./resolve-door.js";
 import { makeRequester, requestPool, UA } from "./util/http.js";
 import { t, tf, langOf } from "./i18n.js";
 import { missingOf } from "./sources/wpapi.js";
 import { recordRun } from "./health.js";
 import { within, waitFor, BROWSER_RESOLVE_MS } from "./util/time.js";
-import { canCapture } from "./extractors/voe.js";
+const canCapture = (kino) => !!(kino && kino.browser);
 import { writeLast } from "./panel/state.js";
 
 export const LANGS = ["lat", "esp", "sub"];
@@ -232,7 +232,7 @@ export function pickLanguage(embeds, preferred) {
 /** The server an embed really is: its extractor when its host is known, else what the source called it. */
 /** A copy that is the stream itself: "direct" (its source's ORIGIN as Referer) or "direct-<profile>" (see directStream). */
 const isDirect = (e) => e.server === "direct" || e.server.startsWith("direct-");
-const serverOf = (e) => (isDirect(e) ? "direct" : (extractorFor(e.embedUrl) || {}).name || e.server);
+const serverOf = (e) => (isDirect(e) ? "direct" : serverFromHost(e.embedUrl) || e.server);
 
 /** Best first: copies above `maxQuality` last, then by server tier, then by quality (1080p first, 4K last). */
 export function rank(embeds, { maxQuality = "auto", avoid = [] } = {}) {
@@ -287,11 +287,13 @@ function directStream(e, source) {
 /** The real extraction: direct copies as they are, others through their host's extractor. */
 export async function defaultExtract(e, req, kino, source) {
   if (isDirect(e)) return directStream(e, source);
-  const ex = extractorFor(e.embedUrl);
-  return ex ? ex.extract(e.embedUrl, req, kino) : null;
+  // Hoster embeds go to the shared kino-resolver (inline), with a WebView capture fallback. `req` is kept
+  // for the signature attempt() calls with; the helper does its own fetching in the resolver's own budget.
+  return resolveViaHelper(e, kino, source);
 }
-/** Which embeds the default extraction can play: direct ones and known hosts; the rest are never offered. */
-defaultExtract.accepts = (e) => isDirect(e) || !!extractorFor(e.embedUrl);
+/** Which embeds the default extraction can offer: direct ones and any http(s) embed — the kino-resolver and
+ *  the browser fallback decide at resolve time what actually plays, so no host is turned away up front. */
+defaultExtract.accepts = (e) => isDirect(e) || /^https?:\/\//i.test(e.embedUrl || "");
 
 /** The whole resolve's own cap: 18.5 s, or 43.5 s when the hidden browser is approved. */
 export const callLimitMs = (kino) => (kino && kino.browser ? BROWSER_CALL_MS : CALL_MS);
@@ -300,7 +302,7 @@ export const callLimitMs = (kino) => (kino && kino.browser ? BROWSER_CALL_MS : C
  * How long one copy may take to open: 6 s; a VOE copy 14 s on a Kino that can capture, since its rotating domain is
  * only reachable through the hidden browser. Kino's automatic switch waits 20 s for a lazy copy: both fit.
  */
-export const attemptMs = (kino, e) => (serverOf(e) === "voe" && canCapture(kino) ? VOE_ATTEMPT_MS : EXTRACT.deadlineMs);
+export const attemptMs = (kino, e) => (canCapture(kino) ? VOE_ATTEMPT_MS : EXTRACT.deadlineMs);
 
 /** One extraction attempt, bounded by its own requester and `untilMs`; null on any failure. */
 async function attempt(kino, extract, e, source, untilMs, pools = []) {

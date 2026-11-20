@@ -1,5 +1,5 @@
 // Shared plumbing for the two sites that run the same WordPress theme and JSON API (LaMovie, HackStore).
-import { extractorFor } from "../extractors/index.js";
+import { serverFromHost } from "../util/servers.js";
 import { slugify } from "../util/slug.js";
 import { normLang } from "../util/lang.js";
 import { qualityOf } from "../util/quality.js";
@@ -115,9 +115,9 @@ export function toEmbeds(source, rows) {
     if (typeof embedUrl !== "string" || !/^https?:\/\//i.test(embedUrl)) continue;
     const lang = normLang(row.lang);
     if (!lang) continue;
-    const known = extractorFor(embedUrl);
+    const known = serverFromHost(embedUrl);
     const label = String(row.server || "").trim().toLowerCase();
-    const server = known ? known.name : label && label !== "online" ? label : hostLabel(embedUrl);
+    const server = known || (label && label !== "online" ? label : hostLabel(embedUrl));
     out.push({ source, lang, server, embedUrl, quality: qualityOf(row.quality) });
   }
   return out;
