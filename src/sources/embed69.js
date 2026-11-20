@@ -1,6 +1,7 @@
 // Embed69: https://embed69.org/f/<imdb>[-<s>x<ee>] lists, per language, hosts whose links are AES-256-CBC encrypted; the key
 // comes from a small proof of work whose challenge, difficulty and salt sit in the page.
 import { orEmpty, toEmbeds } from "./wpapi.js";
+import { getThroughAnubis, passAnubis } from "./anubis.js";
 
 export const id = "embed69";
 export const name = "Embed69";
@@ -42,9 +43,10 @@ export async function list(title, { kino, req }) {
   if (tv && (title.season == null || title.episode == null)) return [];
   const path = tv ? `${title.imdbId}-${Number(title.season)}x${String(title.episode).padStart(2, "0")}` : title.imdbId;
   return orEmpty(async () => {
-    const r = await req(`${SITE}/f/${path}`, { headers: HEADERS });
-    if (!r.ok) return [];
-    const html = r.text();
+    // embed69 sits behind Anubis (a proof-of-work anti-bot) since 2026-11: getThroughAnubis solves it in the
+    // background so a plain fetch reads the page. The partner Referer (HEADERS) is what embed69 answers past the gate.
+    const html = await getThroughAnubis(kino, req, `${SITE}/f/${path}`, { headers: HEADERS });
+    if (html == null) return [];
     const data = /let\s+dataLink\s*=\s*(\[.+\]);/.exec(html);
     // Embed69 dropped the proof of work (2026-11): the AES-256 key is now SHA-256(LINK_CHALLENGE + LINK_SALT) and
     // each decrypted link is wrapped in backticks. (Was POW_CHALLENGE/POW_SALT/POW_DIFFICULTY + a PoW nonce.)
@@ -68,18 +70,17 @@ export async function list(title, { kino, req }) {
  * Whether the site lists an episode (for the episodes page; no proof of work): true when its page carries links,
  * false when the site says it has no such folder (or 404), null when it cannot tell. Network errors propagate.
  */
-export async function hasEpisode(title, season, episode, { req }) {
+export async function hasEpisode(title, season, episode, { kino, req }) {
   if (!title.imdbId) return false;
-  let r;
+  let res;
   try {
-    r = await req(`${SITE}/f/${title.imdbId}-${Number(season)}x${String(episode).padStart(2, "0")}`, { headers: HEADERS, retry: false });
+    res = await passAnubis(kino, req, `${SITE}/f/${title.imdbId}-${Number(season)}x${String(episode).padStart(2, "0")}`, { headers: HEADERS, retry: false });
   } catch (e) {
     if (e && e.local) return null;
     throw e;
   }
-  if (r.status === 404) return false;
-  if (!r.ok) return null;
-  const html = r.text();
-  if (/let\s+dataLink\s*=\s*\[/.test(html)) return true;
-  return /^\s*\{\s*"error"\s*:/.test(html) ? false : null;
+  if (res.status === 404) return false;
+  if (!res.ok) return null;
+  if (/let\s+dataLink\s*=\s*\[/.test(res.html)) return true;
+  return /^\s*\{\s*"error"\s*:/.test(res.html) ? false : null;
 }

@@ -999,6 +999,60 @@ __export(embed69_exports, {
   name: () => name6,
   solvePow: () => solvePow
 });
+
+// src/sources/anubis.js
+var API3 = "/.within.website/x/cmd/anubis/api/pass-challenge";
+function anubisChallenge(html) {
+  const m = /<script id="anubis_challenge"[^>]*>([\s\S]*?)<\/script>/.exec(String(html || ""));
+  if (!m) return null;
+  let j;
+  try {
+    j = JSON.parse(m[1]);
+  } catch (_) {
+    return null;
+  }
+  const c = j && j.challenge, r = j && j.rules;
+  if (!c || typeof c.randomData !== "string" || typeof c.id !== "string" || !r) return null;
+  const difficulty = Number(r.difficulty);
+  if (!Number.isInteger(difficulty) || difficulty < 1 || difficulty > 6) return null;
+  return { data: c.randomData, id: c.id, difficulty };
+}
+function solveAnubis(kino2, data, difficulty) {
+  const zeros = "0".repeat(difficulty);
+  for (let nonce = 0; nonce < 2e7; nonce++) {
+    const hash = kino2.crypto.hash("sha256", data + nonce);
+    if (hash.startsWith(zeros)) return { hash, nonce };
+  }
+  return null;
+}
+async function passAnubis(kino2, req, url, opts) {
+  const started = Date.now();
+  let r = await req(url, opts);
+  let html = r.ok ? await r.text() : "";
+  const ch = r.ok ? anubisChallenge(html) : null;
+  if (ch) {
+    const sol = solveAnubis(kino2, ch.data, ch.difficulty);
+    if (sol) {
+      const origin = new URL(url).origin;
+      const elapsed = Math.max(1e3, Date.now() - started);
+      const pass = `${origin}${API3}?id=${encodeURIComponent(ch.id)}&response=${sol.hash}&nonce=${sol.nonce}&redir=${encodeURIComponent(url)}&elapsedTime=${elapsed}`;
+      try {
+        const rp = await req(pass, opts);
+        if (rp && typeof rp.text === "function") await rp.text();
+      } catch (_) {
+      }
+      r = await req(url, opts);
+      html = r.ok ? await r.text() : "";
+    }
+  }
+  return { ok: r.ok, status: r.status, html };
+}
+async function getThroughAnubis(kino2, req, url, opts) {
+  const res = await passAnubis(kino2, req, url, opts);
+  return res.ok ? res.html : null;
+}
+
+// src/sources/embed69.js
 var id6 = "embed69";
 var name6 = "Embed69";
 var kinds6 = ["movie", "tv"];
@@ -1028,9 +1082,8 @@ async function list6(title, { kino: kino2, req }) {
   if (tv && (title.season == null || title.episode == null)) return [];
   const path = tv ? `${title.imdbId}-${Number(title.season)}x${String(title.episode).padStart(2, "0")}` : title.imdbId;
   return orEmpty(async () => {
-    const r = await req(`${SITE6}/f/${path}`, { headers: HEADERS });
-    if (!r.ok) return [];
-    const html = r.text();
+    const html = await getThroughAnubis(kino2, req, `${SITE6}/f/${path}`, { headers: HEADERS });
+    if (html == null) return [];
     const data = /let\s+dataLink\s*=\s*(\[.+\]);/.exec(html);
     const challenge = quoted(html, "LINK_CHALLENGE"), salt = quoted(html, "LINK_SALT");
     if (!data || !challenge || salt == null) return [];
@@ -1054,20 +1107,19 @@ async function list6(title, { kino: kino2, req }) {
     return toEmbeds(id6, rows3);
   });
 }
-async function hasEpisode(title, season, episode, { req }) {
+async function hasEpisode(title, season, episode, { kino: kino2, req }) {
   if (!title.imdbId) return false;
-  let r;
+  let res;
   try {
-    r = await req(`${SITE6}/f/${title.imdbId}-${Number(season)}x${String(episode).padStart(2, "0")}`, { headers: HEADERS, retry: false });
+    res = await passAnubis(kino2, req, `${SITE6}/f/${title.imdbId}-${Number(season)}x${String(episode).padStart(2, "0")}`, { headers: HEADERS, retry: false });
   } catch (e) {
     if (e && e.local) return null;
     throw e;
   }
-  if (r.status === 404) return false;
-  if (!r.ok) return null;
-  const html = r.text();
-  if (/let\s+dataLink\s*=\s*\[/.test(html)) return true;
-  return /^\s*\{\s*"error"\s*:/.test(html) ? false : null;
+  if (res.status === 404) return false;
+  if (!res.ok) return null;
+  if (/let\s+dataLink\s*=\s*\[/.test(res.html)) return true;
+  return /^\s*\{\s*"error"\s*:/.test(res.html) ? false : null;
 }
 
 // src/sources/zoowomaniacos.js
@@ -1298,7 +1350,7 @@ var kinds10 = ["movie", "tv"];
 var HOSTS11 = ["pelispanda.org"];
 var SITE10 = "https://pelispanda.org";
 var ORIGIN10 = SITE10;
-var API3 = SITE10 + "/wp-json/wpreact/v1";
+var API4 = SITE10 + "/wp-json/wpreact/v1";
 var HEADERS3 = { Referer: SITE10 + "/", "Accept-Language": "es-MX,es;q=0.9" };
 var TYPES = { movie: ["pelicula"], tv: ["serie", "anime"] };
 function queries(titles) {
@@ -1319,12 +1371,12 @@ async function list10(title, { req }) {
   return orEmpty(async () => {
     let match = null;
     for (const q of queries(title.titles)) {
-      const j = await getJson(req, `${API3}/search?query=${encodeURIComponent(q)}`);
+      const j = await getJson(req, `${API4}/search?query=${encodeURIComponent(q)}`);
       match = pick2(j && j.results, title);
       if (match) break;
     }
     if (!match) return [];
-    const data = await getJson(req, `${API3}/${tv ? "serie" : "movie"}/${encodeURIComponent(match.slug)}/related`);
+    const data = await getJson(req, `${API4}/${tv ? "serie" : "movie"}/${encodeURIComponent(match.slug)}/related`);
     let embeds = data && Array.isArray(data.embeds) ? data.embeds : [];
     if (tv) embeds = embeds.filter((e) => e && Number(e.season) === Number(title.season) && Number(e.episode) === Number(title.episode));
     return toEmbeds(id10, embeds.filter((e) => e && typeof e.url === "string").map((e) => ({ url: e.url, lang: e.lang || "Latino", quality: e.quality, server: "" })));
@@ -1494,7 +1546,7 @@ async function resolverInstalled(kino2) {
 var kino_plugin_default = {
   id: "latino",
   name: "Latino",
-  version: "2.5.4",
+  version: "2.5.5",
   apiVersion: 20,
   recommends: [
     "xuper-plugin/kino-plugin-kino-resolver"
@@ -3388,7 +3440,7 @@ async function check(kino2, title, numbers, on, deadline) {
       const out = {};
       for (let i = 0; i < probed.length; i += AT_ONCE3) {
         await Promise.all(probed.slice(i, i + AT_ONCE3).map(async (n) => {
-          out[n] = await hasEpisode(title, n, 1, { req });
+          out[n] = await hasEpisode(title, n, 1, { kino: kino2, req });
         }));
       }
       return out;

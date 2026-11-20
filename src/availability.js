@@ -117,7 +117,7 @@ async function check(kino, title, numbers, on, deadline) {
     jobs.push(guarded(kino, "embed69", async () => {
       const out = {};
       for (let i = 0; i < probed.length; i += AT_ONCE) {
-        await Promise.all(probed.slice(i, i + AT_ONCE).map(async (n) => { out[n] = await embed69.hasEpisode(title, n, 1, { req }); }));
+        await Promise.all(probed.slice(i, i + AT_ONCE).map(async (n) => { out[n] = await embed69.hasEpisode(title, n, 1, { kino, req }); }));
       }
       return out;
     }, req, () => false).then((r) => {
