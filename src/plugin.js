@@ -258,9 +258,22 @@ const browseScreen = () => (browseInstance ??= makeBrowse({
   searchTitles: (q) => search({ q }),
 }));
 
+/** Ko-fi for the plugin author (xuper-plugin): the donate affordance that sits under every install gate — a
+ *  QR on TV (a TV can't open a link well), a heart button on phone/desktop. */
+const SUPPORT_URL = "https://ko-fi.com/xuperplugins";
+function supportNode(device) {
+  if (device === "tv") {
+    return { type: "QrImage", value: SUPPORT_URL, size: "large",
+      labelText: "Si te gusta mi trabajo, escanéalo y apóyame", labelTextEn: "If you like my work, scan it and support me" };
+  }
+  return { type: "ElevatedButton", key: "donate", icon: "heart", labelText: "Si te gusta mi trabajo, apóyame",
+    labelTextEn: "If you like my work, support me", onPressed: { go: { url: { href: SUPPORT_URL } } } };
+}
+
 /** The install gate: shown as the first screen while the kino-resolver (the playback engine Latino now
- *  delegates every hoster to) is not installed. Once it is, screen() goes straight to the browse screen. */
-function installGateView() {
+ *  delegates every hoster to) is not installed. Once it is, screen() goes straight to the browse screen. The
+ *  donate button sits under the install button, as on every gate. */
+function installGateView(device) {
   return {
     type: "Scaffold", key: "latino-install",
     body: { type: "SingleChildScrollView", key: "installScroll", children: [
@@ -271,6 +284,7 @@ function installGateView() {
           textEn: "Latino plays through Kino Resolver (free). Install it once and it works here and in other site plugins." },
         { type: "ElevatedButton", key: "installResolver", labelText: "Instalar Kino Resolver", labelTextEn: "Install Kino Resolver",
           onPressed: { go: { installPlugin: { repo: RESOLVER_REPO } } } },
+        supportNode(device),
       ] },
     ] },
   };
@@ -280,7 +294,7 @@ function installGateView() {
 export async function screen(ctx) {
   await null;
   const c = ctx && typeof ctx === "object" ? ctx : {};
-  if (!(c.installed && c.installed[RESOLVER_REPO])) return installGateView();
+  if (!(c.installed && c.installed[RESOLVER_REPO])) return installGateView(c.device);
   return browseScreen().view(c);
 }
 

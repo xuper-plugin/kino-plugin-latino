@@ -4935,7 +4935,27 @@ var browseScreen = () => browseInstance ?? (browseInstance = makeBrowse({
   },
   searchTitles: (q) => search2({ q })
 }));
-function installGateView() {
+var SUPPORT_URL = "https://ko-fi.com/xuperplugins";
+function supportNode(device) {
+  if (device === "tv") {
+    return {
+      type: "QrImage",
+      value: SUPPORT_URL,
+      size: "large",
+      labelText: "Si te gusta mi trabajo, escan\xE9alo y ap\xF3yame",
+      labelTextEn: "If you like my work, scan it and support me"
+    };
+  }
+  return {
+    type: "ElevatedButton",
+    key: "donate",
+    icon: "heart",
+    labelText: "Si te gusta mi trabajo, ap\xF3yame",
+    labelTextEn: "If you like my work, support me",
+    onPressed: { go: { url: { href: SUPPORT_URL } } }
+  };
+}
+function installGateView(device) {
   return {
     type: "Scaffold",
     key: "latino-install",
@@ -4954,7 +4974,8 @@ function installGateView() {
           labelText: "Instalar Kino Resolver",
           labelTextEn: "Install Kino Resolver",
           onPressed: { go: { installPlugin: { repo: RESOLVER_REPO } } }
-        }
+        },
+        supportNode(device)
       ] }
     ] }
   };
@@ -4962,7 +4983,7 @@ function installGateView() {
 async function screen(ctx) {
   await null;
   const c = ctx && typeof ctx === "object" ? ctx : {};
-  if (!(c.installed && c.installed[RESOLVER_REPO])) return installGateView();
+  if (!(c.installed && c.installed[RESOLVER_REPO])) return installGateView(c.device);
   return browseScreen().view(c);
 }
 async function screenEvent(ev) {
