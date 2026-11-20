@@ -1018,7 +1018,6 @@ function decryptLink(kino2, keyHex, b64) {
   for (let i = 0; i < 16; i++) ivHex += raw.charCodeAt(i).toString(16).padStart(2, "0");
   return kino2.crypto.decrypt("aes-256-cbc", { key: keyHex, keyEncoding: "hex", iv: ivHex, ivEncoding: "hex", data: btoa(raw.slice(16)) });
 }
-var MAX_DIFFICULTY = 4;
 var quoted = (html, name12) => {
   const m = new RegExp(name12 + "\\s*=\\s*'([^']*)'").exec(html);
   return m ? m[1] : null;
@@ -1033,25 +1032,21 @@ async function list6(title, { kino: kino2, req }) {
     if (!r.ok) return [];
     const html = r.text();
     const data = /let\s+dataLink\s*=\s*(\[.+\]);/.exec(html);
-    const challenge = quoted(html, "POW_CHALLENGE"), salt = quoted(html, "POW_SALT");
-    const difficulty = Number((/POW_DIFFICULTY\s*=\s*(\d+)/.exec(html) || [])[1]);
-    if (!data || !challenge || salt == null || !Number.isInteger(difficulty)) return [];
+    const challenge = quoted(html, "LINK_CHALLENGE"), salt = quoted(html, "LINK_SALT");
+    if (!data || !challenge || salt == null) return [];
     let langs;
     try {
       langs = JSON.parse(data[1]);
     } catch (_) {
       return [];
     }
-    if (difficulty > MAX_DIFFICULTY) return [];
-    const n = solvePow(kino2, challenge, difficulty);
-    if (n == null) return [];
-    const keyHex = kino2.crypto.hash("sha256", challenge + n + salt);
+    const keyHex = kino2.crypto.hash("sha256", challenge + salt);
     const rows3 = [];
     for (const l of langs) {
       for (const e of l && l.sortedEmbeds || []) {
         if (!e || e.servername === "download" || typeof e.link !== "string") continue;
         try {
-          rows3.push({ url: decryptLink(kino2, keyHex, e.link), lang: l.video_language, server: e.servername });
+          rows3.push({ url: decryptLink(kino2, keyHex, e.link).replace(/`/g, "").trim(), lang: l.video_language, server: e.servername });
         } catch (_) {
         }
       }
@@ -1499,7 +1494,7 @@ async function resolverInstalled(kino2) {
 var kino_plugin_default = {
   id: "latino",
   name: "Latino",
-  version: "2.5.2",
+  version: "2.5.4",
   apiVersion: 20,
   recommends: [
     "xuper-plugin/kino-plugin-kino-resolver"

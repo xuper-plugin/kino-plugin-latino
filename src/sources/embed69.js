@@ -46,20 +46,18 @@ export async function list(title, { kino, req }) {
     if (!r.ok) return [];
     const html = r.text();
     const data = /let\s+dataLink\s*=\s*(\[.+\]);/.exec(html);
-    const challenge = quoted(html, "POW_CHALLENGE"), salt = quoted(html, "POW_SALT");
-    const difficulty = Number((/POW_DIFFICULTY\s*=\s*(\d+)/.exec(html) || [])[1]);
-    if (!data || !challenge || salt == null || !Number.isInteger(difficulty)) return [];
+    // Embed69 dropped the proof of work (2026-11): the AES-256 key is now SHA-256(LINK_CHALLENGE + LINK_SALT) and
+    // each decrypted link is wrapped in backticks. (Was POW_CHALLENGE/POW_SALT/POW_DIFFICULTY + a PoW nonce.)
+    const challenge = quoted(html, "LINK_CHALLENGE"), salt = quoted(html, "LINK_SALT");
+    if (!data || !challenge || salt == null) return [];
     let langs;
     try { langs = JSON.parse(data[1]); } catch (_) { return []; }
-    if (difficulty > MAX_DIFFICULTY) return []; // a TV must never spin hundreds of thousands of synchronous hashes
-    const n = solvePow(kino, challenge, difficulty);
-    if (n == null) return [];
-    const keyHex = kino.crypto.hash("sha256", challenge + n + salt);
+    const keyHex = kino.crypto.hash("sha256", challenge + salt);
     const rows = [];
     for (const l of langs) {
       for (const e of (l && l.sortedEmbeds) || []) {
         if (!e || e.servername === "download" || typeof e.link !== "string") continue;
-        try { rows.push({ url: decryptLink(kino, keyHex, e.link), lang: l.video_language, server: e.servername }); } catch (_) { /* a link that does not decrypt is skipped */ }
+        try { rows.push({ url: decryptLink(kino, keyHex, e.link).replace(/`/g, "").trim(), lang: l.video_language, server: e.servername }); } catch (_) { /* a link that does not decrypt is skipped */ }
       }
     }
     return toEmbeds(id, rows);

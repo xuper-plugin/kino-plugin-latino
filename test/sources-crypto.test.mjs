@@ -76,7 +76,7 @@ test("embed69: no imdb id, a missing page, a page without the challenge or links
   assert.deepEqual(await embed69.list({ ...FIGHT, imdbId: "tt9999999" }, ctx(f.kino)), []);
   const bare = fakeKino({ fetch: async () => ({ status: 200, body: "<html>nothing</html>" }) });
   assert.deepEqual(await embed69.list(FIGHT, ctx(bare.kino)), []);
-  const wrong = fakeKino({ fetch: async () => ({ status: 200, body: fixture("embed69/movie.html").replace(/POW_SALT = '[^']*'/, "POW_SALT = 'x'") }) });
+  const wrong = fakeKino({ fetch: async () => ({ status: 200, body: fixture("embed69/movie.html").replace(/LINK_SALT = '[^']*'/, "LINK_SALT = 'x'") }) });
   assert.deepEqual(await embed69.list(FIGHT, ctx(wrong.kino)), []);
 });
 
@@ -127,14 +127,4 @@ test("zoowomaniacos: overlap is shared tokens over the longer title; network err
   assert.equal(overlap("Fight Club", "Zombie Fight Club") < 0.8, true);
   assert.equal(overlap("Él club de la pelea", "el club de la pelea"), 1);
   await assert.rejects(zoowomaniacos.list(NOTLD, ctx(down())));
-});
-
-test("embed69: a proof-of-work difficulty above 4 gives [] without hashing", async () => {
-  const hard = fixture("embed69/movie.html").replace(/POW_DIFFICULTY\s*=\s*\d+/, "POW_DIFFICULTY = 5");
-  const f = fakeKino({ fetch: async () => ({ status: 200, body: hard }) });
-  let hashes = 0;
-  const crypto = { ...f.kino.crypto, hash: (...a) => { hashes++; return f.kino.crypto.hash(...a); } };
-  const out = await embed69.list(FIGHT, ctx(Object.freeze({ ...f.kino, crypto })));
-  assert.deepEqual(out, []);
-  assert.equal(hashes, 0);
 });

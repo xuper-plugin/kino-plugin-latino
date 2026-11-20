@@ -1,7 +1,7 @@
 {
   "id": "latino",
   "name": "Latino",
-  "version": "2.5.3",
+  "version": "2.5.4",
   "apiVersion": 20,
   "recommends": [
     "xuper-plugin/kino-plugin-kino-resolver"
