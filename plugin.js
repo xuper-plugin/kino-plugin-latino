@@ -239,7 +239,10 @@ var HOSTS = {
   nupload: ["nupload.me", "nupload.my"],
   vimeos: ["vimeos.net", "vimeos.zip"],
   fastream: ["fastream.to"],
-  okru: ["ok.ru"]
+  okru: ["ok.ru"],
+  mixdrop: ["mixdrop.ag", "mixdrop.co", "mixdrop.to", "mixdrop.club", "mixdrop.ps", "mixdrop.sx", "mixdrop.my"],
+  lulustream: ["lulustream.com", "luluvdo.com", "luluvid.to", "luluvdoo.com"],
+  wolfstream: ["wolfstream.tv", "aparat.cam"]
 };
 function serverFromHost(url) {
   let host;
@@ -257,6 +260,9 @@ function serverFromHost(url) {
   if (/vimeos/i.test(host)) return "vimeos";
   if (/fastream/i.test(host)) return "fastream";
   if (/goodstream/i.test(host)) return "goodstream";
+  if (/mi+x+dro{1,2}ps?|m1xdrop|mxdrop|mdbekjwqa/i.test(host)) return "mixdrop";
+  if (/lulu(?:vdo|stream|vid)/i.test(host)) return "lulustream";
+  if (/wolfstream|aparat\.cam/i.test(host)) return "wolfstream";
   return null;
 }
 
@@ -1485,7 +1491,7 @@ async function resolveViaHelper(e, kino2, source) {
 var kino_plugin_default = {
   id: "latino",
   name: "Latino",
-  version: "2.5.0",
+  version: "2.5.1",
   apiVersion: 20,
   recommends: [
     "xuper-plugin/kino-plugin-kino-resolver"
@@ -1494,7 +1500,10 @@ var kino_plugin_default = {
     resolver: {
       repo: "xuper-plugin/kino-plugin-kino-resolver",
       door: "resolver",
-      calls: ["resolve", "normalizeHost"]
+      calls: [
+        "resolve",
+        "normalizeHost"
+      ]
     }
   },
   panel: {
@@ -2425,7 +2434,32 @@ function healthLine(kino2, health = readHealth(kino2)) {
 var canCapture = (kino2) => !!(kino2 && kino2.browser);
 var LANGS = ["lat", "esp", "sub"];
 var QUALITIES = ["auto", "2160p", "1080p", "720p", "480p"];
-var SERVER_TIER = { goodstream: 0, streamwish: 0, vimeos: 0, vidhide: 0, fastream: 0, nupload: 0, direct: 0, okru: 1, voe: 2 };
+var SERVER_TIER = {
+  direct: 0,
+  vimeos: 0,
+  voe: 0,
+  fastream: 0,
+  goodstream: 0,
+  nupload: 0,
+  mixdrop: 0,
+  lulustream: 0,
+  wolfstream: 0,
+  streamtape: 0,
+  vidoza: 0,
+  uqload: 0,
+  supervideo: 0,
+  mp4upload: 0,
+  streamlare: 0,
+  streamvid: 0,
+  streamhide: 0,
+  vidmoly: 0,
+  okru: 1,
+  streamwish: 2,
+  vidhide: 2,
+  filemoon: 2,
+  doodstream: 2,
+  waaw: 2
+};
 var HEIGHT = (q) => {
   const m = /^(\d{3,4})p$/.exec(q || "");
   return m ? Number(m[1]) : null;
@@ -2437,7 +2471,7 @@ var qualityOrder = (q) => {
   return h <= 1080 ? 1080 - h : 2e3 + h;
 };
 var MAX_REF = 512;
-var SERVER_LABEL = { goodstream: "GoodStream", vimeos: "Vimeos", streamwish: "StreamWish", vidhide: "VidHide", fastream: "Fastream", voe: "VOE", okru: "OkRu", nupload: "Nupload" };
+var SERVER_LABEL = { goodstream: "GoodStream", vimeos: "Vimeos", streamwish: "StreamWish", vidhide: "VidHide", fastream: "Fastream", voe: "VOE", okru: "OkRu", nupload: "Nupload", mixdrop: "MixDrop", lulustream: "LuluStream", wolfstream: "WolfStream" };
 var KNOWN_QUALITIES = ["2160p", "1440p", "1080p", "720p", "576p", "480p", "360p", "240p"];
 var NETWORK_CODES = /* @__PURE__ */ new Set(["network", "timeout", "unavailable", "rate_limited"]);
 var PHASE_MS = 9e3;

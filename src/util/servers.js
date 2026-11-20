@@ -14,6 +14,9 @@ const HOSTS = {
   vimeos: ["vimeos.net", "vimeos.zip"],
   fastream: ["fastream.to"],
   okru: ["ok.ru"],
+  mixdrop: ["mixdrop.ag", "mixdrop.co", "mixdrop.to", "mixdrop.club", "mixdrop.ps", "mixdrop.sx", "mixdrop.my"],
+  lulustream: ["lulustream.com", "luluvdo.com", "luluvid.to", "luluvdoo.com"],
+  wolfstream: ["wolfstream.tv", "aparat.cam"],
 };
 
 /** The server id for a hoster embed URL, or null when its host is unknown. */
@@ -30,5 +33,8 @@ export function serverFromHost(url) {
   if (/vimeos/i.test(host)) return "vimeos";
   if (/fastream/i.test(host)) return "fastream";
   if (/goodstream/i.test(host)) return "goodstream";
+  if (/mi+x+dro{1,2}ps?|m1xdrop|mxdrop|mdbekjwqa/i.test(host)) return "mixdrop";
+  if (/lulu(?:vdo|stream|vid)/i.test(host)) return "lulustream";
+  if (/wolfstream|aparat\.cam/i.test(host)) return "wolfstream";
   return null;
 }

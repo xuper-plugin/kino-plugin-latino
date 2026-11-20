@@ -18,7 +18,16 @@ import { writeLast } from "./panel/state.js";
 
 export const LANGS = ["lat", "esp", "sub"];
 export const QUALITIES = ["auto", "2160p", "1080p", "720p", "480p"];
-const SERVER_TIER = { goodstream: 0, streamwish: 0, vimeos: 0, vidhide: 0, fastream: 0, nupload: 0, direct: 0, okru: 1, voe: 2 };
+// Tier 0 = resolves inline (fast); tier 2 = a JS gate that needs the slow (~5-18 s) WebView capture, so a
+// playable inline copy is always preferred first. `direct` is the raw stream. streamwish/vidhide are the
+// streamwish-family gates; voe/vimeos/mixdrop/fastream/etc. crack inline.
+const SERVER_TIER = {
+  direct: 0,
+  vimeos: 0, voe: 0, fastream: 0, goodstream: 0, nupload: 0, mixdrop: 0, lulustream: 0, wolfstream: 0,
+  streamtape: 0, vidoza: 0, uqload: 0, supervideo: 0, mp4upload: 0, streamlare: 0, streamvid: 0, streamhide: 0, vidmoly: 0,
+  okru: 1,
+  streamwish: 2, vidhide: 2, filemoon: 2, doodstream: 2, waaw: 2,
+};
 const HEIGHT = (q) => { const m = /^(\d{3,4})p$/.exec(q || ""); return m ? Number(m[1]) : null; };
 /**
  * Quality order from the height: 1080p first, then lower ones from the highest down (720p, 576p, 480p, 360p,
@@ -32,7 +41,7 @@ const qualityOrder = (q) => {
 };
 const MAX_REF = 512; // Kino drops a lazy copy whose ref is longer
 // Display names for the servers (labels only; ranking and refs use the ids).
-export const SERVER_LABEL = { goodstream: "GoodStream", vimeos: "Vimeos", streamwish: "StreamWish", vidhide: "VidHide", fastream: "Fastream", voe: "VOE", okru: "OkRu", nupload: "Nupload" };
+export const SERVER_LABEL = { goodstream: "GoodStream", vimeos: "Vimeos", streamwish: "StreamWish", vidhide: "VidHide", fastream: "Fastream", voe: "VOE", okru: "OkRu", nupload: "Nupload", mixdrop: "MixDrop", lulustream: "LuluStream", wolfstream: "WolfStream" };
 // Every value qualityOf() can give; a ref's quality must be one of them.
 const KNOWN_QUALITIES = ["2160p", "1440p", "1080p", "720p", "576p", "480p", "360p", "240p"];
 const NETWORK_CODES = new Set(["network", "timeout", "unavailable", "rate_limited"]);
