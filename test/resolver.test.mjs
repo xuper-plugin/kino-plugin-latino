@@ -453,3 +453,10 @@ test("early end: a source cut short stops at its next request instead of holding
   assert.ok(typeof refused === "number" && refused <= 5, `refused at ${refused}`);
   assert.ok(calls.filter((c) => c.url.includes("/chatty/")).length <= 5);
 });
+
+test("rank: kino-resolver's scores order the servers (VidHide ahead of Vimeos now); a direct stream still leads; no scores = the old tiers", () => {
+  const e = (server, embedUrl, quality = "1080p") => ({ server, embedUrl, quality, lang: "lat" });
+  const list = [e("vimeos", "https://vimeos.net/embed-a.html"), e("vidhide", "https://morencius.com/v/b"), e("direct", "https://cdn.x/c.m3u8")];
+  assert.deepEqual(rank(list, { scores: [45, 95, 10] }).map((x) => x.server), ["direct", "vidhide", "vimeos"]);
+  assert.deepEqual(rank(list).map((x) => x.server), ["direct", "vimeos", "vidhide"]);
+});

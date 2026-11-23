@@ -15,6 +15,7 @@ import { recordRun } from "./health.js";
 import { within, waitFor, BROWSER_RESOLVE_MS } from "./util/time.js";
 const canCapture = (kino) => !!(kino && kino.browser);
 import { writeLast } from "./panel/state.js";
+import { scoresFromResolver } from "./std/rank.js";
 
 export const LANGS = ["lat", "esp", "sub"];
 export const QUALITIES = ["auto", "2160p", "1080p", "720p", "480p"];
@@ -243,17 +244,22 @@ export function pickLanguage(embeds, preferred) {
 const isDirect = (e) => e.server === "direct" || e.server.startsWith("direct-");
 const serverOf = (e) => (isDirect(e) ? "direct" : serverFromHost(e.embedUrl) || e.server);
 
-/** Best first: copies above `maxQuality` last, then by server tier, then by quality (1080p first, 4K last). */
-export function rank(embeds, { maxQuality = "auto", avoid = [] } = {}) {
+/**
+ * Best first: copies above `maxQuality` last, then by server (kino-resolver's score for each embed when `scores` has it --
+ * its rank call, from the playback audit -- else the old SERVER_TIER), then by quality (1080p first, 4K last). A direct
+ * stream always leads its tier: nothing to resolve.
+ */
+export function rank(embeds, { maxQuality = "auto", avoid = [], scores = null } = {}) {
   const cap = HEIGHT(maxQuality);
   const avoided = new Set(Array.isArray(avoid) ? avoid : []);
   // Avoided servers (the panel's "evitar") go after everything else but are never removed.
-  const key = (e) => {
+  const key = (e, i) => {
     const h = HEIGHT(e.quality);
-    return [avoided.has(serverOf(e)) ? 2 : cap && h && h > cap ? 1 : 0, SERVER_TIER[serverOf(e)] ?? 3, qualityOrder(e.quality)];
+    const server = isDirect(e) ? -1000 : scores && typeof scores[i] === "number" ? -scores[i] : SERVER_TIER[serverOf(e)] ?? 3;
+    return [avoided.has(serverOf(e)) ? 2 : cap && h && h > cap ? 1 : 0, server, qualityOrder(e.quality)];
   };
   return (embeds || [])
-    .map((e, i) => ({ e, i, k: key(e) }))
+    .map((e, i) => ({ e, i, k: key(e, i) }))
     .sort((a, b) => a.k[0] - b.k[0] || a.k[1] - b.k[1] || a.k[2] - b.k[2] || a.i - b.i)
     .map((x) => x.e);
 }
@@ -442,7 +448,9 @@ export async function resolveTitle(kino, title, settings, { sources = SOURCES, e
     throw kino.error("not_found", `no playable embed (${embeds.length} listed)`, { userMessage: t("notFound", kino) });
   }
 
-  const pool = rank(playable.filter((e) => e.lang === lang), { maxQuality: set.maxQuality, avoid: settings && settings.avoid });
+  const inLang = playable.filter((e) => e.lang === lang);
+  const scores = await scoresFromResolver(kino, inLang.map((e) => e.embedUrl || e.server || ""));
+  const pool = rank(inLang, { maxQuality: set.maxQuality, avoid: settings && settings.avoid, scores });
   const nameOf = (e) => (sourceOf(e) || {}).name || e.source;
   const failed = new Set();
   let main = null; // { e, s }

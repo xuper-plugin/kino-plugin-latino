@@ -12,8 +12,8 @@
       "door": "resolver",
       "calls": [
         "resolve",
-        "normalizeHost"
-      ]
+        "normalizeHost",
+      "rank"]
     }
   },
   "panel": {
