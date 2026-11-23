@@ -1522,7 +1522,7 @@ async function resolveViaHelper(e, kino2, source) {
   }
   let streams = res && Array.isArray(res.streams) ? res.streams.slice() : [];
   const subtitles = res && Array.isArray(res.subtitles) ? res.subtitles.filter((x) => x && x.lang && x.url) : [];
-  if (!streams.length) streams = await captureStreams(kino2, embedUrl, referer);
+  if (!streams.length && !(res && res.error === "dead")) streams = await captureStreams(kino2, embedUrl, referer);
   const s = pickBest(streams);
   if (!s) return null;
   const headers = headersOf(s);
@@ -1546,7 +1546,7 @@ async function resolverInstalled(kino2) {
 var kino_plugin_default = {
   id: "latino",
   name: "Latino",
-  version: "2.5.5",
+  version: "2.5.6",
   apiVersion: 20,
   recommends: [
     "xuper-plugin/kino-plugin-kino-resolver"

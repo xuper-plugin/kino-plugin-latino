@@ -56,7 +56,8 @@ export async function resolveViaHelper(e, kino, source) {
   }
   let streams = res && Array.isArray(res.streams) ? res.streams.slice() : [];
   const subtitles = res && Array.isArray(res.subtitles) ? res.subtitles.filter((x) => x && x.lang && x.url) : [];
-  if (!streams.length) streams = await captureStreams(kino, embedUrl, referer);
+  // A player the resolver read as gone (deleted, blocked for copyright) has nothing a 20 s capture could find.
+  if (!streams.length && !(res && res.error === "dead")) streams = await captureStreams(kino, embedUrl, referer);
   const s = pickBest(streams);
   if (!s) return null;
   const headers = headersOf(s);
