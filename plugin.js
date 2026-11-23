@@ -1545,7 +1545,7 @@ async function resolverInstalled(kino) {
 var kino_plugin_default = {
   id: "latino",
   name: "Latino",
-  version: "2.6.5",
+  version: "2.6.6",
   apiVersion: 30,
   recommends: [
     "xuper-plugin/kino-plugin-kino-resolver"
@@ -1874,7 +1874,7 @@ var kino_plugin_default = {
       label: "Abrir Latino",
       labelEn: "Open Latino"
     },
-    settingsIn: "screen"
+    settingsIn: "both"
   }
 };
 
@@ -3985,7 +3985,8 @@ function makeStandardScreen({ kino, name: name12, nameEn, logo = null, logoAspec
     },
     retry({ state }) {
       const tab = TAB_IDS.includes(state.tab) ? state.tab : TAB_IDS[0];
-      return { state: { failed: null, pending: [tab] } };
+      const queued = Array.isArray(state.pending) ? state.pending.filter((t2) => t2 !== tab) : [];
+      return { state: { failed: null, pending: [tab, ...queued] } };
     },
     async tick({ state }) {
       const pending = Array.isArray(state.pending) ? state.pending : [];

@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.6.6
+
+- Kino's own settings form shows again in Ajustes (settingsIn both); Retry keeps the queued work (std 1.6.2)
+
 ## 2.6.5
 
 - Back closes the search box (the screen declares onBack while searching) instead of the whole screen (std 1.6.1)
