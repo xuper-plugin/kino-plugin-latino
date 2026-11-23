@@ -1545,7 +1545,7 @@ async function resolverInstalled(kino) {
 var kino_plugin_default = {
   id: "latino",
   name: "Latino",
-  version: "2.6.8",
+  version: "2.6.9",
   apiVersion: 30,
   recommends: [
     "xuper-plugin/kino-plugin-kino-resolver"
@@ -1905,7 +1905,7 @@ var kino_plugin_default = {
   },
   signature: {
     authorKey: "6693946bd5c56196960959c4b9665fad5094374bcb85ddb282f8bf762c835263",
-    value: "b5a246ad75938f98da2dcd5d15ef885368207b3caca3b19ba03ba0cde71876a863194e8412ecc13e6f235e21291fa0d840134a13fec27634d48bdf0785b1770a"
+    value: "0653cd677a2be6d283bf2843bd58695931e3d795ce6bace1178ab2db402b451ec5233ed88fd7909057dad70b8f17f30e60fefc8aea2064cec9c85364afc7f802"
   }
 };
 
@@ -3879,9 +3879,38 @@ var INFLIGHT_KEY = "std:inflight";
 var INFLIGHT_STALE_MS = 18e3;
 var MAX_META_TICKS = 10;
 var DEFAULT_TABS = [{ id: "inicio", label: "Inicio", labelEn: "Home" }];
-function makeStandardScreen({ kino, name: name12, nameEn, logo = null, logoAspect = "1:1", needsResolver, hasSettings, tabs: tabs2, loadTab, homeKey = null, titleOf: titleOf2, typeOf, tmdbPictures = false, imageHeaders = null, searchHere = null, page: page3 = null, barSearch = true, backArrow = true }) {
+var SNAPSHOT_VERSION = 1;
+var SNAPSHOT_MAX_AGE_MS = 24 * 60 * 60 * 1e3;
+var SNAPSHOT_TIMEOUT_MS = 8e3;
+var snapshotUrl = (repo, tab) => "https://raw.githubusercontent.com/" + repo + "/main/home/" + encodeURIComponent(tab) + ".json";
+function snapshotRows(text5, tab, now = Date.now()) {
+  let o;
+  try {
+    o = JSON.parse(String(text5));
+  } catch (_) {
+    return null;
+  }
+  if (!o || o.v !== SNAPSHOT_VERSION || o.tab !== tab || !Array.isArray(o.rows) || o.rows.length === 0) return null;
+  const at = Number(o.at);
+  if (!Number.isFinite(at) || now - at > SNAPSHOT_MAX_AGE_MS || at - now > 60 * 60 * 1e3) return null;
+  return o.rows;
+}
+var lastSource = null;
+function makeStandardScreen({ kino, name: name12, nameEn, logo = null, logoAspect = "1:1", needsResolver, hasSettings, tabs: tabs2, loadTab, homeKey = null, titleOf: titleOf2, typeOf, tmdbPictures = false, imageHeaders = null, searchHere = null, page: page3 = null, barSearch = true, backArrow = true, snapshot = null }) {
   const cfg = { name: name12, nameEn, logo, logoAspect, imageHeaders, hasSettings: !!hasSettings, barSearch: barSearch !== false, backArrow: backArrow !== false, tabs: Array.isArray(tabs2) && tabs2.length > 0 ? tabs2 : DEFAULT_TABS };
   const TAB_IDS = cfg.tabs.map((t2) => t2.id);
+  lastSource = { tabs: cfg.tabs, loadTab, titleOf: titleOf2, typeOf };
+  async function fromSnapshot(tab) {
+    if (typeof snapshot !== "string" || !/^[\w.-]+\/[\w.-]+$/.test(snapshot)) return null;
+    try {
+      const r = await kino.fetch(snapshotUrl(snapshot, tab), { timeoutMs: SNAPSHOT_TIMEOUT_MS });
+      if (!r || !r.ok) return null;
+      const rows3 = snapshotRows(await r.text(), tab);
+      return rows3 ? { rows: rows3 } : null;
+    } catch (_) {
+      return null;
+    }
+  }
   const meta = makeMetaCache({ kino, titleOf: titleOf2, typeOf, tmdbPictures });
   function slidesFromMeta(rails) {
     const out = [];
@@ -4046,7 +4075,7 @@ function makeStandardScreen({ kino, name: name12, nameEn, logo = null, logoAspec
     set(INFLIGHT_KEY, JSON.stringify({ tab, at: Date.now() }));
     let page4;
     try {
-      page4 = await loadTab(tab);
+      page4 = await fromSnapshot(tab) || await loadTab(tab);
     } finally {
       try {
         kino.storage.remove(INFLIGHT_KEY);
@@ -4894,6 +4923,7 @@ async function resolve(ref) {
 }
 var std = null;
 var standard = () => std ?? (std = makeStandardScreen({
+  snapshot: "xuper-plugin/kino-plugin-latino",
   kino: getKino(),
   name: "Latino",
   logo: LOGO,
