@@ -1545,7 +1545,7 @@ async function resolverInstalled(kino) {
 var kino_plugin_default = {
   id: "latino",
   name: "Latino",
-  version: "2.6.9",
+  version: "2.6.10",
   apiVersion: 30,
   recommends: [
     "xuper-plugin/kino-plugin-kino-resolver"
@@ -1556,7 +1556,8 @@ var kino_plugin_default = {
       door: "resolver",
       calls: [
         "resolve",
-        "normalizeHost"
+        "normalizeHost",
+        "rank"
       ]
     }
   },
@@ -1905,7 +1906,7 @@ var kino_plugin_default = {
   },
   signature: {
     authorKey: "6693946bd5c56196960959c4b9665fad5094374bcb85ddb282f8bf762c835263",
-    value: "0653cd677a2be6d283bf2843bd58695931e3d795ce6bace1178ab2db402b451ec5233ed88fd7909057dad70b8f17f30e60fefc8aea2064cec9c85364afc7f802"
+    value: "17d1b95a2c0e8381ada03bd231925660faec49761b83adf4577531c3fe54d9a998d1ca048ad1511f624c9708286c6b7f75cd6e6b8b1218539ee6e761628cd70d"
   }
 };
 
@@ -2463,6 +2464,18 @@ function healthLine(kino, health = readHealth(kino)) {
   return parts2.join(" \xB7 ").slice(0, MAX_LINE);
 }
 
+// src/std/rank.js
+async function scoresFromResolver(kino, urls) {
+  if (!Array.isArray(urls) || urls.length === 0) return null;
+  try {
+    const r = await kino.plugins.call("resolver", "rank", { urls: urls.slice(0, 64).map(String) });
+    const s = r && Array.isArray(r.scores) ? r.scores : null;
+    return s && s.length === Math.min(urls.length, 64) ? s : null;
+  } catch (_) {
+    return null;
+  }
+}
+
 // src/resolver.js
 var canCapture = (kino) => !!(kino && kino.browser);
 var LANGS = ["lat", "esp", "sub"];
@@ -2669,14 +2682,15 @@ function pickLanguage(embeds, preferred) {
 }
 var isDirect = (e) => e.server === "direct" || e.server.startsWith("direct-");
 var serverOf = (e) => isDirect(e) ? "direct" : serverFromHost(e.embedUrl) || e.server;
-function rank(embeds, { maxQuality = "auto", avoid = [] } = {}) {
+function rank(embeds, { maxQuality = "auto", avoid = [], scores = null } = {}) {
   const cap = HEIGHT(maxQuality);
   const avoided = new Set(Array.isArray(avoid) ? avoid : []);
-  const key = (e) => {
+  const key = (e, i) => {
     const h = HEIGHT(e.quality);
-    return [avoided.has(serverOf(e)) ? 2 : cap && h && h > cap ? 1 : 0, SERVER_TIER[serverOf(e)] ?? 3, qualityOrder(e.quality)];
+    const server = isDirect(e) ? -1e3 : scores && typeof scores[i] === "number" ? -scores[i] : SERVER_TIER[serverOf(e)] ?? 3;
+    return [avoided.has(serverOf(e)) ? 2 : cap && h && h > cap ? 1 : 0, server, qualityOrder(e.quality)];
   };
-  return (embeds || []).map((e, i) => ({ e, i, k: key(e) })).sort((a, b) => a.k[0] - b.k[0] || a.k[1] - b.k[1] || a.k[2] - b.k[2] || a.i - b.i).map((x) => x.e);
+  return (embeds || []).map((e, i) => ({ e, i, k: key(e, i) })).sort((a, b) => a.k[0] - b.k[0] || a.k[1] - b.k[1] || a.k[2] - b.k[2] || a.i - b.i).map((x) => x.e);
 }
 function label(kino, e, sourceName) {
   const id12 = serverOf(e);
@@ -2818,7 +2832,9 @@ async function resolveTitle(kino, title, settings, { sources = SOURCES, extract 
     }
     throw kino.error("not_found", `no playable embed (${embeds.length} listed)`, { userMessage: t("notFound", kino) });
   }
-  const pool = rank(playable.filter((e) => e.lang === lang), { maxQuality: set.maxQuality, avoid: settings && settings.avoid });
+  const inLang = playable.filter((e) => e.lang === lang);
+  const scores = await scoresFromResolver(kino, inLang.map((e) => e.embedUrl || e.server || ""));
+  const pool = rank(inLang, { maxQuality: set.maxQuality, avoid: settings && settings.avoid, scores });
   const nameOf = (e) => (sourceOf(e) || {}).name || e.source;
   const failed = /* @__PURE__ */ new Set();
   let main = null;
@@ -3659,13 +3675,15 @@ var rail = (r, key, words, headers) => ({
   items: r.items,
   ...withHeaders(headers)
 });
-function browseView(cfg, { tab, data, recent, pending, failed, searching = false, device = "phone", own = null }) {
+function browseView(cfg, { tab, data, recent, pending, failed, searching = false, device = "phone", own = null, ownActions = [] }) {
   const tv = device === "tv";
   const tabs2 = own ? [cfg.tabs[0]] : cfg.tabs;
   const active = tabs2.some((t2) => t2.id === tab) ? tab : tabs2[0].id;
   const withTabs = tabs2.length > 1;
   const body = [];
-  if (own) {
+  const ownBlocks = own && !Array.isArray(own) && Array.isArray(own.blocks) ? own.blocks : null;
+  if (ownBlocks) {
+  } else if (own) {
     body.push(...own);
   } else if (data) {
     const h = cfg.imageHeaders;
@@ -3704,6 +3722,8 @@ function browseView(cfg, { tab, data, recent, pending, failed, searching = false
     actions: [
       // barSearch: false (std 1.7.0): the plugin draws its own search field in its page instead of the bar's icon.
       ...cfg.barSearch ? [iconButton("searchButton", "search", "search", { ui: searchOpenOps(tabsInBar), event: "searchOpened" })] : [],
+      // std 1.9.0: the page's own bar buttons (page.actions), before the settings gear.
+      ...Array.isArray(ownActions) ? ownActions : [],
       iconButton("settingsButton", "settings", "settings", "openSettings")
     ]
   });
@@ -3713,7 +3733,7 @@ function browseView(cfg, { tab, data, recent, pending, failed, searching = false
     appBar,
     body: { type: "Column", key: "page", children: [
       ...withTabs && !tv ? [{ type: "Column", key: "tabsRow", padding: { compact: 0, expanded: 24 }, children: [tabBar(tabs2, active)] }] : [],
-      { type: "SingleChildScrollView", key: "browse-" + active, flex: 1, children: [...banner ? [banner] : [], { type: "Column", padding: { compact: 12, expanded: 24 }, gap: 16, children: body }] }
+      { type: "SingleChildScrollView", key: "browse-" + active, flex: 1, children: ownBlocks ? ownBlocks.filter((b) => b && Array.isArray(b.nodes) && b.nodes.length).flatMap((b, i) => b.edge ? b.nodes : [{ type: "Column", key: "block-" + i, padding: { compact: 12, expanded: 24 }, gap: 16, crossAxisAlignment: "stretch", children: b.nodes }]) : [...banner ? [banner] : [], { type: "Column", padding: { compact: 12, expanded: 24 }, gap: 16, children: body }] }
     ] },
     ...pending ? { every: { ms: POLL_MS, event: "tick" } } : {}
   };
@@ -4054,7 +4074,17 @@ function makeStandardScreen({ kino, name: name12, nameEn, logo = null, logoAspec
     const pending = Array.isArray(st.pending) && st.pending.length > 0;
     const searching = st.searching === true;
     if (page3) {
-      const tree = browseView(cfg, { tab: TAB_IDS[0], data: null, recent: [], pending: false, failed: false, searching, device, own: page3.view({ ...c, state: st }) || [] });
+      const tree = browseView(cfg, {
+        tab: TAB_IDS[0],
+        data: null,
+        recent: [],
+        pending: false,
+        failed: false,
+        searching,
+        device,
+        own: page3.view({ ...c, state: st }) || [],
+        ownActions: page3.actions ? page3.actions({ ...c, state: st }) || [] : []
+      });
       const every = page3.every ? page3.every({ ...c, state: st }) : null;
       return every ? { ...tree, every } : tree;
     }
