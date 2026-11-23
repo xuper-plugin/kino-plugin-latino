@@ -1545,7 +1545,7 @@ async function resolverInstalled(kino) {
 var kino_plugin_default = {
   id: "latino",
   name: "Latino",
-  version: "2.6.7",
+  version: "2.6.8",
   apiVersion: 30,
   recommends: [
     "xuper-plugin/kino-plugin-kino-resolver"
@@ -1902,6 +1902,10 @@ var kino_plugin_default = {
         }
       }
     }
+  },
+  signature: {
+    authorKey: "6693946bd5c56196960959c4b9665fad5094374bcb85ddb282f8bf762c835263",
+    value: "b5a246ad75938f98da2dcd5d15ef885368207b3caca3b19ba03ba0cde71876a863194e8412ecc13e6f235e21291fa0d840134a13fec27634d48bdf0785b1770a"
   }
 };
 
@@ -3589,6 +3593,7 @@ var tabBar = (tabs2, active) => ({
 });
 var iconButton = (key, icon, word, onPressed) => ({ type: "IconButton", key, icon, ...twin(word, "labelText"), ...twin(word, "tooltip"), onPressed });
 var searchOpenOps = (tabsInBar) => [
+  { hide: "close" },
   { hide: "brand" },
   { hide: "searchButton" },
   { hide: "settingsButton" },
@@ -3601,11 +3606,13 @@ var searchClosedOps = (tabsInBar) => [
   { hide: "closeSearch" },
   { hide: "q" },
   { clear: "q" },
+  { show: "close" },
   { show: "brand" },
   { show: "searchButton" },
   { show: "settingsButton" },
   ...tabsInBar ? [{ show: "tabs" }] : []
 ];
+var leaveButton = (cfg) => cfg.backArrow ? iconButton("close", "arrow_back", "back", { go: { close: true } }) : iconButton("close", "close", "close", { go: { close: true } });
 function supportNode(device) {
   if (device === "tv") return { type: "QrImage", key: "donate", value: SUPPORT_URL, size: "large", ...twin("supportTv", "labelText") };
   return { type: "ElevatedButton", key: "donate", icon: "heart", ...twin("support", "labelText"), onPressed: { go: { url: { href: SUPPORT_URL } } } };
@@ -3675,7 +3682,7 @@ function browseView(cfg, { tab, data, recent, pending, failed, searching = false
   const banner = body.length > 0 && isBanner(body[0]) ? body.shift() : null;
   const tabsInBar = tv && withTabs;
   const appBar = bar({
-    leading: iconButton("close", "close", "close", { go: { close: true } }),
+    leading: leaveButton(cfg),
     title: { type: "Row", key: "titleRow", gap: tabsInBar ? 24 : 8, crossAxisAlignment: "center", children: [
       { ...iconButton("closeSearch", "arrow_back", "back", { ui: searchClosedOps(tabsInBar), event: "searchClosed" }), hidden: true },
       brand(cfg),
@@ -3695,7 +3702,8 @@ function browseView(cfg, { tab, data, recent, pending, failed, searching = false
       }
     ] },
     actions: [
-      iconButton("searchButton", "search", "search", { ui: searchOpenOps(tabsInBar), event: "searchOpened" }),
+      // barSearch: false (std 1.7.0): the plugin draws its own search field in its page instead of the bar's icon.
+      ...cfg.barSearch ? [iconButton("searchButton", "search", "search", { ui: searchOpenOps(tabsInBar), event: "searchOpened" })] : [],
       iconButton("settingsButton", "settings", "settings", "openSettings")
     ]
   });
@@ -3728,7 +3736,10 @@ function resultsView(cfg, { q, order, names, pending, found, device = "phone" })
     shown++;
     body.push(rail({ items: r.items }, "found-" + i, twin("resultsIn", "title", { name: name12 }), cfg.imageHeaders));
   });
-  if (!pending.length && shown === 0) body.unshift({ type: "Text", key: "noResults", ...twin("noResults") });
+  if (!pending.length && shown === 0 && order.some((r) => {
+    const x = found.get(r);
+    return x && x.ok;
+  })) body.unshift({ type: "Text", key: "noResults", ...twin("noResults") });
   return {
     type: "Scaffold",
     appBar: bar({ leading: iconButton("back", "arrow_back", "back", "back"), title: { type: "Text", key: "resultsTitle", style: "h4", ...twin("resultsTitle", "text", { q }) } }),
@@ -3750,7 +3761,7 @@ function gateView(cfg, device = "phone") {
   const name12 = [cfg.name, cfg.nameEn || cfg.name];
   return {
     type: "Scaffold",
-    appBar: bar({ leading: iconButton("close", "close", "close", { go: { close: true } }), title: brand(cfg) }),
+    appBar: bar({ leading: leaveButton(cfg), title: brand(cfg) }),
     body: { type: "Column", key: "gate", mainAxisAlignment: "center", crossAxisAlignment: "center", padding: 24, gap: 16, children: [
       { type: "Text", key: "gateTitle", style: "h3", ...twin("gateTitle") },
       { type: "Text", key: "gateText", style: "p", ...twin("gateText", "text", { name: name12 }) },
@@ -3868,8 +3879,8 @@ var INFLIGHT_KEY = "std:inflight";
 var INFLIGHT_STALE_MS = 18e3;
 var MAX_META_TICKS = 10;
 var DEFAULT_TABS = [{ id: "inicio", label: "Inicio", labelEn: "Home" }];
-function makeStandardScreen({ kino, name: name12, nameEn, logo = null, logoAspect = "1:1", needsResolver, hasSettings, tabs: tabs2, loadTab, homeKey = null, titleOf: titleOf2, typeOf, tmdbPictures = false, imageHeaders = null, searchHere = null, page: page3 = null }) {
-  const cfg = { name: name12, nameEn, logo, logoAspect, imageHeaders, hasSettings: !!hasSettings, tabs: Array.isArray(tabs2) && tabs2.length > 0 ? tabs2 : DEFAULT_TABS };
+function makeStandardScreen({ kino, name: name12, nameEn, logo = null, logoAspect = "1:1", needsResolver, hasSettings, tabs: tabs2, loadTab, homeKey = null, titleOf: titleOf2, typeOf, tmdbPictures = false, imageHeaders = null, searchHere = null, page: page3 = null, barSearch = true, backArrow = true }) {
+  const cfg = { name: name12, nameEn, logo, logoAspect, imageHeaders, hasSettings: !!hasSettings, barSearch: barSearch !== false, backArrow: backArrow !== false, tabs: Array.isArray(tabs2) && tabs2.length > 0 ? tabs2 : DEFAULT_TABS };
   const TAB_IDS = cfg.tabs.map((t2) => t2.id);
   const meta = makeMetaCache({ kino, titleOf: titleOf2, typeOf, tmdbPictures });
   function slidesFromMeta(rails) {
@@ -4092,7 +4103,7 @@ function makeStandardScreen({ kino, name: name12, nameEn, logo = null, logoAspec
         try {
           answers = await searchHere.searchIn(String(state.rq || ""), batch);
         } catch (e) {
-          log("results", e && e.code || "error");
+          log("results", (e && e.code || "error") + " " + String(e && e.message || "").slice(0, 200));
         }
         for (const repo of batch) {
           const a = (Array.isArray(answers) ? answers : []).find((x) => x && x.repo === repo);
