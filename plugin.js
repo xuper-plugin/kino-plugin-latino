@@ -1545,7 +1545,7 @@ async function resolverInstalled(kino) {
 var kino_plugin_default = {
   id: "latino",
   name: "Latino",
-  version: "2.6.0",
+  version: "2.6.1",
   apiVersion: 30,
   recommends: [
     "xuper-plugin/kino-plugin-kino-resolver"
@@ -3594,7 +3594,8 @@ var railSkeleton = (n) => ({
 });
 var heroSkeleton = () => ({ type: "Skeleton", key: "heroSkeleton", shape: "block", height: { compact: 200, expanded: 320 } });
 var titleOf = (s) => ({ ref: s.ref, kind: s.kind, id: s.id, title: s.title });
-var slideNode = (s) => ({
+var withHeaders = (headers) => headers ? { headers } : {};
+var slideNode = (s, headers) => ({
   type: "heroCard",
   key: "slide-" + s.id,
   h: { compact: 200, expanded: 240 },
@@ -3602,23 +3603,25 @@ var slideNode = (s) => ({
   title: s.title,
   text: s.text,
   image: s.image,
+  ...withHeaders(headers),
   buttons: [
     { type: "ElevatedButton", key: "watch-" + s.id, ...twin("watch", "labelText"), icon: "play", onPressed: { go: { play: titleOf(s) } } },
     { type: "TextButton", key: "info-" + s.id, ...twin("info", "labelText"), onPressed: { go: { title: titleOf(s) } } }
   ]
 });
-var hero = (slides) => slides.length === 1 ? slideNode(slides[0]) : {
+var hero = (slides, headers) => slides.length === 1 ? slideNode(slides[0], headers) : {
   type: "PageView",
   key: "hero" + slides.length,
   autoPlayMs: 6e3,
-  children: slides.map(slideNode)
+  children: slides.map((s) => slideNode(s, headers))
 };
-var rail = (r, key, words) => ({
+var rail = (r, key, words, headers) => ({
   type: "titleRail",
   key,
   ...words || { title: r.title, titleEn: r.titleEn || r.title },
   ...r.ref ? { ref: r.ref } : {},
-  items: r.items
+  items: r.items,
+  ...withHeaders(headers)
 });
 function browseView(cfg, { tab, data, recent, pending, failed, device = "phone" }) {
   const tv = device === "tv";
@@ -3627,9 +3630,10 @@ function browseView(cfg, { tab, data, recent, pending, failed, device = "phone" 
   const withTabs = tabs2.length > 1;
   const body = [];
   if (data) {
-    if (data.slides.length > 0) body.push(hero(data.slides));
-    if (recent.length > 0) body.push(rail({ items: recent }, "recent", twin("recent", "title")));
-    for (const r of data.rails) body.push(rail(r, "rail-" + String(r.id).replace(/[^A-Za-z0-9_-]/g, "_")));
+    const h = cfg.imageHeaders;
+    if (data.slides.length > 0) body.push(hero(data.slides, h));
+    if (recent.length > 0) body.push(rail({ items: recent }, "recent", twin("recent", "title"), h));
+    for (const r of data.rails) body.push(rail(r, "rail-" + String(r.id).replace(/[^A-Za-z0-9_-]/g, "_"), null, h));
     if (data.rails.length === 0) body.push({ type: "Text", key: "empty", ...twin("empty"), color: "muted" });
   } else if (failed) {
     body.push({ type: "MaterialBanner", key: "loadFailed", role: "error", ...twin("failed"), action: { ...twin("retry", "label"), onTap: "retry" } });
@@ -3699,11 +3703,10 @@ function gateView(cfg, device = "phone") {
 }
 
 // src/std/metaCache.js
-var KEY2 = "meta1";
+var KEY2 = "meta2";
 var MAX = 120;
-var CALL_MS2 = 8e3;
 var HTTPS2 = /^https:\/\//;
-function makeMetaCache({ kino, clock = { now: () => Date.now() } }) {
+function makeMetaCache({ kino, titleOf: titleOf2 = (c) => c.title, typeOf = (c) => c.kind === "series" ? "series" : "movie", tmdbPictures = false, clock = { now: () => Date.now() } }) {
   const usable = () => {
     try {
       return typeof kino.meta === "function" && kino.meta.byTitle === true;
@@ -3733,12 +3736,19 @@ function makeMetaCache({ kino, clock = { now: () => Date.now() } }) {
   function known(id12) {
     const e = read()[id12];
     if (!e) return {};
-    return { ...e.t > 0 ? { tmdb: e.t } : {}, ...e.l && HTTPS2.test(e.l) ? { logo: e.l } : {} };
+    return {
+      ...e.t > 0 ? { tmdb: e.t } : {},
+      ...e.l && HTTPS2.test(e.l) ? { logo: e.l } : {},
+      ...e.p && HTTPS2.test(e.p) ? { poster: e.p } : {},
+      ...e.b && HTTPS2.test(e.b) ? { backdrop: e.b } : {}
+    };
   }
   function dress2(cards) {
     return cards.map((c) => {
       const k = known(c.id);
-      return k.tmdb && !(c.ids && c.ids.tmdb) ? { ...c, ids: { ...c.ids || {}, tmdb: k.tmdb } } : c;
+      const poster = tmdbPictures && k.poster ? k.poster : null;
+      if (!k.tmdb && !poster) return c;
+      return { ...c, ...k.tmdb && !(c.ids && c.ids.tmdb) ? { ids: { ...c.ids || {}, tmdb: k.tmdb } } : {}, ...poster ? { poster } : {} };
     });
   }
   async function fill3(cards, budgetMs) {
@@ -3747,12 +3757,17 @@ function makeMetaCache({ kino, clock = { now: () => Date.now() } }) {
     const end = clock.now() + budgetMs;
     let asked = 0;
     for (const c of cards) {
-      if (clock.now() + CALL_MS2 > end) break;
+      if (clock.now() >= end) break;
       if (!c || typeof c.id !== "string" || Object.hasOwn(b, c.id) || c.ids && c.ids.tmdb && c.noLogo) continue;
       const year2 = c.year !== void 0 ? { year: c.year } : {};
       try {
-        const a = await kino.meta({ type: c.kind === "series" ? "series" : "movie", title: c.title, ...year2 });
-        b[c.id] = { t: a && a.ids && Number.isInteger(a.ids.tmdb) ? a.ids.tmdb : 0, l: a && typeof a.logo === "string" ? a.logo : "" };
+        const a = await kino.meta({ type: typeOf(c), title: titleOf2(c), ...year2 });
+        b[c.id] = {
+          t: a && a.ids && Number.isInteger(a.ids.tmdb) ? a.ids.tmdb : 0,
+          l: a && typeof a.logo === "string" ? a.logo : "",
+          p: a && typeof a.poster === "string" ? a.poster : "",
+          b: a && typeof a.backdrop === "string" ? a.backdrop : ""
+        };
       } catch (e) {
         if (e && e.code === "rate_limited") break;
         continue;
@@ -3762,7 +3777,7 @@ function makeMetaCache({ kino, clock = { now: () => Date.now() } }) {
     if (asked > 0) write();
     return asked;
   }
-  return { known, dress: dress2, fill: fill3, usable };
+  return { known, dress: dress2, fill: fill3, usable, tmdbPictures };
 }
 
 // src/std/index.js
@@ -3775,14 +3790,15 @@ var RECENT_MAX = 12;
 var Q_MAX = 200;
 var META_TICK_MS = 3e3;
 var DEFAULT_TABS = [{ id: "inicio", label: "Inicio", labelEn: "Home" }];
-function makeStandardScreen({ kino, name: name12, nameEn, logo = null, logoAspect = "1:1", needsResolver, hasSettings, tabs: tabs2, loadTab, homeKey = null }) {
-  const cfg = { name: name12, nameEn, logo, logoAspect, hasSettings: !!hasSettings, tabs: Array.isArray(tabs2) && tabs2.length > 0 ? tabs2 : DEFAULT_TABS };
+function makeStandardScreen({ kino, name: name12, nameEn, logo = null, logoAspect = "1:1", needsResolver, hasSettings, tabs: tabs2, loadTab, homeKey = null, titleOf: titleOf2, typeOf, tmdbPictures = false, imageHeaders = null }) {
+  const cfg = { name: name12, nameEn, logo, logoAspect, imageHeaders, hasSettings: !!hasSettings, tabs: Array.isArray(tabs2) && tabs2.length > 0 ? tabs2 : DEFAULT_TABS };
   const TAB_IDS = cfg.tabs.map((t2) => t2.id);
-  const meta = makeMetaCache({ kino });
+  const meta = makeMetaCache({ kino, titleOf: titleOf2, typeOf, tmdbPictures });
   const enrich = (data) => data ? {
     slides: data.slides.map((s) => {
       const k = meta.known(s.id);
-      return k.logo ? { ...s, logo: k.logo } : s;
+      const image = tmdbPictures && k.backdrop ? k.backdrop : null;
+      return k.logo || image ? { ...s, ...k.logo ? { logo: k.logo } : {}, ...image ? { image } : {} } : s;
     }),
     rails: data.rails.map((r) => ({ ...r, items: meta.dress(r.items) }))
   } : data;
