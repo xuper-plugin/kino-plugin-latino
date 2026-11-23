@@ -363,3 +363,7 @@ export { panel, panelAction, playerEvent } from "./panel/index.js";
 // leaves running (the prelude reads this flag after every call; Kino 0.9.55 and later, an older one ignores it) lets the answer leave at the budget.
 globalThis.__kinoDropPendingFetches = true;
 
+// std 1.7.0: the catalog door -- the author's other plugins (Da-Video) find titles here through Kino, and Kino opens and
+// plays what they find in this plugin, with its own resolve.
+import { catalogDoor } from "./std/catalog.js";
+export const proto_catalog_search = catalogDoor(search);

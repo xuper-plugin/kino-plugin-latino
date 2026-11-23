@@ -1,7 +1,7 @@
 {
   "id": "latino",
   "name": "Latino",
-  "version": "2.6.6",
+  "version": "2.6.7",
   "apiVersion": 30,
   "recommends": [
     "xuper-plugin/kino-plugin-kino-resolver"
@@ -331,5 +331,36 @@
       "labelEn": "Open Latino"
     },
     "settingsIn": "both"
+  },
+  "provides": {
+    "catalog": {
+      "summary": "Titles this plugin finds, for the author's other plugins",
+      "calls": {
+        "search": {
+          "in": {
+            "q": "string",
+            "type": "string?"
+          },
+          "out": "Item[]"
+        }
+      },
+      "types": {
+        "Item": {
+          "id": "string",
+          "ref": "string",
+          "title": "string",
+          "kind": "string",
+          "poster": "string?",
+          "backdrop": "string?",
+          "year": "string?",
+          "overview": "string?",
+          "tmdb": "number?"
+        }
+      }
+    }
+  },
+  "signature": {
+    "authorKey": "6693946bd5c56196960959c4b9665fad5094374bcb85ddb282f8bf762c835263",
+    "value": "b5a246ad75938f98da2dcd5d15ef885368207b3caca3b19ba03ba0cde71876a863194e8412ecc13e6f235e21291fa0d840134a13fec27634d48bdf0785b1770a"
   }
 }
