@@ -1545,7 +1545,7 @@ async function resolverInstalled(kino) {
 var kino_plugin_default = {
   id: "latino",
   name: "Latino",
-  version: "2.6.1",
+  version: "2.6.2",
   apiVersion: 30,
   recommends: [
     "xuper-plugin/kino-plugin-kino-resolver"
@@ -3436,9 +3436,12 @@ function cardOf(item3) {
   if (item3.adult === true) out.adult = true;
   return out;
 }
-function slidesOf(rows3) {
-  const byBackdrop = pickSlides(rows3, (item3) => item3.backdrop);
-  return byBackdrop.length > 0 ? byBackdrop : pickSlides(rows3, (item3) => item3.poster);
+var slidesOf = (rows3) => pickSlides(rows3, (item3) => item3.backdrop);
+var posterSlidesOf = (rows3) => pickSlides(rows3, (item3) => item3.poster);
+function slideText(overview, item3 = {}) {
+  const text5 = typeof overview === "string" ? overview.trim() : "";
+  if (text5 === "") return [item3.year, item3.rating ? "\u2605 " + item3.rating : null].filter(Boolean).join(" \xB7 ");
+  return text5.length <= MAX_SLIDE_TEXT ? text5 : `${text5.slice(0, MAX_SLIDE_TEXT - 1).trimEnd()}\u2026`;
 }
 function pickSlides(rows3, pictureOf) {
   const out = [];
@@ -3448,33 +3451,27 @@ function pickSlides(rows3, pictureOf) {
       if (out.length >= MAX_SLIDES) return out;
       const image = pictureOf(item3);
       if (item3.adult === true || seen.has(item3.id) || !image || !HTTPS.test(image)) continue;
-      const text5 = typeof item3.overview === "string" ? item3.overview.trim() : "";
       seen.add(item3.id);
-      out.push({
-        id: item3.id,
-        ref: item3.ref,
-        kind: item3.kind,
-        title: item3.title,
-        image,
-        text: text5 === "" ? [item3.year, item3.rating ? "\u2605 " + item3.rating : null].filter(Boolean).join(" \xB7 ") : text5.length <= MAX_SLIDE_TEXT ? text5 : `${text5.slice(0, MAX_SLIDE_TEXT - 1).trimEnd()}\u2026`
-      });
+      out.push({ id: item3.id, ref: item3.ref, kind: item3.kind, title: item3.title, image, text: slideText(item3.overview, item3) });
     }
   }
   return out;
 }
+var uniform = (items) => items.every((i) => i.backdrop) ? items : items.map(({ backdrop, ...rest }) => rest);
 function railsOf(rows3) {
-  return rows3.filter((r) => r.items && r.items.length > 0).slice(0, MAX_RAILS).map((r) => ({
+  return rows3.filter((r) => !r.hidden && r.items && r.items.length > 0).slice(0, MAX_RAILS).map((r) => ({
     id: r.id,
     title: r.title,
+    ...r.titleEn ? { titleEn: r.titleEn } : {},
     ...r.ref ? { ref: r.ref } : {},
-    items: r.items.slice(0, MAX_RAIL_ITEMS).map(cardOf)
+    items: uniform(r.items.slice(0, MAX_RAIL_ITEMS).map(cardOf))
   }));
 }
 function tabOf(page3) {
   const rows3 = page3 && Array.isArray(page3.rows) ? page3.rows : [];
   const rails = railsOf(rows3);
   if (rails.length === 0) return null;
-  return { slides: slidesOf(rows3), rails };
+  return { slides: slidesOf(rows3), posterSlides: posterSlidesOf(rows3), rails };
 }
 function playedKey(ref) {
   const m = /^(?:m|s|e):(\d{1,10})(?::|$)/.exec(String(ref || ""));
@@ -3703,8 +3700,10 @@ function gateView(cfg, device = "phone") {
 }
 
 // src/std/metaCache.js
-var KEY2 = "meta2";
-var MAX = 120;
+var KEY2 = "meta3";
+var MAX = 160;
+var CONCURRENCY = 3;
+var OVERVIEW_MAX = 160;
 var HTTPS2 = /^https:\/\//;
 function makeMetaCache({ kino, titleOf: titleOf2 = (c) => c.title, typeOf = (c) => c.kind === "series" ? "series" : "movie", tmdbPictures = false, clock = { now: () => Date.now() } }) {
   const usable = () => {
@@ -3740,9 +3739,11 @@ function makeMetaCache({ kino, titleOf: titleOf2 = (c) => c.title, typeOf = (c) 
       ...e.t > 0 ? { tmdb: e.t } : {},
       ...e.l && HTTPS2.test(e.l) ? { logo: e.l } : {},
       ...e.p && HTTPS2.test(e.p) ? { poster: e.p } : {},
-      ...e.b && HTTPS2.test(e.b) ? { backdrop: e.b } : {}
+      ...e.b && HTTPS2.test(e.b) ? { backdrop: e.b } : {},
+      ...typeof e.o === "string" && e.o ? { overview: e.o } : {}
     };
   }
+  const asked = (id12) => Object.hasOwn(read(), id12);
   function dress2(cards) {
     return cards.map((c) => {
       const k = known(c.id);
@@ -3755,29 +3756,40 @@ function makeMetaCache({ kino, titleOf: titleOf2 = (c) => c.title, typeOf = (c) 
     if (!usable()) return 0;
     const b = read();
     const end = clock.now() + budgetMs;
-    let asked = 0;
-    for (const c of cards) {
-      if (clock.now() >= end) break;
-      if (!c || typeof c.id !== "string" || Object.hasOwn(b, c.id) || c.ids && c.ids.tmdb && c.noLogo) continue;
-      const year2 = c.year !== void 0 ? { year: c.year } : {};
-      try {
-        const a = await kino.meta({ type: typeOf(c), title: titleOf2(c), ...year2 });
-        b[c.id] = {
-          t: a && a.ids && Number.isInteger(a.ids.tmdb) ? a.ids.tmdb : 0,
-          l: a && typeof a.logo === "string" ? a.logo : "",
-          p: a && typeof a.poster === "string" ? a.poster : "",
-          b: a && typeof a.backdrop === "string" ? a.backdrop : ""
-        };
-      } catch (e) {
-        if (e && e.code === "rate_limited") break;
-        continue;
+    let count = 0;
+    let stop = false;
+    const seen = /* @__PURE__ */ new Set();
+    const todo = cards.filter((c) => {
+      if (!c || typeof c.id !== "string" || seen.has(c.id) || Object.hasOwn(b, c.id) || c.ids && c.ids.tmdb && c.noLogo) return false;
+      seen.add(c.id);
+      return true;
+    });
+    let next = 0;
+    const str = (v, max) => typeof v === "string" ? v.slice(0, max) : "";
+    const worker = async () => {
+      while (!stop && next < todo.length && clock.now() < end) {
+        const c = todo[next++];
+        const year2 = c.year !== void 0 ? { year: c.year } : {};
+        try {
+          const a = await kino.meta({ type: typeOf(c), title: titleOf2(c), ...year2 });
+          b[c.id] = {
+            t: a && a.ids && Number.isInteger(a.ids.tmdb) ? a.ids.tmdb : 0,
+            l: str(a && a.logo, 2048),
+            p: str(a && a.poster, 2048),
+            b: str(a && a.backdrop, 2048),
+            o: str(a && a.overview, OVERVIEW_MAX)
+          };
+          count++;
+        } catch (e) {
+          if (e && e.code === "rate_limited") stop = true;
+        }
       }
-      asked++;
-    }
-    if (asked > 0) write();
-    return asked;
+    };
+    await Promise.all(Array.from({ length: CONCURRENCY }, worker));
+    if (count > 0) write();
+    return count;
   }
-  return { known, dress: dress2, fill: fill3, usable, tmdbPictures };
+  return { known, asked, dress: dress2, fill: fill3, usable, tmdbPictures };
 }
 
 // src/std/index.js
@@ -3789,19 +3801,39 @@ var RECENT_KEY = "recent1";
 var RECENT_MAX = 12;
 var Q_MAX = 200;
 var META_TICK_MS = 3e3;
+var MAX_META_TICKS = 10;
 var DEFAULT_TABS = [{ id: "inicio", label: "Inicio", labelEn: "Home" }];
 function makeStandardScreen({ kino, name: name12, nameEn, logo = null, logoAspect = "1:1", needsResolver, hasSettings, tabs: tabs2, loadTab, homeKey = null, titleOf: titleOf2, typeOf, tmdbPictures = false, imageHeaders = null }) {
   const cfg = { name: name12, nameEn, logo, logoAspect, imageHeaders, hasSettings: !!hasSettings, tabs: Array.isArray(tabs2) && tabs2.length > 0 ? tabs2 : DEFAULT_TABS };
   const TAB_IDS = cfg.tabs.map((t2) => t2.id);
   const meta = makeMetaCache({ kino, titleOf: titleOf2, typeOf, tmdbPictures });
-  const enrich = (data) => data ? {
-    slides: data.slides.map((s) => {
+  function slidesFromMeta(rails) {
+    const out = [];
+    for (const r of rails) {
+      for (const c of r.items) {
+        if (out.length >= MAX_SLIDES) return out;
+        const k = meta.known(c.id);
+        if (!k.backdrop || c.adult === true || out.some((x) => x.id === c.id)) continue;
+        out.push({ id: c.id, ref: c.ref, kind: c.kind, title: c.title, image: k.backdrop, text: slideText(k.overview, c), ...k.logo ? { logo: k.logo } : {} });
+      }
+    }
+    return out;
+  }
+  const enrich = (data) => {
+    if (!data) return data;
+    const own = data.slides.map((s) => {
       const k = meta.known(s.id);
       const image = tmdbPictures && k.backdrop ? k.backdrop : null;
       return k.logo || image ? { ...s, ...k.logo ? { logo: k.logo } : {}, ...image ? { image } : {} } : s;
-    }),
-    rails: data.rails.map((r) => ({ ...r, items: meta.dress(r.items) }))
-  } : data;
+    });
+    const learned = own.length > 0 ? [] : slidesFromMeta(data.rails);
+    return {
+      // The site's own backdrops, else TMDB's, else the posters: every plugin has a hero.
+      slides: own.length > 0 ? own : learned.length > 0 ? learned : data.posterSlides || [],
+      rails: data.rails.map((r) => ({ ...r, items: meta.dress(r.items) }))
+    };
+  };
+  const metaTicks = /* @__PURE__ */ new Map();
   const memo2 = /* @__PURE__ */ new Map();
   const log = (...a) => {
     try {
@@ -3832,7 +3864,7 @@ function makeStandardScreen({ kino, name: name12, nameEn, logo = null, logoAspec
   }
   function writeSnap(tab, data) {
     for (let per = 10; per >= 3; per -= 2) {
-      const slim = { slides: data.slides, rails: data.rails.map((r) => ({ ...r, items: r.items.slice(0, per) })) };
+      const slim = { slides: data.slides, posterSlides: data.posterSlides || [], rails: data.rails.map((r) => ({ ...r, items: r.items.slice(0, per) })) };
       const text5 = JSON.stringify({ at: Date.now(), data: slim });
       if (text5.length <= SNAP_MAX) {
         set(SNAP_PREFIX + tab, text5, { ttlMs: SNAP_TTL_MS });
@@ -3933,9 +3965,17 @@ function makeStandardScreen({ kino, name: name12, nameEn, logo = null, logoAspec
       const [next, ...rest] = pending;
       const failed = { ...state.failed || {} };
       if (next.startsWith("meta:")) {
-        const m = memo2.get(next.slice(5));
-        if (m) await meta.fill([...m.data.slides.map((s) => ({ id: s.id, title: s.title, kind: s.kind })), ...m.data.rails.flatMap((r) => r.items.slice(0, 6).map((x) => ({ id: x.id, title: x.title, kind: x.kind })))], META_TICK_MS);
-        return { state: { pending: rest } };
+        const tab = next.slice(5);
+        const m = memo2.get(tab);
+        if (!m) return { state: { pending: rest } };
+        const ask = (x) => ({ id: x.id, title: x.title, kind: x.kind, ...x.year !== void 0 ? { year: x.year } : {} });
+        const noOwnSlides = m.data.slides.length === 0;
+        const cards = [...m.data.slides.map(ask), ...m.data.rails.flatMap((r) => r.items.slice(0, noOwnSlides ? MAX_SLIDES * 3 : 6).map(ask))];
+        const count = await meta.fill(cards, META_TICK_MS);
+        const ticks = (metaTicks.get(tab) || 0) + 1;
+        metaTicks.set(tab, ticks);
+        const again = noOwnSlides && count > 0 && ticks < MAX_META_TICKS && slidesFromMeta(m.data.rails).length < MAX_SLIDES && cards.some((c) => !meta.asked(c.id));
+        return { state: { pending: again ? [next, ...rest] : rest } };
       }
       try {
         const ok = await load(next);
