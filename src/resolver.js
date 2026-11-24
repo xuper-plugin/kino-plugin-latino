@@ -15,7 +15,7 @@ import { recordRun } from "./health.js";
 import { within, waitFor, BROWSER_RESOLVE_MS } from "./util/time.js";
 const canCapture = (kino) => !!(kino && kino.browser);
 import { writeLast } from "./panel/state.js";
-import { scoresFromResolver } from "./std/rank.js";
+import { scoresFromResolver, offered } from "./std/rank.js";
 
 export const LANGS = ["lat", "esp", "sub"];
 export const QUALITIES = ["auto", "2160p", "1080p", "720p", "480p"];
@@ -448,8 +448,12 @@ export async function resolveTitle(kino, title, settings, { sources = SOURCES, e
     throw kino.error("not_found", `no playable embed (${embeds.length} listed)`, { userMessage: t("notFound", kino) });
   }
 
-  const inLang = playable.filter((e) => e.lang === lang);
-  const scores = await scoresFromResolver(kino, inLang.map((e) => e.embedUrl || e.server || ""));
+  // Waaw/netu (and any hoster the resolver scores below 0) is never offered: std/rank.js.
+  const inLangAll = playable.filter((e) => e.lang === lang && offered(e.embedUrl || "") && offered(e.server || ""));
+  const allScores = await scoresFromResolver(kino, inLangAll.map((e) => e.embedUrl || e.server || ""));
+  const keep = inLangAll.map((e, i) => offered("", allScores ? allScores[i] : null));
+  const inLang = inLangAll.filter((_, i) => keep[i]);
+  const scores = allScores ? allScores.filter((_, i) => keep[i]) : null;
   const pool = rank(inLang, { maxQuality: set.maxQuality, avoid: settings && settings.avoid, scores });
   const nameOf = (e) => (sourceOf(e) || {}).name || e.source;
   const failed = new Set();
