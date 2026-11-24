@@ -176,6 +176,9 @@ const genreRow = (slug, kind) => ({
   genre: slug === "documental" ? "documentales" : kind === "tv" ? "series" : "peliculas",
 });
 
+/** The site's kids series (its "kids" genre, newest first), filed by Kino under Infantil. */
+const kidsRow = () => ({ ...genreRow("kids", "tv"), titleKey: "g_kids", genre: "infantil" });
+
 export const HOME_ROWS = [
   latestRow("lm-movies", "lamovie", "movie", "rowMovies"),
   latestRow("lm-series", "lamovie", "tv", "rowSeries"),
@@ -186,6 +189,7 @@ export const HOME_ROWS = [
   genreRow("drama", "tv"),
   genreRow("crimen", "tv"),
   genreRow("animacion", "tv"),
+  kidsRow(),
 ];
 
 const TABS = {

@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.6.12
+
+- Home: a row of the site's kids series, filed under Infantil (the Películas and Series rows were already typed; LaMovie has no anime listing to add)
+
 ## 2.6.11
 
 - Netu/Waaw no longer appears among the servers (std 1.9.3)

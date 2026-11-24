@@ -1,7 +1,7 @@
 {
   "id": "latino",
   "name": "Latino",
-  "version": "2.6.11",
+  "version": "2.6.12",
   "apiVersion": 30,
   "recommends": [
     "xuper-plugin/kino-plugin-kino-resolver"
@@ -362,6 +362,6 @@
   },
   "signature": {
     "authorKey": "6693946bd5c56196960959c4b9665fad5094374bcb85ddb282f8bf762c835263",
-    "value": "ba66bb753b74a8e3fb7c2360a78f9037effc95301651748d4134aaa50fa66836791ee153944b410e6c8bebedfad4c00df827d505e233df83e9e59271e25ea309"
+    "value": "9437b6a02d838974a77b3ed97f436d8a9b6eba52be73a918b78516342f1357dea2cfac43bbacd08122d21ed4a21dd5903ba5c48ee1d3eb665e80b86e18409c0f"
   }
 }

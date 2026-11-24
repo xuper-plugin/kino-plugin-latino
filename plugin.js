@@ -1545,7 +1545,7 @@ async function resolverInstalled(kino) {
 var kino_plugin_default = {
   id: "latino",
   name: "Latino",
-  version: "2.6.11",
+  version: "2.6.12",
   apiVersion: 30,
   recommends: [
     "xuper-plugin/kino-plugin-kino-resolver"
@@ -1906,7 +1906,7 @@ var kino_plugin_default = {
   },
   signature: {
     authorKey: "6693946bd5c56196960959c4b9665fad5094374bcb85ddb282f8bf762c835263",
-    value: "6c7731f9ce3ac516765faccbbaa3a61a65ecbb80d1a94ea859fa4ef350012d897b46d27b42c3e651eafe9de4923a790b95d617b6199b507e221fe5ca21e48a04"
+    value: "d3d96cc4c2bce74877884611410bba0d905fcb911ae6c0e0bb764ec7ddfcf16cca9bf4e6f6d10d13a274409c7fc15e1ccf9554cbdf690a602be821ee519f880c"
   }
 };
 
@@ -3023,6 +3023,7 @@ var genreRow = (slug, kind) => ({
   ref: `genre:${slug}:${kind}`,
   genre: slug === "documental" ? "documentales" : kind === "tv" ? "series" : "peliculas"
 });
+var kidsRow = () => ({ ...genreRow("kids", "tv"), titleKey: "g_kids", genre: "infantil" });
 var HOME_ROWS = [
   latestRow("lm-movies", "lamovie", "movie", "rowMovies"),
   latestRow("lm-series", "lamovie", "tv", "rowSeries"),
@@ -3032,7 +3033,8 @@ var HOME_ROWS = [
   genreRow("animacion", "movie"),
   genreRow("drama", "tv"),
   genreRow("crimen", "tv"),
-  genreRow("animacion", "tv")
+  genreRow("animacion", "tv"),
+  kidsRow()
 ];
 var TABS = {
   inicio: HOME_ROWS,
