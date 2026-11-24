@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.6.11
+
+- Netu/Waaw no longer appears among the servers (std 1.9.3)
+
 ## 2.6.10
 
 - Servers ordered by how well each hoster plays (kino-resolver's ranking) (std 1.9.2)

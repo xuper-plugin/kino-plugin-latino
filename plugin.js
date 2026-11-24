@@ -1545,7 +1545,7 @@ async function resolverInstalled(kino) {
 var kino_plugin_default = {
   id: "latino",
   name: "Latino",
-  version: "2.6.10",
+  version: "2.6.11",
   apiVersion: 30,
   recommends: [
     "xuper-plugin/kino-plugin-kino-resolver"
@@ -1906,7 +1906,7 @@ var kino_plugin_default = {
   },
   signature: {
     authorKey: "6693946bd5c56196960959c4b9665fad5094374bcb85ddb282f8bf762c835263",
-    value: "17d1b95a2c0e8381ada03bd231925660faec49761b83adf4577531c3fe54d9a998d1ca048ad1511f624c9708286c6b7f75cd6e6b8b1218539ee6e761628cd70d"
+    value: "6c7731f9ce3ac516765faccbbaa3a61a65ecbb80d1a94ea859fa4ef350012d897b46d27b42c3e651eafe9de4923a790b95d617b6199b507e221fe5ca21e48a04"
   }
 };
 
@@ -2465,6 +2465,11 @@ function healthLine(kino, health = readHealth(kino)) {
 }
 
 // src/std/rank.js
+var NEVER_OFFER = /waaw|netu|hqq\./i;
+function offered(url, score) {
+  if (NEVER_OFFER.test(String(url || ""))) return false;
+  return !(typeof score === "number" && score < 0);
+}
 async function scoresFromResolver(kino, urls) {
   if (!Array.isArray(urls) || urls.length === 0) return null;
   try {
@@ -2832,8 +2837,11 @@ async function resolveTitle(kino, title, settings, { sources = SOURCES, extract 
     }
     throw kino.error("not_found", `no playable embed (${embeds.length} listed)`, { userMessage: t("notFound", kino) });
   }
-  const inLang = playable.filter((e) => e.lang === lang);
-  const scores = await scoresFromResolver(kino, inLang.map((e) => e.embedUrl || e.server || ""));
+  const inLangAll = playable.filter((e) => e.lang === lang && offered(e.embedUrl || "") && offered(e.server || ""));
+  const allScores = await scoresFromResolver(kino, inLangAll.map((e) => e.embedUrl || e.server || ""));
+  const keep = inLangAll.map((e, i) => offered("", allScores ? allScores[i] : null));
+  const inLang = inLangAll.filter((_, i) => keep[i]);
+  const scores = allScores ? allScores.filter((_, i) => keep[i]) : null;
   const pool = rank(inLang, { maxQuality: set.maxQuality, avoid: settings && settings.avoid, scores });
   const nameOf = (e) => (sourceOf(e) || {}).name || e.source;
   const failed = /* @__PURE__ */ new Set();
