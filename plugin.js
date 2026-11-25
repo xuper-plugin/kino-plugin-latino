@@ -1545,7 +1545,7 @@ async function resolverInstalled(kino) {
 var kino_plugin_default = {
   id: "latino",
   name: "Latino",
-  version: "2.6.12",
+  version: "2.6.13",
   apiVersion: 30,
   recommends: [
     "xuper-plugin/kino-plugin-kino-resolver"
@@ -1884,9 +1884,16 @@ var kino_plugin_default = {
         search: {
           in: {
             q: "string",
-            type: "string?"
+            type: "string?",
+            tmdb: "number?"
           },
           out: "Item[]"
+        },
+        episodes: {
+          in: {
+            ref: "string"
+          },
+          out: "Episode[]"
         }
       },
       types: {
@@ -1900,13 +1907,19 @@ var kino_plugin_default = {
           year: "string?",
           overview: "string?",
           tmdb: "number?"
+        },
+        Episode: {
+          season: "number",
+          number: "number",
+          ref: "string",
+          title: "string?"
         }
       }
     }
   },
   signature: {
     authorKey: "6693946bd5c56196960959c4b9665fad5094374bcb85ddb282f8bf762c835263",
-    value: "d3d96cc4c2bce74877884611410bba0d905fcb911ae6c0e0bb764ec7ddfcf16cca9bf4e6f6d10d13a274409c7fc15e1ccf9554cbdf690a602be821ee519f880c"
+    value: "9437b6a02d838974a77b3ed97f436d8a9b6eba52be73a918b78516342f1357dea2cfac43bbacd08122d21ed4a21dd5903ba5c48ee1d3eb665e80b86e18409c0f"
   }
 };
 
@@ -4747,6 +4760,7 @@ async function playerEvent(ev, ctx) {
 
 // src/std/catalog.js
 var CATALOG_MAX = 40;
+var CATALOG_EPISODES_MAX = 500;
 var OVERVIEW_MAX2 = 300;
 var HTTPS3 = /^https:\/\//;
 function catalogItems(found) {
@@ -4769,13 +4783,42 @@ function catalogItems(found) {
 function catalogQuery(arg) {
   const q = String(arg && arg.q || "").trim().slice(0, 200);
   const type = arg && (arg.type === "movie" || arg.type === "series") ? arg.type : "any";
-  return { q, type, season: 0, episode: 0, tmdbId: 0, year: 0, originalTitle: "", altTitles: [], cursor: null };
+  const tmdbId = arg && Number.isInteger(arg.tmdb) && arg.tmdb > 0 ? arg.tmdb : 0;
+  return { q, type, season: 0, episode: 0, tmdbId, year: 0, originalTitle: "", altTitles: [], cursor: null };
 }
 function catalogDoor(search3) {
   return async (arg) => {
     const query = catalogQuery(arg);
     if (!query.q) return [];
     return catalogItems(await search3(query));
+  };
+}
+function wholeNumber(v) {
+  if (Number.isInteger(v)) return v;
+  if (typeof v === "string" && /^\s*\d+\s*$/.test(v)) return parseInt(v, 10);
+  return null;
+}
+function catalogEpisodes(list12) {
+  const rows3 = Array.isArray(list12) ? list12 : list12 && Array.isArray(list12.episodes) ? list12.episodes : [];
+  const out = [];
+  for (const e of rows3) {
+    if (out.length >= CATALOG_EPISODES_MAX) break;
+    if (!e) continue;
+    const number = wholeNumber(e.number);
+    if (number === null || number < 1 || typeof e.ref !== "string" || !e.ref) continue;
+    const season = e.season === void 0 || e.season === null ? 1 : wholeNumber(e.season);
+    if (season === null || season < 0) continue;
+    const row = { season, number, ref: e.ref };
+    if (typeof e.title === "string" && e.title) row.title = e.title;
+    out.push(row);
+  }
+  return out;
+}
+function catalogEpisodesDoor(episodes2) {
+  return async (arg) => {
+    const ref = arg && typeof arg.ref === "string" ? arg.ref.trim() : "";
+    if (!ref) return [];
+    return catalogEpisodes(await episodes2(ref));
   };
 }
 
@@ -5055,6 +5098,7 @@ async function validateSettings(values) {
 }
 globalThis.__kinoDropPendingFetches = true;
 var proto_catalog_search = catalogDoor(search2);
+var proto_catalog_episodes = catalogEpisodesDoor(episodes);
 export {
   SPORTS_LIST,
   action,
@@ -5068,6 +5112,7 @@ export {
   panel,
   panelAction,
   playerEvent,
+  proto_catalog_episodes,
   proto_catalog_search,
   resolve,
   screen,

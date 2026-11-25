@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.6.13
+
+- The catalog door also lists a series' episodes, for the author's other plugins (std 1.10.0)
+
 ## 2.6.12
 
 - Home: a row of the site's kids series, filed under Infantil (the Películas and Series rows were already typed; LaMovie has no anime listing to add)
